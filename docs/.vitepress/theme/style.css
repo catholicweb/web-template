@@ -5,34 +5,17 @@
 
 @theme {
   /* === Your core parameters === */
-  --font-body: 'Open Sans', sans-serif;
-  --font-heading: 'Basque Smile', sans-serif;
-  --color-accent: #008e4a;
-  --color-primary: white;
-  --accent-angle: 151.26760563380282deg;
+  --font-body: 'Quicksand', sans-serif;
+  --font-heading: 'Story Script', sans-serif;
+  --color-accent: #2e7d32;
+  --color-primary: undefined;
+  --accent-angle: 123.03797468354429deg;
   --primary-angle: 0deg;
 
     
     /* Apply directly to Tailwind font vars */
     --font-sans: var(--font-body);
     --font-display: var(--font-heading);
-  }
-
-
-  @font-face {
-    font-family: 'Open Sans';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url(/OpenSans.woff2);
-  }
-
-  @font-face {
-    font-family: 'Basque Smile';
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url(/BasqueSmile.woff2);
   }
 
 /* You can also include other global styles */
@@ -56,4 +39,22 @@ h1, h2, h3, h4, h5, h6 {
     transform: scale(1) rotate(0) translate(0); /* no scaling or translation */
   }
 }
+
+blockquote {
+  opacity: 0;;
+  animation: scrolled linear both;
+  animation-timeline: view();
+  animation-range: entry 30% cover 30%;
+}
+
+h2 {  @apply hover:text-accent; }
+
+li, ul {
+  opacity: 0.5; transform: scale(0.80);;
+  animation: scrolled linear both;
+  animation-timeline: view();
+  animation-range: entry 30% cover 30%;
+}
+
+.card {  @apply hover:scale-110 hover:rotate-3; }
 
