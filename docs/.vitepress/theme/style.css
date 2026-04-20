@@ -18,6 +18,23 @@
     --font-display: var(--font-heading);
   }
 
+
+  @font-face {
+    font-family: 'Quicksand';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(/Quicksand.woff2);
+  }
+
+  @font-face {
+    font-family: 'Story Script';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(/StoryScript.woff2);
+  }
+
 /* You can also include other global styles */
 body {
   font-family: var(--font-body);
