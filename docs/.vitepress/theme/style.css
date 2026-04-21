@@ -7,9 +7,15 @@
   /* === Your core parameters === */
   --font-body: 'Quicksand', sans-serif;
   --font-heading: 'Story Script', sans-serif;
+<<<<<<< HEAD
   --color-accent: #2e7d32;
   --color-primary: undefined;
   --accent-angle: 123.03797468354429deg;
+=======
+  --color-accent: orange;
+  --color-primary: undefined;
+  --accent-angle: NaNdeg;
+>>>>>>> d82c41ef533c93f0ce7fb3a8b3cbed20dc5d16c1
   --primary-angle: 0deg;
 
     
