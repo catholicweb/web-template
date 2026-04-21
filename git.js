@@ -54,7 +54,7 @@ export function fetchUpstream() {
 
   // Mirror all files inside _root/ to the repo root, preserving directory structure.
   // To add a new shared file, just drop it into docs/.vitepress/_root/ in web-template.
-  sh(`cp -r ${ROOT_MIRROR}/. . 2>/dev/null || true`);
+  sh(`\cp -rf ${ROOT_MIRROR}/. . 2>/dev/null || true`);
 
   // Stage whatever changed (working tree is clean after subtree pull, so only
   // the files just copied can be dirty).

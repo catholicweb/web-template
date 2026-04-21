@@ -54,6 +54,7 @@ export default defineConfig(async () => {
           injectManifest: {
             // Precache built JS/CSS/HTML and common static assets
             globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,woff}"],
+            maximumFileSizeToCacheInBytes: 4000000,
           },
         }),
       ],

@@ -6,7 +6,8 @@
     "docs:before-build": "node docs/.vitepress/createFiles.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "update-subtree": "find docs/.vitepress/_root -type f | while read f; do src=${f#docs/.vitepress/_root/}; \\cp -f \"./$src\" \"$f\"; done && git add docs/.vitepress && git commit -m 'chore: update subtree root files' && git subtree push --prefix=docs/.vitepress template main"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
