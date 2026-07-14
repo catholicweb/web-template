@@ -127,23 +127,45 @@ jobs:
       - name: Build with VitePress
         run: npm run docs:build
 
-      # 1. Preparar la infraestructura de Cloudflare (Proyecto y Dominio) de forma silenciosa
-      - name: Setup Cloudflare Pages & Domain
+# 1. Preparar la infraestructura de Cloudflare (Proyecto, Dominio y Registro DNS dinámico) de forma silenciosa
+      - name: Setup Cloudflare Pages, Domain & DNS
         run: |
-          # 1. Definir el dominio según el slug (dominio raíz para 'parroquia', subdominio para los demás)
-          [ "${{ matrix.site }}" = "parroquia" ] && DOMAIN="parroquia.app" || DOMAIN="${{ matrix.site }}.parroquia.app"
+          # A. Definir el dominio y el prefijo de DNS según el slug
+          if [ "${{ matrix.site }}" = "parroquia" ]; then
+            DOMAIN="parroquia.app"
+          else
+            DOMAIN="${{ matrix.site }}.parroquia.app"
+          fi
           
-          # 2. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente sin detener el pipeline)
+          # B. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente)
           npx wrangler pages project create ${{ matrix.site }} --production-branch main 2>/dev/null || true
           
-          # 3. Intentar asociar el dominio personalizado (si ya está asociado, la API dará error pero continuará sin fallar)
+          # C. Consultar el subdominio de Pages real asignado por Cloudflare (ej: parroquia-e1f.pages.dev)
+          PAGES_TARGET=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            | jq -r '.result.subdomain')
+
+          # D. Intentar asociar el dominio personalizado al proyecto de Pages (si ya existe, fallará silenciosamente)
           curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}/domains" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             --data "{\"name\": \"$DOMAIN\"}" 2>/dev/null || true
+
+          # E. Crear programáticamente el registro CNAME apuntando al subdominio real de Pages obtenido (si ya existe, fallará silenciosamente)
+          curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/dns_records" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "{
+              \"type\": \"CNAME\",
+              \"name\": \"$DNS_NAME\",
+              \"content\": \"$PAGES_TARGET\",
+              \"ttl\": 1,
+              \"proxied\": true
+            }" 2>/dev/null || true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
 
       # 2. Desplegar los archivos compilados de VitePress
       - name: Deploy to Cloudflare Pages
