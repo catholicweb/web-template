@@ -67,7 +67,9 @@ jobs:
           if [ -n "${{ github.event.inputs.site_slug }}" ]; then
             SITES='["${{ github.event.inputs.site_slug }}"]'
           else
-            SITES=$(curl -sf "${{ secrets.WORKER_URL }}/sites")
+            # 1. Consultamos el endpoint correcto (/sites/list)
+            # 2. Extraemos el array "slugs" usando jq de forma compacta (-c)
+            SITES=$(curl -sf "https://api.parroquia.app/sites/list" | jq -c '.slugs')
           fi
           echo "sites=$SITES" >> "$GITHUB_OUTPUT"
 
@@ -128,13 +130,13 @@ jobs:
       # 1. Preparar la infraestructura de Cloudflare (Proyecto y Dominio) de forma silenciosa
       - name: Setup Cloudflare Pages & Domain
         run: |
-          # 1. Definir el dominio según el slug
+          # 1. Definir el dominio según el slug (dominio raíz para 'parroquia', subdominio para los demás)
           [ "${{ matrix.site }}" = "parroquia" ] && DOMAIN="parroquia.app" || DOMAIN="${{ matrix.site }}.parroquia.app"
           
-          # 2. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente)
+          # 2. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente sin detener el pipeline)
           npx wrangler pages project create ${{ matrix.site }} --production-branch main 2>/dev/null || true
           
-          # 3. Intentar asociar el dominio personalizado (si ya está asociado, la API dará error pero continuará)
+          # 3. Intentar asociar el dominio personalizado (si ya está asociado, la API dará error pero continuará sin fallar)
           curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}/domains" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
