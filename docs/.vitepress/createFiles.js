@@ -4,7 +4,7 @@ import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { buildDictionary, translateObject, translateValue, dictionary as DICTIONARY } from "./translate.js";
 import { createImages } from "./images.js";
-import { fetchUpstream, commit } from "./git.js";
+import { download } from "./migrate.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
@@ -15,7 +15,9 @@ import crypto from "crypto";
 import MarkdownIt from "markdown-it";
 import sharp from "sharp";
 
-const config = read("./pages/config.json");
+
+
+const config = read("./docs/public/pages/config.json");
 // Lista de lenguas a generar
 const TARGET_LANGS = config.languages?.length ? config.languages : ["Español:es"];
 
@@ -223,7 +225,7 @@ async function autocomplete(fm) {
     }
 
     if (config.theme.navStyle == "47herri") {
-      let filter = fm.source == "./pages/index.md" ? "byday:empty" : fm.title;
+      let filter = fm.source == "./docs/public/pages/index.md" ? "byday:empty" : fm.title;
       fm.events = calendar.filter((obj) => applyComplexFilter(obj, filter));
       fm.faq = getEventFAQ(fm.events);
     }
@@ -297,8 +299,6 @@ let videos = [];
 let calendar = [];
 
 async function run() {
-  // Fetch upstream changes (if any)
-  await fetchUpstream();
   // Create some basic files
   await printCSS();
   calendar = await fetchCalendar();
@@ -307,14 +307,13 @@ async function run() {
   videos = await fetchVideos();
   await buildDictionary();
   await createImages();
-  await commit();
 
   // Clean output dir and repopulate
-  await cleanDir("./docs/");
-  const files = await fg(["**/*.md"], { cwd: "./pages/", absolute: false });
+  //await cleanDir("./docs/");
+  const files = await fg(["**/*.md"], { cwd: "./docs/public/pages/", absolute: false });
   for (const file of files) {
-    const { data, content } = read("./pages/" + file);
-    data.source = "./pages/" + file;
+    const { data, content } = read("./docs/public/pages/" + file);
+    data.source = "./docs/public/pages/" + file;
     await autocomplete(data);
 
     for (const lang of TARGET_LANGS) {

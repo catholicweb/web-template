@@ -185,8 +185,8 @@ export function translateValue(value, dict) {
 export async function buildDictionary() {
   try {
     // Get values
-    let files = await fg(["*.md", "!aviso-legal.md"], { cwd: "./pages", absolute: true });
-    files.push("./docs/public/calendar.json", "./pages/config.json");
+    let files = await fg(["*.md", "!aviso-legal.md"], { cwd: "./docs/public/pages", absolute: true });
+    files.push("./docs/public/calendar.json", "./docs/public/pages/config.json");
     for (const file of files) {
       const parsed = read(file);
       const values = extractValues(parsed.data || parsed, FIELDS);
@@ -200,7 +200,7 @@ export async function buildDictionary() {
     const valuesArray = [...valueSet];
 
     // Translate
-    let config = read("./pages/config.json");
+    let config = read("./docs/public/pages/config.json");
     let languages = config.languages?.length ? config.languages : [];
     await Promise.allSettled(languages.map((lang) => translateMissing(valuesArray, lang)));
   } catch (error) {

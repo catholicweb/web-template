@@ -1,4 +1,4 @@
-name: Rebuild and deploy VitePress site to Pages
+name: Rebuild and deploy VitePress sites to Cloudflare Pages
 
 on:
   # Runs on pushes targeting the `main` branch on .json or .md files
@@ -8,6 +8,11 @@ on:
       - "**/*.json"
       - "**/*.md"
   # Cada hora (using multiple triggers to be able to tell them appart)
+  # NOTE: this now rebuilds the WHOLE FLEET every time it fires, since there's
+  # no single-site distinction on a schedule trigger. Still free (public repo =
+  # unlimited Actions minutes, wrangler direct upload doesn't count against
+  # Cloudflare's Pages build quota) but worth knowing this is N sites x 24
+  # times/day now.
   schedule:
     - cron: "0 0 * * *"
     - cron: "0 1 * * *"
@@ -21,6 +26,7 @@ on:
     - cron: "0 9 * * *"
     - cron: "0 10 * * *"
     - cron: "0 11 * * *"
+    - cron: "0 12 * * *"
     - cron: "0 13 * * *"
     - cron: "0 14 * * *"
     - cron: "0 15 * * *"
@@ -32,66 +38,114 @@ on:
     - cron: "0 21 * * *"
     - cron: "0 22 * * *"
     - cron: "0 23 * * *"
-  # Allows you to run this workflow manually from the Actions tab
+  # Manual trigger — leave site_slug empty to rebuild the whole fleet,
+  # or fill it in to rebuild just one site.
   workflow_dispatch:
+    inputs:
+      site_slug:
+        description: "Rebuild a single site by slug (leave empty to rebuild all sites)"
+        required: false
+        type: string
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# No longer deploying via GitHub's native Pages action, so none of the old
+# pages:write / id-token:write permissions are needed — just checkout access.
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  # Build job
-  build:
+  # Decides which slug(s) this run builds. Always runs, and is cheap either way:
+  # - manual dispatch with a site_slug -> just that one slug
+  # - everything else (push, schedule, manual dispatch with no site_slug) -> ask the Worker for the full list
+  discover:
     runs-on: ubuntu-latest
+    outputs:
+      sites: ${{ steps.list.outputs.sites }}
+    steps:
+      - name: Determine site list
+        id: list
+        run: |
+          if [ -n "${{ github.event.inputs.site_slug }}" ]; then
+            SITES='["${{ github.event.inputs.site_slug }}"]'
+          else
+            SITES=$(curl -sf "${{ secrets.WORKER_URL }}/sites")
+          fi
+          echo "sites=$SITES" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: discover
+    strategy:
+      matrix:
+        site: ${{ fromJson(needs.discover.outputs.sites) }}
+      max-parallel: 15
+      # One broken site's build shouldn't cancel every other site's in-flight deploy.
+      fail-fast: false
+    runs-on: ubuntu-latest
+    # Scoped per-site, not repo-wide: different sites deploy in parallel freely,
+    # but two runs targeting the SAME site queue rather than race each other.
+    concurrency:
+      group: deploy-${{ matrix.site }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Not needed if lastUpdated is not enabled
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm # or pnpm / yarn
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Fetch site config from Worker
+        run: node docs/.vitepress/migrate.js download ${{ matrix.site }}
+
       - name: Run before build
         run: npm run docs:before-build
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
+          SITE_SLUG: ${{ matrix.site }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
           VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
           NOTIF_TOKEN: ${{ secrets.NOTIF_TOKEN }}
+
       - name: Build with VitePress
         run: npm run docs:build
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
 
-  # Deployment job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # 1. Preparar la infraestructura de Cloudflare (Proyecto y Dominio) de forma silenciosa
+      - name: Setup Cloudflare Pages & Domain
+        run: |
+          # 1. Definir el dominio según el slug
+          [ "${{ matrix.site }}" = "parroquia" ] && DOMAIN="parroquia.app" || DOMAIN="${{ matrix.site }}.parroquia.app"
+          
+          # 2. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente)
+          npx wrangler pages project create ${{ matrix.site }} --production-branch main 2>/dev/null || true
+          
+          # 3. Intentar asociar el dominio personalizado (si ya está asociado, la API dará error pero continuará)
+          curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}/domains" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "{\"name\": \"$DOMAIN\"}" 2>/dev/null || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # 2. Desplegar los archivos compilados de VitePress
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy docs/.vitepress/dist --project-name=${{ matrix.site }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -7,7 +7,7 @@ import { getJSONLD } from "./seo.js";
 import { generateNav, locales } from "./navBar.js";
 import { getFontCSS } from "./css.js";
 
-const config = read("./pages/config.json");
+const config = read("./docs/public/pages/config.json");
 
 export default defineConfig(async () => {
   const { preloads } = await getFontCSS(config.theme);

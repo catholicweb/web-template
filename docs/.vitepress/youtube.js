@@ -163,7 +163,7 @@ async function getChannelIdFromUrl(channelUrl) {
 export async function fetchVideos(channelUrl) {
   try {
     let videos = read("./docs/public/videos.json", []);
-    const config = read("./pages/config.json");
+    const config = read("./docs/public/pages/config.json");
     if (!API_KEY) {
       console.error("Error: La API Key no está definida. Asegúrate de exportarla.");
       return videos;

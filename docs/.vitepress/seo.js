@@ -1,7 +1,7 @@
 import { read, write } from "./node_utils.js";
 import { slugify, groupEvents, formatDate } from "./utils.js";
 
-const config = read("./pages/config.json");
+const config = read("./docs/public/pages/config.json");
 
 export function getJSONLD(fm, config, path) {
   const locations = getLocations(fm, config, path);

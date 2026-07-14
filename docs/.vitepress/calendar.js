@@ -141,7 +141,7 @@ function parseDateToISO(dateStr) {
 }
 
 export async function fetchCalendar() {
-  let input = read("./pages/events.json");
+  let input = read("./docs/public/pages/events.json");
   const events = [];
 
   Object.keys(input).forEach((key) => {

@@ -7,7 +7,7 @@ import { getPreview } from "./oembed.js";
 
 /*const file = "./docs/en/goizueta.md";
 const { data } = read(file);
-const config = read("./pages/config.json");*/
+const config = read("./docs/public/pages/config.json");*/
 
 async function run(argument) {
 	//const res = getJSONLD(data, config, file);
