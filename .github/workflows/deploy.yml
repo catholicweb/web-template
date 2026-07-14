@@ -133,8 +133,10 @@ jobs:
           # A. Definir el dominio y el prefijo de DNS según el slug
           if [ "${{ matrix.site }}" = "parroquia" ]; then
             DOMAIN="parroquia.app"
+            DNS_NAME="@"
           else
             DOMAIN="${{ matrix.site }}.parroquia.app"
+            DNS_NAME="${{ matrix.site }}"
           fi
           
           # B. Intentar crear el proyecto de Pages (si ya existe, wrangler fallará silenciosamente)
@@ -144,6 +146,7 @@ jobs:
           PAGES_TARGET=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             | jq -r '.result.subdomain')
+
 
           # D. Intentar asociar el dominio personalizado al proyecto de Pages (si ya existe, fallará silenciosamente)
           curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.site }}/domains" \
