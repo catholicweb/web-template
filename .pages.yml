@@ -163,7 +163,7 @@ content:
     type: file
     label: Eventos
     format: json
-    path: pages/events.json
+    path: docs/public/pages/events.json
     fields:
       - name: events-funeral
         label: Funerales
@@ -273,7 +273,7 @@ content:
     label: Paginas
     type: collection
     subfolders: false
-    path: pages
+    path: docs/public/pages
     view:
       fields: [image, title]
       primary: title
@@ -409,7 +409,7 @@ content:
   - name: config
     type: file
     label: Configuración
-    path: pages/config.json
+    path: docs/public/pages/config.json
     format: json
     fields:
       - { name: title, label: Titulo sitio, type: string }

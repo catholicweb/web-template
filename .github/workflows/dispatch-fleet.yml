@@ -1,0 +1,40 @@
+name: Dispatch fleet builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.json"
+      - "**/*.md"
+  schedule:
+    - cron: "0 1 * * *"   # 2am CET (winter, UTC+1)
+  workflow_dispatch:
+
+permissions:
+  actions: write   # only permission needed: trigger other workflow_dispatch runs
+  contents: read
+
+jobs:
+  # TRUSTED JOB — holds actions:write. Do NOT add a checkout, npm install,
+  # or any step that runs site/repo content here. That would put untrusted
+  # code next to an actions:write token, which is strictly more dangerous
+  # than the sandboxed (zero-scope, no-secrets) build job in deploy.yml.
+  # If you need to run untrusted work, dispatch deploy.yml for it instead.
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger a run per site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          SITES=$(curl -sf "https://api.parroquia.app/sites/list" | jq -c '.slugs')
+          echo "$SITES" | jq -r '.[]' | while read -r site; do
+            # Defense in depth: deploy.yml re-validates the slug, but reject
+            # anything unexpected here too so we don't dispatch garbage.
+            [[ "$site" =~ ^[a-z0-9-]{1,63}$ ]] || continue
+            gh workflow run deploy.yml \
+              --repo "$REPO" \
+              --ref main \
+              -f site_slug="$site"
+          done
