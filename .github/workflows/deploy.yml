@@ -106,9 +106,8 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd  # v3
-        env:
-          SITE_SLUG: ${{ needs.prepare.outputs.site_slug }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name="$SITE_SLUG"
+          # Use GitHub's expression syntax ${{ }} to inject the variable
+          command: pages deploy dist --project-name="${{ needs.prepare.outputs.site_slug }}"
