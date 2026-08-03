@@ -3,7 +3,7 @@ import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { buildDictionary, translateObject, translateValue, dictionary as DICTIONARY } from "./translate.js";
-import { createImages } from "./images.js";
+//import { createImages } from "./images.js";
 import { download } from "./migrate.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS } from "./css.js";
@@ -264,8 +264,8 @@ function addMeta(fm) {
 }
 
 async function cleanDir(dir) {
-  console.log("TODO: since ./docs is no longer stored on git, this should be rethinked...");
-  console.log("Cleaning directory (writing redirects)");
+  // beware this allows redirecting users if a filename chagnes...
+  return
   const files = await fg(["**/*.md", "!aviso-legal.md"], { cwd: dir, absolute: true });
   for (const file of files) {
     try {
@@ -306,10 +306,10 @@ async function run() {
   await createManifest();
   videos = await fetchVideos();
   await buildDictionary();
-  await createImages();
+  //await createImages();
 
   // Clean output dir and repopulate
-  //await cleanDir("./docs/");
+
   const files = await fg(["**/*.md"], { cwd: "./docs/public/pages/", absolute: false });
   for (const file of files) {
     const { data, content } = read("./docs/public/pages/" + file);

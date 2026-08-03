@@ -1,23 +1,36 @@
 #!/usr/bin/env node
 /**
+ * ⚠️⚠️⚠️ CRITICAL INTER-DEPENDENCY WARNING ⚠️⚠️⚠️
+ *
+ * This file's filename encoding MUST match:
+ *   - config-api/src/index.js (FILENAME_RE validation)
+ *   - editor/docs/.vitepress/theme/lib/codec.js (browser-side encode/decode)
+ *
+ * This file's API calls MUST match the endpoints defined in:
+ *   - config-api/src/index.js (endpoint definitions)
+ *   - editor/docs/.vitepress/theme/lib/api.js (also uses these endpoints)
+ *
+ * BEFORE making changes, ensure ALL files produce identical results!
+ * See ../../../CLAUDE.md for full dependency documentation.
+ */
+
+/**
  * migrate.js — sync local ./docs/public/  <-->  remote /sites/:slug/
  *
- * The remote API stores files under OPAQUE base64url tokens, not paths. This
- * script is the only thing that knows the mapping:
+ * The remote API stores files under validated human-readable filenames. This
+ * script handles the mapping:
  *
- * local  ./docs/public/<relpath>     --base64url-->   remote /sites/:slug/<token>
- * remote /sites/:slug/<token>        --base64url-->   local  ./docs/public/<relpath>
+ * local  ./docs/public/<relpath>     --flatten-->   remote /sites/:slug/<filename>
+ * remote /sites/:slug/<filename>     --no decode-->  local  ./docs/public/<relpath>
  *
- * upload(slug, token)   walk ./docs/public, encode each relpath to a token,
- * PUT /sites/:slug/<token> (editor bearer token)
- * download(slug, token) GET /sites/:slug/list (tokens), then for each token
- * GET /sites/:slug/<token> (editor bearer token) and
- * decode it back to a local path
+ * upload(slug, token)   walk ./docs/public, flatten each relpath to a filename,
+ * PUT /sites/:slug/<filename> (editor bearer token)
+ * download(slug, token) GET /sites/:slug/list (filenames), then for each filename
+ * reconstruct local path by replacing - with / (best effort)
  *
- * The server is path-blind (it never decodes tokens), so traversal safety on
- * the server rests on the token charset. On DOWNLOAD this script decodes, so
- * it must contain the decoded path to LOCAL_ROOT (see safeLocalPath) — a token
- * that decodes to ../etc would otherwise escape on the client side.
+ * The server validates filenames but never interprets them as paths. On DOWNLOAD
+ * this script must validate filenames before writing to local filesystem (see
+ * safeLocalPath) — a malicious filename could otherwise escape LOCAL_ROOT.
  *
  * Env overrides:
  * PARROQUIA_API          Worker base URL (default https://api.parroquia.app)
@@ -40,9 +53,26 @@ const LOCAL_ROOT = process.env.PARROQUIA_LOCAL_ROOT
   ? path.resolve(process.env.PARROQUIA_LOCAL_ROOT)
   : path.join(process.cwd(), 'docs', 'public');
 
-// The server's token charset. Used here to recognize real tokens (and skip
-// anything else, e.g. legacy human-readable keys or internal markers).
-export const TOKEN_RE = /^[A-Za-z0-9_-]+$/;
+// Allowed file extensions (must match config-api ALLOWED_EXT exactly).
+const ALLOWED_EXT = ['md', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'json'];
+
+// Filename validation regex (must match config-api FILENAME_RE exactly).
+const FILENAME_RE = /^[A-Za-z0-9_-]+(\.[a-z0-9]{1,5})?$/;
+
+function validateFilename(filename) {
+  if (!filename || typeof filename !== 'string') return false;
+  if (filename.length > 255) return false;          // filesystem limit
+  if (filename.startsWith('-')) return false;        // CLI arg injection guard
+  if (!FILENAME_RE.test(filename)) return false;
+
+  // Extension check (if present)
+  const dotIndex = filename.lastIndexOf('.');
+  if (dotIndex !== -1) {
+    const ext = filename.slice(dotIndex + 1).toLowerCase();
+    if (!ALLOWED_EXT.includes(ext)) return false;
+  }
+  return true;
+}
 
 const MIME = {
   '.json': 'application/json; charset=utf-8',
@@ -67,38 +97,67 @@ function contentTypeFor(file) {
   return MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
 }
 
-// --- token <-> path -------------------------------------------------------
+// --- filename <-> path -------------------------------------------------------
 
-// base64url (unpadded, URL-safe) of a path's UTF-8 bytes. Charset matches the
-// server's TOKEN_RE exactly: [A-Za-z0-9_-], no '/', '.', '=', or control.
+// Encode a relative path to a flat filename:
+// 1. Normalize path (remove leading/trailing slashes, collapse multiple slashes)
+// 2. Replace / with - to flatten
+// 3. Extract and validate extension
+// 4. Sanitize base name to allowed charset
+// 5. Validate final filename
 export function encodePath(relPath) {
-  return Buffer.from(relPath, 'utf8').toString('base64url');
+  // Normalize: remove leading/trailing slashes, collapse multiple slashes
+  const normalized = relPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
+  const flattened = normalized.replace(/\//g, '-');
+
+  // Split extension
+  const lastDot = flattened.lastIndexOf('.');
+  let base = lastDot === -1 ? flattened : flattened.slice(0, lastDot);
+  let ext = lastDot === -1 ? '' : flattened.slice(lastDot + 1).toLowerCase();
+
+  // Sanitize base name: replace any char outside [A-Za-z0-9_-] with -
+  base = base.replace(/[^A-Za-z0-9_-]/g, '-');
+
+  // Validate/normalize extension
+  if (ext && !ALLOWED_EXT.includes(ext)) {
+    // Unknown extension: fold into base name
+    base = `${base}-${ext}`.replace(/[^A-Za-z0-9_-]/g, '-');
+    ext = '';
+  }
+
+  const result = ext ? `${base}.${ext}` : base;
+  if (!validateFilename(result)) {
+    throw new Error(`encodePath produced invalid filename: ${result}`);
+  }
+  return result;
 }
 
+// Decode is a no-op: filenames are human-readable and not decoded back to paths.
+// The local path structure is known from the schema, not from the filename.
 export function decodeToken(token) {
-  return Buffer.from(token, 'base64url').toString('utf8');
+  return token;
 }
+
+// Export for use by other modules that need to validate filenames.
+export const TOKEN_RE = FILENAME_RE;
 
 // Convert an absolute local path to the remote (posix) relative path.
 function toRemotePath(absPath) {
   return path.relative(LOCAL_ROOT, absPath).split(path.sep).join('/');
 }
 
-// Contain a decoded remote path to LOCAL_ROOT. Returns an absolute local
-// destination, or null if the path would escape LOCAL_ROOT (e.g. contains
-// '..', is absolute, or has a backslash). This is the client-side counterpart
-// to the server's charset defense: a malicious token can't make download
+// Validate a filename and return the local path if valid, null otherwise.
+// This is the client-side defense: a malicious filename can't make download
 // write outside the sync root.
-export function safeLocalPath(relPath) {
-  if (!relPath || relPath.includes('\\')) return null;
-  const parts = relPath.split('/');
-  for (const p of parts) {
-    if (p === '' || p === '.' || p === '..') return null;
-  }
+// Files are stored flat (no directory structure) in LOCAL_ROOT.
+export function safeLocalPath(filename) {
+  if (!validateFilename(filename)) return null;
+  // Store files flat in LOCAL_ROOT (no subdirectory structure)
   const rootResolved = path.resolve(LOCAL_ROOT);
-  const destResolved = path.resolve(rootResolved, ...parts);
-  const prefix = rootResolved + path.sep;
-  if (destResolved !== rootResolved && !destResolved.startsWith(prefix)) {
+  const dest = path.join(rootResolved, filename);
+  // Ensure the destination is under LOCAL_ROOT
+  const destResolved = path.resolve(dest);
+  if (destResolved !== rootResolved && !destResolved.startsWith(rootResolved + path.sep)) {
     return null;
   }
   return destResolved;
