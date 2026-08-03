@@ -2,31 +2,56 @@
 
 Visit parroquia.app for a working example.
 
-The aim is to provide a simple template for non-technical users to be able to create a modern parish website. For that we provide the user with a simple input template (stage 1), we process that simplified input (stage 2) into something a modern tool like Vitepress can render (stage 3)
+This repository is a **site factory**: a single template used to build many parish
+websites. There are no site-specific files committed here — each site's content is
+stored remotely and fetched at build time.
+
+The aim is to provide a simple template for non-technical users to be able to create a
+modern parish website. Site content is edited with an online editor, fetched at build
+time, processed into something a modern tool like Vitepress can render, and published
+to Cloudflare — one site per parish.
+
+The pipeline has three stages:
+
+1. **User input** — site content lives in a remote R2 bucket (behind the config-api)
+   and is edited with the online editor (`editor.parroquia.app`), not on git.
+2. **Adapter** — `npm run docs:before-build` fetches the site content and processes it
+   into the files Vitepress needs.
+3. **Render** — VitePress + Tailwind CSS v4 turn the processed content into a static
+   website.
 
 ## Setup
 
 ```bash
 npm install
+node docs/.vitepress/migrate.js download <site-slug>
 npm run docs:before-build
 npm run docs:build # or npm run docs:dev
 ```
 
-## Stage 1. User input: Pages CMS
+## Stage 1. User input: the editor + API
 
-Enable user to input data, everything here is beautifully managed by pagescms.org.
+Site content (site configuration, pages, events, media) is stored in a remote R2
+bucket and managed through a schema-driven online editor (`editor.parroquia.app`), as
+described in [catholicweb/config-api](https://github.com/catholicweb/config-api). It is
+not stored in this repository.
 
-Key files are:
+At build time we fetch that content for a given site:
 
-- .pages.yml - Pages CMS config file (all the magic is here)
-- pages/config.json - Global site configuration (fonts, nav bar, languages...)
-- pages/events.json - Where events live
-- pages/\*.md - Any .md file here will be processed, translated and published to the end user
-- docs/media/ - Media files live here
+```bash
+node docs/.vitepress/migrate.js download <site-slug>
+```
+
+`migrate.js download` pulls the site's files from the API/public read host and writes
+them locally (under `docs/public/`) so the adapter can process them. See
+[CLAUDE.md](CLAUDE.md) for the env overrides and the cross-repo API contract.
 
 ## Stage 2. The adapter: 'npm run docs:before-build'
 
-This is the key stage, it takes user input and process it, creating the necesary files for stage 3 (vitepress) to do its magic. It takes the pages at pages/\*.md proccess them (translate/modify/fetch resource/...) and saves them per language at docs/\*.md
+This is the key stage: it takes the downloaded content and processes it, creating the
+files stage 3 (Vitepress) needs to render. It reads the site's pages, translates and
+enriches them (transform/fetch resources/...) and saves them per language under
+`docs/*.md`.
 
 ```bash
 npm run docs:before-build
@@ -35,17 +60,16 @@ npm run docs:before-build
 Key bits are:
 
 - Translate - Autotranslates key fields
-- Optimizes images - Creates images with different sizes, genenates PWA icons...
+- Optimizes images - Creates images with different sizes, generates PWA icons...
 - Fetch Youtube videos
-- Fetch Google calendar events, merging them with the ones at pages/events.json
+- Fetch Google calendar events, merging them with the site's own events
 - Fetch gospel
-- Fetch internal/external pages preview (oembed), eg: fetches youtube video thunbmail from its url
-- Fetch changes on upstream template to keep up to date with changes
+- Fetch internal/external pages preview (oembed), eg: fetches youtube video thumbnail from its url
 - ...
 
-## Stage 3. Publising: Vitepress + Tailwind CSS v4
+## Stage 3. Publishing: Vitepress + Tailwind CSS v4
 
-Takes the input at docs/\*.md and creates a magnificent website.
+Takes the processed content at `docs/*.md` and creates a magnificent website.
 
 ```bash
 npm run docs:build
@@ -55,5 +79,16 @@ npm run docs:dev
 
 Key elements are:
 
-- docs/.vitepress/theme/Layout.vue - We follow a modular approach, this components takes each section defined in the .md and renders it
-- docs/.vitepress/theme/components/\* - Each section is rendered using a custom .vue component
+- `docs/.vitepress/theme/Layout.vue` - We follow a modular approach, this component takes each section defined in the processed `.md` and renders it
+- `docs/.vitepress/theme/components/*` - Each section is rendered using a custom `.vue` component
+
+## Deployment
+
+This single repository builds and deploys one Cloudflare Pages project per site. A
+GitHub Actions workflow (`.github/workflows/deploy.yml`) is triggered with a
+`site_slug`; the `prepare` job validates the slug, the `build` job runs
+`migrate.js download <slug>` → `docs:before-build` → `docs:build` and uploads the
+artifact with a zero-scoped token, and the `deploy` job pushes that artifact to the
+Cloudflare Pages project named after the slug. A fleet workflow
+(`.github/workflows/dispatch-fleet.yml`) fans out a build per known site on content
+changes and nightly.

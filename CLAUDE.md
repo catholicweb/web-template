@@ -10,7 +10,7 @@ Web-template is a **site factory**, not a single website. It ships the machinery
 
 Files are produced in a 3-stage pipeline:
 
-1. **User input (Pages CMS)** — `pages/config.json`, `pages/*.md`, `pages/events.json`, `docs/media/`.
+1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is fetched at build time via `migrate.js download`, not committed here.
 2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/pages/**`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
 3. **Render** — VitePress + Tailwind v4 + a custom theme turn `docs/*.md` into the static site.
 
@@ -56,13 +56,13 @@ To add a build step or a fetched data source, follow the pattern of the existing
 
 ### The block/component rendering system
 
-Page markdown frontmatter carries a `sections[]` array. Each section has `_block` (block type), `type`, `tags`, and block-specific fields. `theme/Layout.vue` renders `<main>` by iterating `sections` and mapping each `_block` → a Vue component via `getBlockComponent()` (first token, capitalized, e.g. `hero-options` → `Hero`, falls back to `Gallery`). Section classes come from `tags` (`dark`, `twocols`, `hidden`...). New block types = new component in `theme/components/` + a `_block` value; the `_block` taxonomy is defined in the Pages CMS schema `_root/.pages.yml`.
+Page markdown frontmatter carries a `sections[]` array. Each section has `_block` (block type), `type`, `tags`, and block-specific fields. `theme/Layout.vue` renders `<main>` by iterating `sections` and mapping each `_block` → a Vue component via `getBlockComponent()` (first token, capitalized, e.g. `hero-options` → `Hero`, falls back to `Gallery`). Section classes come from `tags` (`dark`, `twocols`, `hidden`...). New block types = new component in `theme/components/` + a `_block` value; the `_block` taxonomy mirrors the site schema served by the editor/API (see config-api).
 
 `blocks.data.js` is a VitePress data loader that scans built `docs/*.md` to aggregate global lists (fundraisings, maps, all pages) for cross-page components.
 
 ### Git-inverted layout
 
-The tracked tree is the **template machinery**: everything under `docs/.vitepress/` (the adapter modules, custom theme, components) plus `docs/.vitepress/_root/` — a checked-in scaffold (`.pages.yml`, `package.json`, `postcss.config.js`, `tailwind.config.js`, `sw.js`) that boots a new site copy. The actual site content is gitignored: `docs/public/*` (except `sw.js`), generated `docs/**/*.md`, `theme/style.css`, cache, dist. Don't be surprised when `git status` shows no content changes — content lives in the API/R2 and is materialized at build time.
+The tracked tree is the **template machinery**: everything under `docs/.vitepress/` (the adapter modules, custom theme, components). The actual site content is gitignored: `docs/public/*` (except `sw.js`), generated `docs/**/*.md`, `theme/style.css`, cache, dist. Don't be surprised when `git status` shows no content changes — content lives in the API/R2 and is materialized at build time.
 
 ### Deployment (GitHub Actions)
 
