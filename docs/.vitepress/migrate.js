@@ -10,8 +10,15 @@
  *   - config-api/src/index.js (endpoint definitions)
  *   - editor/docs/.vitepress/theme/lib/api.js (also uses these endpoints)
  *
- * BEFORE making changes, ensure ALL files produce identical results!
- * See ../../../CLAUDE.md for full dependency documentation.
+ * The token-encoding + API contract is canonical in config-api/README.md:
+ *   - GitHub:  https://github.com/catholicweb/config-api/blob/main/README.md
+ * (config-api is a separate repo from web-template, so there is no in-repo
+ * relative path to it from here — use the GitHub URL above.)
+ * The source that must be matched is
+ * https://github.com/catholicweb/config-api/blob/main/src/index.js.
+ * Before changing encoding or API calls, update ALL dependent files
+ * (config-api/src/index.js, editor/docs/.vitepress/theme/lib/codec.js,
+ * editor/docs/.vitepress/theme/lib/api.js, and this script).
  */
 
 /**
