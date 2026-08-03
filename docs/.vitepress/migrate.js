@@ -49,6 +49,11 @@ import { fileURLToPath } from "node:url";
 
 // 1. Updated default API URL
 const API = (process.env.PARROQUIA_API || 'https://api.parroquia.app').replace(/\/$/, '');
+
+// Public data host that serves raw file bytes (no auth). This is independent
+// of PARROQUIA_API above: overriding PARROQUIA_API does NOT redirect here, so a
+// dev override would otherwise keep reading from production data.parroquia.app.
+const DATA = (process.env.PARROQUIA_DATA || 'https://data.parroquia.app').replace(/\/$/, '');
 const LOCAL_ROOT = process.env.PARROQUIA_LOCAL_ROOT
   ? path.resolve(process.env.PARROQUIA_LOCAL_ROOT)
   : path.join(process.cwd(), 'docs', 'public');
@@ -196,8 +201,8 @@ async function errBody(res) {
 
 /**
  * upload(slug, token)
- * Walk ./docs/public, encode each relpath to a base64url token, and PUT it to
- * /sites/:slug/<token> with the editor bearer token. Returns the list of
+ * Walk ./docs/public, encode each relpath to a flat filename token, and PUT it
+ * to /sites/:slug/<token> with the editor bearer token. Returns the list of
  * remote tokens written. Throws on any failure.
  */
 export async function upload(slug, token) {
@@ -229,9 +234,9 @@ export async function upload(slug, token) {
 /**
  * download(slug, token)
  * GET /sites/:slug/list, then GET each token and write it to its decoded local
- * path under ./docs/public. Tokens that aren't valid base64url or that decode
- * to a path escaping LOCAL_ROOT are skipped with a warning. Returns the list
- * of local paths written. Throws on list/read failure.
+ * path under ./docs/public. Tokens that aren't valid filenames or that would
+ * escape LOCAL_ROOT are skipped with a warning. Returns the list of local
+ * paths written. Throws on list/read failure.
  */
 export async function download(slug, token) {
   console.log('Trying to download... ', slug)
@@ -256,7 +261,7 @@ export async function download(slug, token) {
       console.warn(`  ! skipping unsafe decoded path: ${rel}`);
       continue;
     }
-    const res = await fetch(`https://data.parroquia.app/${slug}/${tok}`, {
+    const res = await fetch(`${DATA}/${slug}/${tok}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
