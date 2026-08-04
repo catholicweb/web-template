@@ -78,7 +78,12 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           SITE_SLUG: ${{ needs.prepare.outputs.site_slug }}
-          # No API keys / tokens passed here — this step is untrusted by assumption.
+          # Only OPENROUTER_API_KEY is injected here (LLM auto-translation of
+          # static, pre-rendered content). This step still executes per-site
+          # downloaded config, so keep the injected secret list minimal and
+          # never echo it. The key's blast radius is bounded by restricting it
+          # in the OpenRouter dashboard to the translation model(s) + a credit cap.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: npm run docs:before-build
 
       - name: Build with VitePress
