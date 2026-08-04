@@ -1,4 +1,4 @@
-import { read, write, fg, fs, path } from "./node_utils.js";
+import { read, write, fs, path } from "./node_utils.js";
 import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
@@ -18,8 +18,27 @@ import sharp from "sharp";
 
 
 const config = read("./docs/public/pages/config.json");
+
+// Tolerant reads: fields may sit top-level (legacy layout) or nested per the
+// editor's tabbed schema (site.* / pages.languages). Fallbacks only kick in
+// when the top-level key is absent, so existing configs are unaffected.
+const getConfig = () => {
+  const s = config.site ?? {};
+  return {
+    title: config.title ?? s.title,
+    description: config.description ?? s.description,
+    image: config.image ?? s.image,
+    icon: config.icon ?? s.icon,
+    languages: config.languages ?? config.pages?.languages ?? s.languages,
+    theme: config.theme ?? s.theme ?? {},
+    siteurl: config.dev?.siteurl ?? s.siteurl,
+    goatcounter: config.dev?.goatcounter ?? s.goatcounter,
+  };
+};
+const CFG = getConfig();
+const THEME = CFG.theme;
 // Lista de lenguas a generar
-const TARGET_LANGS = config.languages?.length ? config.languages : ["Español:es"];
+const TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -82,13 +101,13 @@ globalThis.fetch = async (url, options = {}) => {
 async function createManifest() {
   try {
     const manifest = {
-      name: config.title,
-      short_name: config.title,
-      description: config.description,
+      name: CFG.title,
+      short_name: CFG.title,
+      description: CFG.description,
       start_url: "/",
       display: "standalone",
-      background_color: config.theme.accentColor,
-      theme_color: config.theme.accentColor,
+      background_color: THEME.accentColor,
+      theme_color: THEME.accentColor,
       icons: [
         { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
         { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -97,10 +116,10 @@ async function createManifest() {
     write("./docs/public/manifest.json", manifest);
 
     // Generate icons
-    if (!config.icon) return;
+    if (!CFG.icon) return;
     for (const size of [192, 512]) {
       try {
-        await sharp("./docs/public" + config.icon)
+        await sharp("./docs/public" + CFG.icon)
           .resize(size, size)
           .png()
           .toFile(`./docs/public/icon-${size}.png`);
@@ -111,7 +130,7 @@ async function createManifest() {
 
     // generate the favicon
 
-    await sharp("./docs/public" + config.icon)
+    await sharp("./docs/public" + CFG.icon)
       .resize(32, 32) // Resize to 32x32 pixels for the favicon size
       .toFile(`./docs/public/favicon.ico`);
   } catch (e) {
@@ -224,8 +243,8 @@ async function autocomplete(fm) {
       fm.sections[i] = { ...extra, ...fm.sections[i] };
     }
 
-    if (config.theme.navStyle == "47herri") {
-      let filter = fm.source == "./docs/public/pages/index.md" ? "byday:empty" : fm.title;
+    if (THEME.navStyle == "47herri") {
+      let filter = fm.home ? "byday:empty" : fm.title;
       fm.events = calendar.filter((obj) => applyComplexFilter(obj, filter));
       fm.faq = getEventFAQ(fm.events);
     }
@@ -236,7 +255,7 @@ async function autocomplete(fm) {
 
 function absoluteURL(url) {
   if (url.startsWith("/")) {
-    const siteurl = config?.dev?.siteurl || "";
+    const siteurl = CFG.siteurl || "";
     return siteurl + url;
   }
   return url;
@@ -250,11 +269,11 @@ function imageURL(url) {
 function addMeta(fm) {
   fm.head ??= [];
   fm.head.push(["meta", { property: "og:type", content: "website" }]);
-  fm.head.push(["meta", { property: "og:title", content: fm.title || config.title }]);
-  fm.head.push(["meta", { property: "og:description", content: fm.description || config.description }]);
-  fm.head.push(["meta", { property: "og:image", content: imageURL(fm.image || config.image) }]);
+  fm.head.push(["meta", { property: "og:title", content: fm.title || CFG.title }]);
+  fm.head.push(["meta", { property: "og:description", content: fm.description || CFG.description }]);
+  fm.head.push(["meta", { property: "og:image", content: imageURL(fm.image || CFG.image) }]);
   fm.head.push(["meta", { property: "twitter:card", content: "summary_large_image" }]);
-  fm.head.push(["meta", { property: "twitter:image", content: imageURL(fm.image || config.image) }]);
+  fm.head.push(["meta", { property: "twitter:image", content: imageURL(fm.image || CFG.image) }]);
 
   if (!fm?.equiv) return;
   for (var i = 0; i < fm.equiv.length; i++) {
@@ -288,11 +307,52 @@ function getCode(lang) {
   return lang.split(":")[1] || lang.slice(0, 2).toLowerCase();
 }
 
-function filename(file, title, lang) {
+function filename(name, title, lang) {
   let code = TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/";
-  if (path.basename(file) == "index.md") return code + path.parse(file).name;
+  // Home is always "index" (name is the slug "index", or an `.md` path from
+  // postComplete's elem.file like "index.md").
+  const isIndex = name == "index" || path.basename(name || "") == "index.md";
+  if (isIndex) return code + "index";
   const dict = DICTIONARY[lang] || {};
-  return code + slugify(translateValue(title, dict));
+  // Explicit slug mode (run() passes plain slugs, never paths): use it verbatim
+  // and never translate it — place names / authored slugs are untranslated.
+  // `.md` paths (postComplete's elem.file) keep the old translated-title slug.
+  const base = name && !/\.md$/i.test(name) ? slugify(name) : slugify(translateValue(title, dict));
+  return code + base;
+}
+
+// Deep-clone `template` (never mutating config) and replace {placeholders} with
+// each place's fields. Whole-string placeholders like {images} inject the raw
+// value (an array); inline {prop} placeholders are string-substituted. In an
+// array context a whole-string placeholder that resolves to an array is spliced
+// in (e.g. `list: ["{images}"]` -> `list: ["a.webp","b.webp"]`).
+function substitute(template, place) {
+  // `images` is the placeholder used by templates; the data field is `image`.
+  const ctx = { ...place, images: place.image };
+  const clone = structuredClone(template);
+  const walk = (node) => {
+    if (typeof node === "string") {
+      const whole = /^\{([A-Za-z]\w*)\}$/.exec(node);
+      if (whole && ctx[whole[1]] !== undefined) return ctx[whole[1]];
+      return node.replace(/\{([A-Za-z]\w*)\}/g, (m, k) => (k in ctx ? ctx[k] : m));
+    }
+    if (Array.isArray(node)) {
+      const out = [];
+      for (const item of node) {
+        const r = walk(item);
+        if (Array.isArray(r)) out.push(...r);
+        else out.push(r);
+      }
+      return out;
+    }
+    if (node && typeof node === "object") {
+      const out = {};
+      for (const k of Object.keys(node)) out[k] = walk(node[k]);
+      return out;
+    }
+    return node;
+  };
+  return walk(clone);
 }
 
 let videos = [];
@@ -310,10 +370,49 @@ async function run() {
 
   // Clean output dir and repopulate
 
-  const files = await fg(["**/*.md"], { cwd: "./docs/public/pages/", absolute: false });
-  for (const file of files) {
-    const { data, content } = read("./docs/public/pages/" + file);
-    data.source = "./docs/public/pages/" + file;
+  // Pages are authored as data (config.pages.list) by the editor, not as .md
+  // files — iterate that array instead of globbing docs/public/pages/*.md.
+  const pagesArr =
+    config.pages?.list ??
+    (Array.isArray(config.pages) ? config.pages : null) ??
+    config.list ??
+    [];
+  const places = config.places?.list ?? [];
+  const townTemplate = config.pages?.towntemplate;
+  // "Crear una página nueva automaticamente para cada templo" checkbox.
+  const perPlace = config.pages?.pageperlocatoin ?? true;
+
+  const resolveSlug = (p) => (p.slug == "index" || p.home ? "index" : p.slug || slugify(p.title || "") || "page");
+  let pages = pagesArr.map((p) => ({ ...p, slug: resolveSlug(p) }));
+
+  // Home fallback: if none marked, the first hand-authored page becomes home.
+  if (pages.length && !pages.some((p) => p.slug == "index")) pages[0] = { ...pages[0], slug: "index", home: true };
+
+  // Auto-generate one page per place when the checkbox is on and a towntemplate
+  // is actually authored (no hardcoded default).
+  if (perPlace && townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
+    const taken = new Set(pages.map((p) => p.slug));
+    for (const place of places) {
+      if (!place || !place.name) continue;
+      const slug = slugify(place.name) || "lugar";
+      if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
+      taken.add(slug);
+      pages.push({ ...substitute(townTemplate, place), title: place.name, slug, home: false });
+    }
+  }
+
+  for (const page of pages) {
+    if (!Array.isArray(page.sections)) continue;
+    const slug = page.slug;
+    // Config sections use `type` as the block discriminator; the pipeline below
+    // dispatches on `_block`, so map it here (never overwrites an existing _block).
+    const data = {
+      ...page,
+      sections: page.sections.map((s, i) => ({ ...s, _block: s._block || s.type, index: i })),
+    };
+    data.home = slug == "index" || !!page.home;
+    data.source = data.home ? "/" : "/" + slug; // 47herri home marker (see autocomplete)
+
     await autocomplete(data);
 
     for (const lang of TARGET_LANGS) {
@@ -321,13 +420,13 @@ async function run() {
       const translatedData = translateObject(data, dict);
       translatedData.lang = lang;
       translatedData.equiv = TARGET_LANGS.map((lan) => {
-        return { lang: lan, href: "/" + filename(file, data.title, lan) };
+        return { lang: lan, href: "/" + filename(slug, data.title, lan) };
       });
 
       await postComplete(translatedData);
 
-      const dest = "./docs/" + filename(file, data.title, lang) + ".md";
-      write(dest, translatedData, content);
+      const dest = "./docs/" + filename(slug, data.title, lang) + ".md";
+      write(dest, translatedData, ""); // config pages have no markdown body
     }
   }
 }
