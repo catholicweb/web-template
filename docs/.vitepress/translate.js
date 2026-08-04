@@ -82,7 +82,7 @@ async function translateMissing(valuesArray, language) {
 
   if (!missing.length) return console.log("No need to translate anything", language);
 
-  const translations = await translateWithOpenAI(missing, language.split(":")[0]);
+  const translations = await translateWithLLM(missing, language.split(":")[0]);
 
   if (translations.length != missing.length) {
     return console.log("Wow, dicitionaries are different sizes....", language, missing);
@@ -95,41 +95,76 @@ async function translateMissing(valuesArray, language) {
   // Guardar actualizaciones
   write(dictPath, dictionary);
 }
-async function translateWithOpenAI(missing, targetLanguage) {
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+
+async function callCompletion(body, apiKey) {
+  const response = await fetch(OPENROUTER_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://parroquia.app/",
+      "X-Title": "Parroquia Web Template",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenRouter error ${response.status}: ${text}`);
+  }
+
+  return response.json();
+}
+
+function parseTranslations(content) {
+  // Non-strict replies may wrap the JSON in a ```json code fence.
+  let text = (content || "").trim();
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  }
+  return JSON.parse(text).translations;
+}
+
+async function requestTranslations(messages, model, apiKey, withStrict) {
+  const body = { model, messages };
+  if (withStrict) {
+    body.response_format = {
+      type: "json_schema",
+      json_schema: {
+        name: "translation_result",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: { translations: { type: "array", items: { type: "string" } } },
+          required: ["translations"],
+          additionalProperties: false,
+        },
+      },
+    };
+  }
+
+  const data = await callCompletion(body, apiKey);
+  return { translations: parseTranslations(data.choices[0].message.content), usage: data.usage };
+}
+
+async function translateWithLLM(missing, targetLanguage) {
   if (!Array.isArray(missing) || missing.length === 0 || (missing.length === 1 && missing[0] == "")) return [];
 
   console.log("Translating to ", targetLanguage, " the missing texts: ", missing);
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY");
+    throw new Error("Missing OPENROUTER_API_KEY");
   }
 
   const langLabel = targetLanguage.replace("Euskara", "Euskara (Leitza dialect)");
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-4.1-mini";
 
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4.1",
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "translation_result",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: { translations: { type: "array", items: { type: "string" } } },
-              required: ["translations"],
-              additionalProperties: false,
-            },
-          },
-        },
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional translator for a Catholic parish website serving a community in the Basque Country (northern Navarre, Spain). Content includes parish announcements, mass times, event descriptions, village names, and religious texts.
+  const messages = [
+    {
+      role: "system",
+      content: `You are a professional translator for a Catholic parish website serving a community in the Basque Country (northern Navarre, Spain). Content includes parish announcements, mass times, event descriptions, village names, and religious texts.
 
 Rules:
 - Translate into natural, fluent ${langLabel} with a warm, formal parish tone.
@@ -139,31 +174,35 @@ Rules:
 - If a string is already in the target language, a number, a symbol, or a URL, return it unchanged.
 - Return exactly as many strings as you receive, in the same order — one translation per input.
 - Return ONLY the JSON object, no explanation or preamble.`,
-          },
-          {
-            role: "user",
-            content: `Translate each string in this JSON array to ${langLabel}:\n${JSON.stringify(missing)}`,
-          },
-        ],
-      }),
-    });
+    },
+    {
+      role: "user",
+      content: `Translate each string in this JSON array to ${langLabel}:\n${JSON.stringify(missing)}`,
+    },
+  ];
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI error ${response.status}: ${text}`);
+  try {
+    let result;
+    try {
+      result = await requestTranslations(messages, model, apiKey, true);
+    } catch (e) {
+      // Some OpenRouter providers reject strict json_schema. Retry the same
+      // messages WITHOUT response_format and parse JSON from plain text.
+      if (/response_format|json_schema/i.test(e.message) && /400|error/i.test(e.message)) {
+        console.warn("Strict JSON schema rejected — retrying without response_format:", e.message.slice(0, 200));
+        result = await requestTranslations(messages, model, apiKey, false);
+      } else {
+        throw e;
+      }
     }
 
-    const data = await response.json();
+    const { translations, usage } = result;
+    // Neutral token-count log (OpenRouter per-model pricing varies; OpenAI's
+    // fixed $/token estimate no longer applies).
+    const tokens = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0);
+    console.log(targetLanguage, "~", tokens, "tokens consumed");
 
-    const calculateCost = (usage) => {
-      const inputCost = (usage?.prompt_tokens / 1_000_000) * 2.0 * 100;
-      const outputCost = (usage?.completion_tokens / 1_000_000) * 8.0 * 100;
-      return inputCost + outputCost;
-    };
-
-    console.log(targetLanguage, "est_cost:", calculateCost(data.usage).toFixed(4), "cents");
-
-    return JSON.parse(data.choices[0].message.content).translations;
+    return translations;
   } catch (e) {
     console.error("Translation failed:", e.message);
     return [];
@@ -182,8 +221,69 @@ export function translateValue(value, dict) {
   return value;
 }
 
+/**
+ * Download the previously published dictionary from the site's public URL so
+ * that each build only translates NEW strings instead of re-translating the
+ * whole site. The dict is written to docs/public/ and published at the site
+ * root on every deploy, so the URL below mirrors that.
+ *
+ * Skipped when SITE_SLUG is unset (local dev) or when the remote dict doesn't
+ * exist yet (first-ever build). Never fails the build.
+ */
+async function downloadDictionary() {
+  const slug = process.env.SITE_SLUG;
+  if (!slug) {
+    console.log("SITE_SLUG unset — skipping dictionary download (local dev)");
+    return;
+  }
+
+  // Prefer each site's canonical public URL, else fall back to {slug}.parroquia.app.
+  let origin = `https://${slug}.parroquia.app`;
+  try {
+    const config = read("./docs/public/pages/config.json");
+    let siteurl = config?.dev?.siteurl;
+    if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
+    if (siteurl) origin = new URL(siteurl).origin;
+  } catch {
+    // malformed siteurl — keep the {slug}.parroquia.app default
+  }
+
+  try {
+    // cache:'no-cache' bypasses the global fetch JSON cache in createFiles.js,
+    // so we always hit the network and never pollute .buildtimecache.json.
+    const res = await fetch(`${origin}/dictionary.json`, { cache: "no-cache" });
+    if (!res.ok) {
+      console.log(`No remote dictionary at ${origin}/dictionary.json (${res.status}) — starting fresh`);
+      return;
+    }
+
+    const remote = await res.json();
+    if (!remote || typeof remote !== "object") {
+      console.log(`Remote dictionary malformed (${origin}) — ignoring`);
+      return;
+    }
+
+    // Merge into the shared in-memory dictionary: fill gaps only, so any
+    // translations computed in this build (or a local file) win on conflict.
+    for (const [lang, entries] of Object.entries(remote)) {
+      if (!entries || typeof entries !== "object") continue;
+      dictionary[lang] ??= {};
+      for (const [phrase, translation] of Object.entries(entries)) {
+        if (!(phrase in dictionary[lang])) dictionary[lang][phrase] = translation;
+      }
+    }
+
+    console.log(`Downloaded & merged dictionary from ${origin}`);
+  } catch (e) {
+    console.error("Dictionary download failed (continuing):", e.message);
+  }
+}
+
 export async function buildDictionary() {
   try {
+    // Restore the last published dict BEFORE translating so we only pay for gaps.
+    await downloadDictionary();
+
     // Get values
     let files = await fg(["*.md", "!aviso-legal.md"], { cwd: "./docs/public/pages", absolute: true });
     files.push("./docs/public/calendar.json", "./docs/public/pages/config.json");
@@ -203,6 +303,12 @@ export async function buildDictionary() {
     let config = read("./docs/public/pages/config.json");
     let languages = config.languages?.length ? config.languages : [];
     await Promise.allSettled(languages.map((lang) => translateMissing(valuesArray, lang)));
+
+    // Always re-emit the merged (downloaded + freshly translated) dictionary so
+    // the next build can re-download it. translateMissing skips its own write
+    // when nothing was missing, so without this a no-op build would never
+    // re-publish the dictionary and persistence would break.
+    write(dictPath, dictionary);
   } catch (error) {
     console.error("Error loading translating data:", error);
   }
