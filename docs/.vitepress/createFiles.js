@@ -5,7 +5,7 @@ import { fetchVideos } from "./youtube.js";
 import { buildDictionary, translateObject, translateValue, dictionary as DICTIONARY } from "./translate.js";
 import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
-import { printCSS } from "./css.js";
+import { printCSS, getFontCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
 import { fetchCalendar } from "./calendar.js";
 import { sendNotifications } from "./notify.js";
@@ -73,7 +73,13 @@ function loadAppState() {
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
-const CACHE_FILE = "./.buildtimecache.json";
+// Persistent build-time fetch cache. Lives in docs/public (not the repo root) so
+// it rides along in the deployed site and the fetch step re-downloads it next
+// build — the security-compatible way to persist it, since CI builds have no
+// write credentials. No leading dot so Cloudflare Pages serves it. Only
+// Nominatim + 47herri.eus/bible requests are cache-first; everything else is
+// network-first and merely written through to the cache.
+const CACHE_FILE = "./docs/public/buildtimecache.json";
 const CACHE_DATA = read(CACHE_FILE);
 const originalFetch = globalThis.fetch;
 
@@ -435,7 +441,10 @@ async function run() {
   config = read("./docs/public/config.json");
   loadAppState();
 
-  // Create some basic files
+  // Create some basic files. Fonts are downloaded + subset here (pre-build) so
+  // the VitePress build step stays offline — config.js's getFontCSS short-
+  // circuits on the already-present docs/public/*.woff2.
+  await getFontCSS(THEME);
   await printCSS();
   calendar = await fetchCalendar();
   await sendNotifications();

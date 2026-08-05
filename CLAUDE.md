@@ -10,7 +10,7 @@ Web-template is a **site factory**, not a single website. It ships the machinery
 
 Files are produced in a 3-stage pipeline:
 
-1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the single remote `config.json` into `docs/public/config.json`), not committed here. No `.md` files or images are downloaded — media is served remotely with a `?quality=` param, and pages/events live inside `config.json`.
+1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the remote `config.json`, plus the previously published `dictionary.json`, `videos.json`, and `buildtimecache.json`, into `docs/public/`), not committed here. No `.md` files or images are downloaded — media is served remotely with a `?quality=` param, and pages/events live inside `config.json`.
 2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/config.json`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
 3. **Render** — VitePress + Tailwind v4 + a custom theme turn `docs/*.md` into the static site.
 
@@ -28,7 +28,7 @@ node docs/.vitepress/test.js      # manual scratch script (not a test suite — 
 Materialize the remote content (see config-api):
 
 ```bash
-node docs/.vitepress/fetch.js <slug>    # download remote config.json -> docs/public/config.json
+node docs/.vitepress/fetch.js <slug>    # download remote site data -> docs/public/ (config.json + dictionary/videos/buildtimecache)
 ```
 
 `fetch.js` env overrides: `SITE_SLUG` (slug, or pass as CLI arg), `PARROQUIA_DATA` (public read host, default `https://data.parroquia.app`), `PARROQUIA_LOCAL_ROOT` (default `./docs/public`). `createFiles.js` also calls `fetchConfig()` at the top of its `run()`, so a bare `docs:before-build` re-materializes config automatically when `SITE_SLUG` is set.
@@ -39,13 +39,13 @@ node docs/.vitepress/fetch.js <slug>    # download remote config.json -> docs/pu
 
 ### Build is a plain Node CLI pipeline (not a Vite plugin)
 
-`docs/.vitepress/createFiles.js` is the adapter that drives everything. It patches `globalThis.fetch` with a JSON cache (`./.buildtimecache.json`) and, per page and per target language, runs:
+`docs/.vitepress/createFiles.js` is the adapter that drives everything. It patches `globalThis.fetch` with a JSON cache (`docs/public/buildtimecache.json` — persisted across builds by riding along in the deployed site and being re-downloaded by the fetch step) and, per page and per target language, runs:
 - `autocomplete()` — fetches oembed previews (`oembed.js`), YouTube videos (`youtube.js`), Google Calendar events (`calendar.js`), gospel readings (`gospel.js`), and geocodes map coordinates (`utils.getAddress`).
 - `translateObject()` — auto-translation against a dictionary built by `buildDictionary()` (`translate.js`).
 - `postComplete()` — renders markdown via `markdown-it`, rewrites image/`_block` section fields, builds OG/`hreflang` meta.
 - file writes via `node_utils.js` (`read`/`write` on gray-matter frontmatter for `.md`, JSON for `.json`).
 
-It also generates the PWA manifest + icons + favicon (`createManifest` using `sharp`), print CSS (`css.js`, which downloads & subsets fonts with `subset-font`), and sends web-push notifications for tomorrow's events (`notify.js`).
+It also downloads & subsets the site fonts (`css.js` `getFontCSS` — done in pre-build so the VitePress build step stays offline), generates the PWA manifest + icons + favicon (`createManifest` using `sharp`), emits print CSS (`css.js` `printCSS`), and sends web-push notifications for tomorrow's events (`notify.js`).
 
 To add a build step or a fetched data source, follow the pattern of the existing `*.js` modules and wire it into `createFiles.js` `run()`.
 

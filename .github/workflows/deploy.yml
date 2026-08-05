@@ -62,7 +62,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -107,7 +107,16 @@ jobs:
         with:
           artifact-ids: ${{ needs.build.outputs.artifact_id }}
           path: dist
+          # Without this, downloading by artifact-ids (not by name) nests the
+          # files under dist/<artifact-name> = dist/dist/, and `pages deploy dist`
+          # then pushes that inner dist/ as the URL root (site lands at /dist/).
+          merge-multiple: true
 
+
+      - name: Setup Node (wrangler on Node 24, not the runner's EOL Node 20)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 24
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd  # v3

@@ -37,8 +37,10 @@ bucket and managed through a schema-driven online editor (`editor.parroquia.app`
 described in [catholicweb/config-api](https://github.com/catholicweb/config-api). It is
 not stored in this repository.
 
-At build time we materialize that content for a given site. The whole site now lives in
-a single remote JSON document, so only it is downloaded — no `.md` files and no images:
+At build time we materialize that content for a given site. The site lives in a single
+remote JSON document, and the fetch step also pulls the previously published per-site
+data files, so every local file is ready before the adapter runs — no `.md` files and
+no images are downloaded:
 
 ```bash
 node docs/.vitepress/fetch.js <site-slug>
@@ -46,7 +48,9 @@ node docs/.vitepress/fetch.js <site-slug>
 
 `fetch.js` downloads `https://data.parroquia.app/<site-slug>/config.json` (pages under
 `pages.list`, events under `calendar.events`), normalizes it, and writes
-`docs/public/config.json` for the adapter. Media is served remotely with a
+`docs/public/config.json` for the adapter. It also best-effort materializes
+`dictionary.json` + `buildtimecache.json` from the site's public URL and `videos.json`
+from the data host, all into `docs/public/`. Media is served remotely with a
 `?quality=low|medium|high` param — it is never downloaded or transformed locally. See
 [CLAUDE.md](CLAUDE.md) for the env overrides and the cross-repo data contract.
 

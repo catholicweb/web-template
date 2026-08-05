@@ -221,68 +221,11 @@ export function translateValue(value, dict) {
   return value;
 }
 
-/**
- * Download the previously published dictionary from the site's public URL so
- * that each build only translates NEW strings instead of re-translating the
- * whole site. The dict is written to docs/public/ and published at the site
- * root on every deploy, so the URL below mirrors that.
- *
- * Skipped when SITE_SLUG is unset (local dev) or when the remote dict doesn't
- * exist yet (first-ever build). Never fails the build.
- */
-async function downloadDictionary() {
-  const slug = process.env.SITE_SLUG;
-  if (!slug) {
-    console.log("SITE_SLUG unset — skipping dictionary download (local dev)");
-    return;
-  }
-
-  // Prefer each site's canonical public URL, else fall back to {slug}.parroquia.app.
-  let origin = `https://${slug}.parroquia.app`;
-  try {
-    const config = read("./docs/public/config.json");
-    let siteurl = config?.dev?.siteurl;
-    if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
-    if (siteurl) origin = new URL(siteurl).origin;
-  } catch {
-    // malformed siteurl — keep the {slug}.parroquia.app default
-  }
-
-  try {
-    // cache:'no-cache' bypasses the global fetch JSON cache in createFiles.js,
-    // so we always hit the network and never pollute .buildtimecache.json.
-    const res = await fetch(`${origin}/dictionary.json`, { cache: "no-cache" });
-    if (!res.ok) {
-      console.log(`No remote dictionary at ${origin}/dictionary.json (${res.status}) — starting fresh`);
-      return;
-    }
-
-    const remote = await res.json();
-    if (!remote || typeof remote !== "object") {
-      console.log(`Remote dictionary malformed (${origin}) — ignoring`);
-      return;
-    }
-
-    // Merge into the shared in-memory dictionary: fill gaps only, so any
-    // translations computed in this build (or a local file) win on conflict.
-    for (const [lang, entries] of Object.entries(remote)) {
-      if (!entries || typeof entries !== "object") continue;
-      dictionary[lang] ??= {};
-      for (const [phrase, translation] of Object.entries(entries)) {
-        if (!(phrase in dictionary[lang])) dictionary[lang][phrase] = translation;
-      }
-    }
-
-    console.log(`Downloaded & merged dictionary from ${origin}`);
-  } catch (e) {
-    console.error("Dictionary download failed (continuing):", e.message);
-  }
-}
-
 export async function buildDictionary() {
   try {
-    // Restore the last published dict BEFORE translating so we only pay for gaps.
-    await downloadDictionary();
+    // The dictionary is materialized by the fetch step (fetch.js downloads
+    // docs/public/dictionary.json from the site root), so we only pay for gaps
+    // against the previously published translations.
 
     // Pages are authored as data in config.json (pages.list), not as .md files,
     // so extract translatable strings straight from the config tree.

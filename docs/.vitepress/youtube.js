@@ -169,29 +169,9 @@ export async function fetchVideos(channelUrl) {
       return videos;
     }
 
-    // Restore the last published known-videos list (mirroring the dictionary):
-    // docs/public/videos.json is published at the site root, so the next build
-    // re-downloads it and only pages through NEW YouTube videos. Merging fills
-    // gaps only — the local list (this build) wins on conflict.
-    const slug = process.env.SITE_SLUG;
-    if (slug) {
-      try {
-        const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
-        const res = await fetch(`${DATA}/${slug}/videos.json`, { cache: "no-cache" });
-        if (res.ok) {
-          const remote = await res.json();
-          if (Array.isArray(remote)) {
-            const seen = new Set(videos.map((v) => v.videoId));
-            videos = [...remote.filter((v) => !seen.has(v.videoId)), ...videos];
-            console.log(`Restored ${remote.length} known videos from ${DATA}/${slug}/videos.json`);
-          }
-        } else {
-          console.log(`No remote videos.json (${res.status}) — starting fresh`);
-        }
-      } catch (e) {
-        console.error("videos restore failed (continuing):", e.message);
-      }
-    }
+    // The known-videos list is materialized by the fetch step (fetch.js
+    // downloads docs/public/videos.json from the data host), so this build only
+    // pages through NEW YouTube videos on top of the previously published list.
 
     console.log("Fetching videos...");
     const youtubeStr = config.social.find((s) => s.toLowerCase().includes("youtube"));

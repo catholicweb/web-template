@@ -11,8 +11,18 @@
  * Every page lives inside it under `pages.list` (the index page is marked
  * `protected: "Portada"`, the per-town template `protected: "Plantilla
  * pueblos"`), events under `calendar.events`, and media is served remotely
- * with a `?quality=low|medium|high` param — nothing is downloaded locally
- * except this one config document.
+ * with a `?quality=low|medium|high` param.
+ *
+ * The fetch step also materializes the per-site data files the adapter used to
+ * re-download during the build, so every local file is ready before
+ * createFiles.js runs:
+ *
+ *     {siteurl}/dictionary.json        (translation cache, deployed at site root)
+ *     {DATA}/{slug}/videos.json        (known-videos list, from the data host)
+ *     {siteurl}/buildtimecache.json    (persisted build-time fetch cache)
+ *
+ * All three are best-effort: a 404 just means the previous deploy hadn't
+ * published them yet, and the adapter starts fresh.
  *
  * It normalizes the (optionally nested) config into the flat shape the
  * template consumers expect (title/description/languages/theme/social/... at
@@ -105,6 +115,79 @@ export async function fetchConfig(slug) {
   return config;
 }
 
+/**
+ * The site's canonical public origin — the same resolution translate.js used
+ * when fetching the published dictionary: prefer config.dev.siteurl, else fall
+ * back to https://{slug}.parroquia.app.
+ */
+export function siteOrigin(config, slug) {
+  let origin = `https://${slug}.parroquia.app`;
+  let siteurl = config?.dev?.siteurl;
+  if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
+  if (siteurl) return new URL(siteurl).origin;
+  return origin;
+}
+
+async function exists(file) {
+  try {
+    await fsp.access(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Best-effort materialization of a site data file (dictionary.json, videos.json,
+ * buildtimecache.json) into LOCAL_ROOT, so every local file is ready before
+ * createFiles.js runs. These are published by the *previous* deploy (dictionary
+ * + buildtimecache at the site root, videos.json at {DATA}/{slug}), so a 404
+ * just means "first build": keep any existing local copy, else write the
+ * fallback so the consumer always finds a file.
+ */
+async function downloadDataFile(name, url, fallback) {
+  const dest = path.join(LOCAL_ROOT, name);
+  // Guarantee the file exists even when the remote isn't published yet, so the
+  // adapter always finds every local file. Never clobber an existing one.
+  const ensureFallback = async () => {
+    if (!(await exists(dest))) {
+      await fsp.writeFile(dest, JSON.stringify(fallback, null, 2));
+      console.log(`fetch: wrote empty ${name} (${url} unavailable)`);
+    }
+  };
+  try {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) {
+      const keep = (await exists(dest)) ? "keeping local copy" : "starting empty";
+      console.log(`fetch: ${name} not published yet at ${url} (${res.status}) — ${keep}`);
+      await ensureFallback();
+      return;
+    }
+    const text = await res.text();
+    const data = parseJSON(text, fallback);
+    await fsp.writeFile(dest, JSON.stringify(data, null, 2));
+    console.log(`fetch: wrote ${dest}`);
+  } catch (e) {
+    console.error(`fetch: ${name} download failed (continuing): ${e.message}`);
+    await ensureFallback();
+  }
+}
+
+/**
+ * Materialize the per-site data files that were previously re-downloaded inside
+ * createFiles.js (translate.js dictionary, youtube.js videos, and the buildtime
+ * cache). Only the fetch step calls this — createFiles simply reads the local
+ * files below, which is the whole point of having a dedicated fetch step.
+ */
+export async function fetchDataFiles(slug, config) {
+  const origin = siteOrigin(config, slug);
+  // dictionary.json + buildtimecache.json ride along in the site build output
+  // (docs/public/ -> deployed site root); videos.json lives on the data host.
+  await downloadDataFile("dictionary.json", `${origin}/dictionary.json`, {});
+  await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json`, {});
+  await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
+}
+
 // --- CLI ------------------------------------------------------------------
 
 async function main() {
@@ -117,6 +200,7 @@ async function main() {
   }
   try {
     const config = await fetchConfig(slug);
+    await fetchDataFiles(slug, config);
     console.log(`fetch: ok — title="${config.title}" pages=${(config.pages?.list || []).length}`);
   } catch (err) {
     console.error(`fetch failed:`, err.message);
