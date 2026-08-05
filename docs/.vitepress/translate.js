@@ -1,4 +1,4 @@
-import { read, write, fg } from "./node_utils.js";
+import { read, write } from "./node_utils.js";
 
 const dictPath = "./docs/public/dictionary.json";
 const FIELDS = ["title", "description", "html", "name", "action", "notes"];
@@ -240,7 +240,7 @@ async function downloadDictionary() {
   // Prefer each site's canonical public URL, else fall back to {slug}.parroquia.app.
   let origin = `https://${slug}.parroquia.app`;
   try {
-    const config = read("./docs/public/pages/config.json");
+    const config = read("./docs/public/config.json");
     let siteurl = config?.dev?.siteurl;
     if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
     if (siteurl) origin = new URL(siteurl).origin;
@@ -284,23 +284,17 @@ export async function buildDictionary() {
     // Restore the last published dict BEFORE translating so we only pay for gaps.
     await downloadDictionary();
 
-    // Get values
-    let files = await fg(["*.md", "!aviso-legal.md"], { cwd: "./docs/public/pages", absolute: true });
-    files.push("./docs/public/calendar.json", "./docs/public/pages/config.json");
-    for (const file of files) {
-      const parsed = read(file);
-      const values = extractValues(parsed.data || parsed, FIELDS);
-      values.forEach((v) => valueSet.add(v));
+    // Pages are authored as data in config.json (pages.list), not as .md files,
+    // so extract translatable strings straight from the config tree.
+    let config = read("./docs/public/config.json");
+    for (const v of extractValues(config)) valueSet.add(v);
 
-      if (parsed.content?.trim()) {
-        let bits = parsed.content.trim().split("\n");
-        bits.forEach((b) => valueSet.add(b));
-      }
-    }
+    // Calendar events (built from config.calendar.events) also carry text.
+    for (const v of extractValues(read("./docs/public/calendar.json"))) valueSet.add(v);
+
     const valuesArray = [...valueSet];
 
     // Translate
-    let config = read("./docs/public/pages/config.json");
     let languages = config.languages?.length ? config.languages : [];
     await Promise.allSettled(languages.map((lang) => translateMissing(valuesArray, lang)));
 
