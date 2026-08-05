@@ -378,7 +378,7 @@ async function run() {
     config.list ??
     [];
   const places = config.places?.list ?? [];
-  const townTemplate = config.pages?.towntemplate;
+  const townTemplate = places.find(item => item.title == 'Plantilla pueblos'); // TODO: update this to the matching value
   // "Crear una página nueva automaticamente para cada templo" checkbox.
   const perPlace = config.pages?.pageperlocatoin ?? true;
 
