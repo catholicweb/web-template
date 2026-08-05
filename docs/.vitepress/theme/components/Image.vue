@@ -1,5 +1,4 @@
 <script setup>
-//import { computed, ref, onMounted } from "vue";
 import { computed } from "vue";
 
 const props = defineProps({
@@ -10,53 +9,26 @@ const props = defineProps({
   class: { type: String, default: "" },
 });
 
-const isExternal = computed(() => /^(https?:)?\/\//.test(props.src));
+// Media srcs are baked to absolute remote URLs with a server-side quality
+// param, e.g. https://data.parroquia.app/{slug}/{token}.webp?quality=medium.
+// When a quality param is present we render a responsive <picture> across
+// low/medium/high; any other image renders as a plain <img>.
+const hasQuality = computed(() => /(^|[?&])quality=(low|medium|high)($|[&])/.test(props.src));
 
-const isMedia = computed(() => props.src?.startsWith("/media/"));
-
-const basePath = computed(() => {
-  const p = props.src?.replace(/^\/media\//, "");
-  return encodeURIComponent(p?.replace(/\.[^/.]+$/, ".webp"));
-});
+const base = computed(() => props.src.replace(/quality=[^&]*/, ""));
 
 const srcset = computed(() =>
-  `/media/sm/${basePath.value} 480w,
-  /media/md/${basePath.value} 768w,
-  /media/lg/${basePath.value} 1080w`.trim(),
+  `${base.value}quality=low 480w,
+  ${base.value}quality=medium 768w,
+  ${base.value}quality=high 1080w`.trim(),
 );
-/*
-const imgRef = ref(null);
-
-onMounted(() => {
-  if (imgRef.value) improveImage(imgRef.value);
-});
-
-function improveImage(elem) {
-  requestAnimationFrame(() => {
-    const width = elem.getBoundingClientRect().width;
-    const img = new Image();
-    img.onload = () => {
-      elem.src = img.src;
-    };
-    if (width > 500) {
-      img.src = elem.src.replace("/sm/", "/md/");
-    } else if (width > 800) {
-      img.src = elem.src.replace("/sm/", "/lg/");
-    }
-  });
-}*/
 </script>
 
 <template>
-  <!-- External or non-media image -->
-  <img v-if="isExternal || !isMedia" :src="src" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
-
-  <!-- Progressive --
-  <img v-else-if="progressive" ref="imgRef" :src="`/media/sm/${basePath}`" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />-->
-
-  <!-- Optimised local image -->
-  <picture v-else>
+  <picture v-if="hasQuality">
     <source type="image/webp" :srcset="srcset" />
-    <img :src="`/media/md/${basePath}`" :alt="alt" :class="class" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
+    <img :src="src" :alt="alt" :class="class" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
   </picture>
+
+  <img v-else :src="src" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
 </template>

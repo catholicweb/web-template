@@ -97,7 +97,7 @@ async function writeNotification(newImportantVideos) {
     };
   });
   console.log("writeNotification...");
-  return write("notifications.json", notifications);
+  return write("./docs/public/notifications.json", notifications);
 }
 async function getChannelIdFromUrl(channelUrl) {
   // 1. Extract the identifier (handle, username, or ID)
@@ -163,11 +163,36 @@ async function getChannelIdFromUrl(channelUrl) {
 export async function fetchVideos(channelUrl) {
   try {
     let videos = read("./docs/public/videos.json", []);
-    const config = read("./docs/public/pages/config.json");
+    const config = read("./docs/public/config.json");
     if (!API_KEY) {
       console.error("Error: La API Key no está definida. Asegúrate de exportarla.");
       return videos;
     }
+
+    // Restore the last published known-videos list (mirroring the dictionary):
+    // docs/public/videos.json is published at the site root, so the next build
+    // re-downloads it and only pages through NEW YouTube videos. Merging fills
+    // gaps only — the local list (this build) wins on conflict.
+    const slug = process.env.SITE_SLUG;
+    if (slug) {
+      try {
+        const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
+        const res = await fetch(`${DATA}/${slug}/videos.json`, { cache: "no-cache" });
+        if (res.ok) {
+          const remote = await res.json();
+          if (Array.isArray(remote)) {
+            const seen = new Set(videos.map((v) => v.videoId));
+            videos = [...remote.filter((v) => !seen.has(v.videoId)), ...videos];
+            console.log(`Restored ${remote.length} known videos from ${DATA}/${slug}/videos.json`);
+          }
+        } else {
+          console.log(`No remote videos.json (${res.status}) — starting fresh`);
+        }
+      } catch (e) {
+        console.error("videos restore failed (continuing):", e.message);
+      }
+    }
+
     console.log("Fetching videos...");
     const youtubeStr = config.social.find((s) => s.toLowerCase().includes("youtube"));
     const CHANNEL_ID = await getChannelIdFromUrl(youtubeStr);

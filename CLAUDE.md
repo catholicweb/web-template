@@ -10,8 +10,8 @@ Web-template is a **site factory**, not a single website. It ships the machinery
 
 Files are produced in a 3-stage pipeline:
 
-1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is fetched at build time via `migrate.js download`, not committed here.
-2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/pages/**`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
+1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the single remote `config.json` into `docs/public/config.json`), not committed here. No `.md` files or images are downloaded — media is served remotely with a `?quality=` param, and pages/events live inside `config.json`.
+2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/config.json`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
 3. **Render** — VitePress + Tailwind v4 + a custom theme turn `docs/*.md` into the static site.
 
 ## Commands
@@ -25,16 +25,15 @@ npm run docs:preview              # preview the built site
 node docs/.vitepress/test.js      # manual scratch script (not a test suite — no test runner exists)
 ```
 
-Content sync with the remote API (see config-api):
+Materialize the remote content (see config-api):
 
 ```bash
-node docs/.vitepress/migrate.js download <slug> [<editor-token>]
-node docs/.vitepress/migrate.js upload   <slug> <editor-token>
+node docs/.vitepress/fetch.js <slug>    # download remote config.json -> docs/public/config.json
 ```
 
-`migrate.js` env overrides: `PARROQUIA_API` (Worker URL, default `https://api.parroquia.app`), `PARROQUIA_DATA` (public read host, default `https://data.parroquia.app`), `PARROQUIA_LOCAL_ROOT` (default `./docs/public`). Note `PARROQUIA_API` does NOT redirect `PARROQUIA_DATA` — override both if you point somewhere other than production.
+`fetch.js` env overrides: `SITE_SLUG` (slug, or pass as CLI arg), `PARROQUIA_DATA` (public read host, default `https://data.parroquia.app`), `PARROQUIA_LOCAL_ROOT` (default `./docs/public`). `createFiles.js` also calls `fetchConfig()` at the top of its `run()`, so a bare `docs:before-build` re-materializes config automatically when `SITE_SLUG` is set.
 
-**Deployment order matters**: the GitHub workflow runs `migrate.js download` → `docs:before-build` → `docs:build`. `createFiles.js` expects `docs/public/pages/` to exist, so a local `docs:before-build`/`docs:build` needs the content in place first.
+**Deployment order matters**: the GitHub workflow runs `fetch.js <slug>` → `docs:before-build` → `docs:build`. `createFiles.js` expects `docs/public/config.json` to exist, so a local `docs:before-build`/`docs:build` needs `fetch.js` run first (or `SITE_SLUG` set).
 
 ## Architecture
 
@@ -52,7 +51,7 @@ To add a build step or a fetched data source, follow the pattern of the existing
 
 ### Global site config: `config.json`
 
-`docs/.vitepress/config.js` reads `docs/public/pages/config.json` and derives VitePress locales, nav, title/description, fonts (`css.js`), and theme. `config.js` is the VitePress entry: it wires up `VitePWA` (injectManifest strategy, SW source `docs/.vitepress/sw.js`), SEO JSON-LD (`seo.js`), and Google Fonts.
+`docs/.vitepress/config.js` reads `docs/public/config.json` and derives VitePress locales, nav, title/description, fonts (`css.js`), and theme. `config.js` is the VitePress entry: it wires up `VitePWA` (injectManifest strategy, SW source `docs/.vitepress/sw.js`), SEO JSON-LD (`seo.js`), and Google Fonts.
 
 ### The block/component rendering system
 
@@ -71,5 +70,5 @@ The tracked tree is the **template machinery**: everything under `docs/.vitepres
 
 ## Cross-repo contract (web-template's role)
 
-- `migrate.js` implements flat-filename token encoding and calls config-api endpoints. It MUST stay byte-compatible with `config-api/src/index.js` and `editor/docs/.vitepress/theme/lib/codec.js`, and its API calls must match the endpoints. **The canonical contract is `config-api/README.md`** (and GitHub `catholicweb/config-api`). Before changing encoding or API usage, check all three repos.
-- `migrate.js download` reads from **both** `PARROQUIA_API` (list) and `PARROQUIA_DATA` (file bytes). It writes files flat under `LOCAL_ROOT` and validates every remote filename (`safeLocalPath`) to prevent path-traversal writes.
+- `fetch.js` reads the site config from the public data host (`PARROQUIA_DATA` / `https://data.parroquia.app/{slug}/config.json`). It expects the config to follow the editor/config-api schema: `pages.list` (index page `protected:"Portada"`, town template `protected:"Plantilla pueblos"`), `calendar.events.{list,urls}` + `event-types.list`, and `config.json` must be reachable as a plain flat filename.
+- Media URLs are built as `{PARROQUIA_DATA}/{slug}/{token}?quality=…` where the token flattens a `/media/…` path's slashes to `-`. The canonical editor/config-api schema is `config-api/README.md` (GitHub `catholicweb/config-api`). Any change here should be checked against the editor's authored shape.

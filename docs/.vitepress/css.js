@@ -1,6 +1,6 @@
 import { read, write, fs, path } from "./node_utils.js";
 import subsetFont from "subset-font";
-const config = read("./docs/public/pages/config.json");
+const config = read("./docs/public/config.json");
 
 async function downloadAndSubset(fontUrl, fontPath) {
   try {

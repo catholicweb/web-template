@@ -141,55 +141,62 @@ function parseDateToISO(dateStr) {
 }
 
 export async function fetchCalendar() {
-  let input = read("./docs/public/pages/events.json");
+  // Events now live inside the site config (config.calendar.events), with
+  // per-type defaults under config["event-types"].list — no separate events.json.
+  const config = read("./docs/public/config.json");
+  const evSettings = config.calendar?.events ?? { list: [], urls: [] };
+  const evTypes = config["event-types"]?.list ?? [];
+
+  // Map of lowercased type label -> defaults {title,image,description,...}.
+  const defaultMap = {};
+  for (const t of evTypes) {
+    const key = (t.label || "").toLowerCase().trim();
+    if (key) defaultMap[key] = t.defaults || {};
+  }
+
   const events = [];
 
-  Object.keys(input).forEach((key) => {
-    if (!key.startsWith("events")) return;
-    console.log("Parsing ", key, input[key]?.length);
-    for (var i = 0; i < input[key].length; i++) {
-      const def = input[key][i];
-      const custom = def.custom || [{}];
-      // Iterate over each custom sub-item
-      for (var j = 0; j < custom.length; j++) {
-        const e = { ...def, ...custom[j] };
-        const type = key.split("-")[1];
-        // Filter out past events
-        let dates = toArray(e.date).map((d) => parseDateToISO(d));
-        if (dates.length) {
-          const now = new Date();
-          now.setHours(0, 0, 0, 0); // Our "date" value includes no time (so it is 00.00 by default) while "now" has the current time by default
-          dates = dates.filter((date) => new Date(date) >= now);
-        }
-        if (!dates?.length && !e.rrule?.length) {
-          continue;
-        }
-        events.push({
-          type: type,
-          title: e.title || e.summary || "",
-          times: toArray(e.times).join("||").replaceAll(".", ":").split("||"),
-          dates: dates,
-          //rrule: toArray(e.rrule).map((r) => r.toUpperCase()),
-          images: toArray(e.image || input.default?.[type]?.image),
-          byday: intersectOptions(toArray(e.rrule), "BYDAY"),
-          byweek: intersectOptions(toArray(e.rrule), "BYWEEK"),
-          //freq: intersectOptions(toArray(e.rrule), "FREQ"),
-          notes: toArray(e.notes || input.default?.[type]?.description),
-          language: e.language || null,
-          //end: [],
-          locations: toArray(e.location),
-          exceptions: toArray(e.except),
-        });
-      }
+  for (const evt of evSettings.list || []) {
+    if (!evt || typeof evt !== "object") continue;
+    const type = (evt.type || "").toLowerCase();
+    const defaults_ = defaultMap[type] || {};
+    // Merge defaults with the explicit event fields (event wins).
+    const e = { ...defaults_, ...evt };
+
+    // Filter out past events
+    let dates = toArray(e.date).map((d) => parseDateToISO(d));
+    if (dates.length) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0); // Our "date" value includes no time (so it is 00.00 by default) while "now" has the current time by default
+      dates = dates.filter((date) => new Date(date) >= now);
     }
-  });
+    if (!dates?.length && !e.rrule?.length) {
+      continue;
+    }
+    events.push({
+      type: type,
+      title: e.title || e.summary || "",
+      times: toArray(e.times).join("||").replaceAll(".", ":").split("||"),
+      dates: dates,
+      //rrule: toArray(e.rrule).map((r) => r.toUpperCase()),
+      images: toArray(e.image || defaults_.image),
+      byday: intersectOptions(toArray(e.rrule), "BYDAY"),
+      byweek: intersectOptions(toArray(e.rrule), "BYWEEK"),
+      //freq: intersectOptions(toArray(e.rrule), "FREQ"),
+      notes: toArray(e.notes || e.description || defaults_.description),
+      language: e.language || null,
+      //end: [],
+      locations: toArray(e.location),
+      exceptions: toArray(e.except),
+    });
+  }
 
   /*
   Import external .ics calendars
   */
 
-  for (var i = 0; i < input.urls?.length; i++) {
-    const url = input.urls[i];
+  for (var i = 0; i < evSettings.urls?.length; i++) {
+    const url = evSettings.urls[i];
     try {
       const res = await fetch(url);
       const text = await res.text();
@@ -203,7 +210,7 @@ export async function fetchCalendar() {
         let rrule = [];
         let exceptions = [];
         // Infer type
-        const validTypes = Object.keys(input.default || {}).map((key) => key.replace(/^event-/, ""));
+        const validTypes = Object.keys(defaultMap);
         const type = validTypes.find((typeKey) => `${event.summary} ${event.description}`?.toLowerCase()?.includes(typeKey?.toLowerCase())) || "ics";
 
         const dates = toArray(getNextOccurrence(event));
@@ -225,8 +232,8 @@ export async function fetchCalendar() {
           times: toArray(getTime(event.startDate)),
           dates: dates,
           //end: event.endDate.toJSDate(),
-          images: toArray(getEventAttachments(eventComp) || input.default?.[type]?.image),
-          notes: toArray(event.description || input.default?.[type]?.description),
+          images: toArray(getEventAttachments(eventComp) || defaultMap[type]?.image),
+          notes: toArray(event.description || defaultMap[type]?.description),
           locations: toArray(event.location?.split(",")[0]), // Usually "Leitza, Navarre, Spain" -> "Leitza"
           byday: toArray(rrule?.parts?.BYDAY),
           //...JSON.parse(JSON.stringify(rrule || {})),

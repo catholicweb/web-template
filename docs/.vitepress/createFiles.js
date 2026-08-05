@@ -3,8 +3,7 @@ import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { buildDictionary, translateObject, translateValue, dictionary as DICTIONARY } from "./translate.js";
-//import { createImages } from "./images.js";
-import { download } from "./migrate.js";
+import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
@@ -17,7 +16,32 @@ import sharp from "sharp";
 
 
 
-const config = read("./docs/public/pages/config.json");
+// Config is materialized by fetch.js (downloads + normalizes the remote
+// config.json into ./docs/public/config.json). It's loaded lazily so a bare
+// local `npm run docs:before-build` can run fetchConfig() first.
+let config = read("./docs/public/config.json");
+
+// Remote media: images are served from the data host with a ?quality= param,
+// no local download/transformation. The flattened token replaces "/" with "-",
+// e.g. /media/fotos/iglesia.jpg -> {mediaBase}/media-fotos-iglesia.jpg.
+const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
+const SLUG = process.env.SITE_SLUG || "";
+
+function mediaBase() {
+  return config._media?.base || `${DATA}/${SLUG}`;
+}
+
+// Resolve a media path (/media/...) to its remote ?quality= URL. Absolute URLs
+// (including already-resolved media) pass through untouched.
+function resolveMedia(url, quality = "medium") {
+  if (!url) return url;
+  if (/^(https?:)?\/\//.test(url)) return url;
+  if (url.startsWith("/media/")) {
+    const token = url.replace(/^\/media\//, "").replace(/\//g, "-");
+    return `${mediaBase()}/${token}?quality=${quality}`;
+  }
+  return url;
+}
 
 // Tolerant reads: fields may sit top-level (legacy layout) or nested per the
 // editor's tabbed schema (site.* / pages.languages). Fallbacks only kick in
@@ -35,10 +59,17 @@ const getConfig = () => {
     goatcounter: config.dev?.goatcounter ?? s.goatcounter,
   };
 };
-const CFG = getConfig();
-const THEME = CFG.theme;
+
+let CFG = getConfig();
+let THEME = CFG.theme;
 // Lista de lenguas a generar
-const TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
+let TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
+
+function loadAppState() {
+  CFG = getConfig();
+  THEME = CFG.theme;
+  TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
+}
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -146,6 +177,8 @@ function render(text, index = 1) {
 
 async function postComplete(fm) {
   if (!fm.sections) return;
+  // Resolve every media image to its remote ?quality= URL up front.
+  bakeMedia(fm);
   addMeta(fm);
   for (var i = 0; i < fm.sections.length; i++) {
     if (typeof fm.sections[i].html === "string") {
@@ -202,7 +235,11 @@ async function postComplete(fm) {
         (fm.sections[i].tags ??= []).push("horizontal", "medium");
       }
     } else if (fm.sections[i]._block == "calendar") {
-      fm.sections[i].events = groupEvents(fm.sections[i].events, fm.sections[i].order);
+      // Calendar.vue renders a grouped table (group -> subkey -> rows). An empty
+      // `order` would leave `events` as the raw list and crash the renderer, so
+      // fall back to a sensible grouping (by event type, then time).
+      const order = fm.sections[i].order?.length ? fm.sections[i].order : ["type", "times"];
+      fm.sections[i].events = groupEvents(fm.sections[i].events, order);
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
@@ -262,8 +299,28 @@ function absoluteURL(url) {
 }
 
 function imageURL(url) {
-  const basePath = url.replace(/^\/media\//, "").replace(/\.[^/.]+$/, ".webp");
-  return absoluteURL(`/media/md/${basePath}`);
+  return resolveMedia(url, "medium");
+}
+
+// Rewrite every image/media field in a page's data to its remote ?quality= URL,
+// so runtime components simply render an absolute URL. Applies under keys
+// `image` / `images` anywhere in the tree (sections, elements, events, page).
+function bakeMedia(node) {
+  if (Array.isArray(node)) {
+    for (const item of node) bakeMedia(item);
+    return node;
+  }
+  if (node && typeof node === "object") {
+    for (const k of Object.keys(node)) {
+      if (k === "image" || k === "images") {
+        if (Array.isArray(node[k])) node[k] = node[k].map((i) => (typeof i === "string" ? resolveMedia(i, "medium") : i));
+        else if (typeof node[k] === "string") node[k] = resolveMedia(node[k], "medium");
+      } else {
+        bakeMedia(node[k]);
+      }
+    }
+  }
+  return node;
 }
 
 function addMeta(fm) {
@@ -329,12 +386,22 @@ function filename(name, title, lang) {
 function substitute(template, place) {
   // `images` is the placeholder used by templates; the data field is `image`.
   const ctx = { ...place, images: place.image };
+  // The editor authors placeholders as `{{name}}` (double braces); also accept
+  // the legacy single-brace `{name}` form. A whole-string token splices the raw
+  // value (arrays intact); inline tokens are string-substituted.
+  const TOKEN = /\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\}/g;
+  const WHOLE = /^\s*(?:\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\})\s*$/;
+  const replace = (s) => s.replace(TOKEN, (m, a, b) => (a || b) in ctx ? String(ctx[a || b]) : m);
+
   const clone = structuredClone(template);
   const walk = (node) => {
     if (typeof node === "string") {
-      const whole = /^\{([A-Za-z]\w*)\}$/.exec(node);
-      if (whole && ctx[whole[1]] !== undefined) return ctx[whole[1]];
-      return node.replace(/\{([A-Za-z]\w*)\}/g, (m, k) => (k in ctx ? ctx[k] : m));
+      const whole = WHOLE.exec(node);
+      if (whole) {
+        const key = whole[1] || whole[2];
+        if (ctx[key] !== undefined) return ctx[key];
+      }
+      return replace(node);
     }
     if (Array.isArray(node)) {
       const out = [];
@@ -359,6 +426,15 @@ let videos = [];
 let calendar = [];
 
 async function run() {
+  // Materialize (or refresh) the remote config before reading any page data.
+  try {
+    await fetchConfig(SLUG);
+  } catch (e) {
+    if (SLUG) console.warn("fetch: config fetch failed (using existing):", e.message);
+  }
+  config = read("./docs/public/config.json");
+  loadAppState();
+
   // Create some basic files
   await printCSS();
   calendar = await fetchCalendar();
@@ -366,7 +442,6 @@ async function run() {
   await createManifest();
   videos = await fetchVideos();
   await buildDictionary();
-  //await createImages();
 
   // Clean output dir and repopulate
 
@@ -377,19 +452,33 @@ async function run() {
     (Array.isArray(config.pages) ? config.pages : null) ??
     config.list ??
     [];
-  const places = config.places?.list ?? [];
-  const townTemplate = places.find(item => item.title == 'Plantilla pueblos'); // TODO: update this to the matching value
+  // Places (per-town data) live under info.places in the editor schema.
+  const places = config.info?.places ?? config.places?.list ?? [];
+  // The town template is a page in pages.list marked protected:"Plantilla
+  // pueblos" (its title is a {{name}} placeholder). If none is marked, fall back
+  // to any page whose title looks like a placeholder.
+  const townTemplate =
+    pagesArr.find((p) => p.protected == "Plantilla pueblos") ||
+    pagesArr.find((p) => (p.title || "").startsWith("{{"));
   // "Crear una página nueva automaticamente para cada templo" checkbox.
   const perPlace = config.pages?.pageperlocatoin ?? true;
 
-  const resolveSlug = (p) => (p.slug == "index" || p.home ? "index" : p.slug || slugify(p.title || "") || "page");
-  let pages = pagesArr.map((p) => ({ ...p, slug: resolveSlug(p) }));
+  // The index page is the one marked protected:"Portada" (or home/slug==index).
+  const isIndex = (p) => p.home || p.slug == "index" || p.protected == "Portada" || p.title == "Portada";
+
+  const resolveSlug = (p) => (isIndex(p) ? "index" : p.slug || slugify(p.title || "") || "page");
+
+  // Authored pages = the pages.list minus the town template (which is only ever
+  // expanded per-place below, never emitted as a literal {{name}} page).
+  let pages = pagesArr
+    .filter((p) => p !== townTemplate)
+    .map((p) => ({ ...p, slug: resolveSlug(p) }));
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
   if (pages.length && !pages.some((p) => p.slug == "index")) pages[0] = { ...pages[0], slug: "index", home: true };
 
-  // Auto-generate one page per place when the checkbox is on and a towntemplate
-  // is actually authored (no hardcoded default).
+  // Auto-generate one page per place when the checkbox is on, a towntemplate is
+  // authored, and an actual places list exists (skip otherwise).
   if (perPlace && townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
     const taken = new Set(pages.map((p) => p.slug));
     for (const place of places) {
