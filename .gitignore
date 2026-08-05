@@ -6,3 +6,4 @@ docs/.vitepress/theme/style.css
 docs/.vitepress/cache
 docs/.vitepress/dist
 *.log
+.buildtimecache.json
