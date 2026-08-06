@@ -495,7 +495,15 @@ async function run() {
       const slug = slugify(place.name) || "lugar";
       if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
       taken.add(slug);
-      pages.push({ ...substitute(townTemplate, place), title: place.name, slug, home: false });
+      pages.push({
+        ...substitute(townTemplate, place),
+        title: place.name,
+        slug,
+        home: false,
+        // Carry the place's source-page path so the emitted frontmatter `source:`
+        // matches the legacy pipeline (./pages/<stem>.md).
+        source: place.source,
+      });
     }
   }
 
@@ -509,21 +517,38 @@ async function run() {
       sections: page.sections.map((s, i) => ({ ...s, _block: s._block || s.type, index: i })),
     };
     data.home = slug == "index" || !!page.home;
-    data.source = data.home ? "/" : "/" + slug; // 47herri home marker (see autocomplete)
+    data.source = page.source || (data.home ? "/" : "/" + slug); // 47herri home marker (see autocomplete)
 
     await autocomplete(data);
+
+    // Output basenames are per-language by default: each .md is named from that
+    // language's translated title — slug(translate(title)) — e.g. es/imprimir.md,
+    // de/drucken.md, ar/<hash>.md. Passing a `.md`-suffixed name makes filename()
+    // take its translated-title branch (same path postComplete already uses).
+    // A site can opt back into stable source-slug names with
+    // pages.filenameMode:"original" (plain `slug` is used verbatim for every lang).
+    const translatedNames = config.pages?.filenameMode !== "original";
+    const nameArg = translatedNames ? slug + ".md" : slug;
 
     for (const lang of TARGET_LANGS) {
       const dict = DICTIONARY[lang] || {};
       const translatedData = translateObject(data, dict);
       translatedData.lang = lang;
       translatedData.equiv = TARGET_LANGS.map((lan) => {
-        return { lang: lan, href: "/" + filename(slug, data.title, lan) };
+        return { lang: lan, href: "/" + filename(nameArg, data.title, lan) };
       });
 
       await postComplete(translatedData);
 
-      const dest = "./docs/" + filename(slug, data.title, lang) + ".md";
+      // slug/home are pipeline-internal; drop them from the emitted frontmatter
+      // (the legacy pages never carried them). Sites opting into stable original
+      // slugs keep their frontmatter untouched.
+      if (translatedNames) {
+        delete translatedData.slug;
+        delete translatedData.home;
+      }
+
+      const dest = "./docs/" + filename(nameArg, data.title, lang) + ".md";
       write(dest, translatedData, ""); // config pages have no markdown body
     }
   }
