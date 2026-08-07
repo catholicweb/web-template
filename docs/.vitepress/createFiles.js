@@ -428,11 +428,11 @@ let calendar = [];
 
 async function run() {
   // Materialize (or refresh) the remote config before reading any page data.
-  /*try { // done on the previous github action step
+  try {
     await fetchConfig(SLUG);
   } catch (e) {
     if (SLUG) console.warn("fetch: config fetch failed (using existing):", e.message);
-  }*/
+  }
   config = read("./docs/public/config.json");
   loadAppState();
 
