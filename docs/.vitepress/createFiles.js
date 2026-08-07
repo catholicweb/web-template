@@ -2,8 +2,9 @@ import { read, write, path } from "./node_utils.js";
 import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
-import { buildDictionary, translateObject, translateValue, dictionary as DICTIONARY } from "./translate.js";
+import { buildDictionary, translateObject, dictionary as DICTIONARY } from "./translate.js";
 import { fetchConfig } from "./fetch.js";
+import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
@@ -62,13 +63,15 @@ const getConfig = () => {
 
 let CFG = getConfig();
 let THEME = CFG.theme;
-// Lista de lenguas a generar
-let TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
+// Shared per-site naming helpers (also used by navBar to read these files).
+// DICTIONARY is closed over by reference, so in-place translation updates
+// during buildDictionary are visible to `filename`.
+let NAMING = createNaming({ languages: CFG.languages, dictionary: DICTIONARY });
 
 function loadAppState() {
   CFG = getConfig();
   THEME = CFG.theme;
-  TARGET_LANGS = CFG.languages?.length ? CFG.languages : ["Español:es"];
+  NAMING = createNaming({ languages: CFG.languages, dictionary: DICTIONARY });
 }
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
@@ -209,7 +212,7 @@ async function postComplete(fm) {
     if (fm.sections[i].elements && fm.sections[i].elements[0]?.file) {
       fm.sections[i].elements = fm.sections[i].elements.map((elem) => {
         if (elem.file) {
-          elem.link = "/" + filename(elem.file, elem.title, fm.lang).replace("index", "");
+          elem.link = "/" + NAMING.filename(elem.file, elem.title, fm.lang).replace("index", "");
         }
         return elem;
       });
@@ -361,24 +364,6 @@ function addMeta(fm) {
   }
 }
 
-function getCode(lang) {
-  return lang.split(":")[1] || lang.slice(0, 2).toLowerCase();
-}
-
-function filename(name, title, lang) {
-  let code = TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/";
-  // Home is always "index" (name is the slug "index", or an `.md` path from
-  // postComplete's elem.file like "index.md").
-  const isIndex = name == "index" || path.basename(name || "") == "index.md";
-  if (isIndex) return code + "index";
-  const dict = DICTIONARY[lang] || {};
-  // Explicit slug mode (run() passes plain slugs, never paths): use it verbatim
-  // and never translate it — place names / authored slugs are untranslated.
-  // `.md` paths (postComplete's elem.file) keep the old translated-title slug.
-  const base = name && !/\.md$/i.test(name) ? slugify(name) : slugify(translateValue(title, dict));
-  return code + base;
-}
-
 // Deep-clone `template` (never mutating config) and replace {placeholders} with
 // each place's fields. Whole-string placeholders like {images} inject the raw
 // value (an array); inline {prop} placeholders are string-substituted. In an
@@ -465,16 +450,13 @@ async function run() {
   // "Crear una página nueva automaticamente para cada templo" checkbox.
   const perPlace = config.pages?.pageperlocatoin ?? true;
 
-  // The index page is the one marked protected:"Portada" (or home/slug==index).
-  const isIndex = (p) => p.home || p.slug == "index" || p.protected == "Portada" || p.title == "Portada";
-
-  const resolveSlug = (p) => (isIndex(p) ? "index" : p.slug || slugify(p.title || "") || "page");
-
+  // The index page is the one marked protected:"Portada" (or home/slug==index),
+  // resolved by the shared naming module.
   // Authored pages = the pages.list minus the town template (which is only ever
   // expanded per-place below, never emitted as a literal {{name}} page).
   let pages = pagesArr
     .filter((p) => p !== townTemplate)
-    .map((p) => ({ ...p, slug: resolveSlug(p) }));
+    .map((p) => ({ ...p, slug: NAMING.resolveSlug(p) }));
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
   if (pages.length && !pages.some((p) => p.slug == "index")) pages[0] = { ...pages[0], slug: "index", home: true };
@@ -523,12 +505,12 @@ async function run() {
     const translatedNames = config.pages?.filenameMode !== "original";
     const nameArg = translatedNames ? slug + ".md" : slug;
 
-    for (const lang of TARGET_LANGS) {
+    for (const lang of NAMING.TARGET_LANGS) {
       const dict = DICTIONARY[lang] || {};
       const translatedData = translateObject(data, dict);
       translatedData.lang = lang;
-      translatedData.equiv = TARGET_LANGS.map((lan) => {
-        return { lang: lan, href: "/" + filename(nameArg, data.title, lan) };
+      translatedData.equiv = NAMING.TARGET_LANGS.map((lan) => {
+        return { lang: lan, href: "/" + NAMING.filename(nameArg, data.title, lan) };
       });
 
       await postComplete(translatedData);
@@ -541,7 +523,7 @@ async function run() {
         delete translatedData.home;
       }
 
-      const dest = "./docs/" + filename(nameArg, data.title, lang) + ".md";
+      const dest = "./docs/" + NAMING.filename(nameArg, data.title, lang) + ".md";
       write(dest, translatedData, ""); // config pages have no markdown body
     }
   }
