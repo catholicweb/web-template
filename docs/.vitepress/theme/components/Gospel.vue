@@ -27,9 +27,6 @@
 
 <script setup>
 import { computed } from "vue";
-//import { getBibleReadings } from "./../../gospel.js";
-
-//getBibleReadings({ lang: "es", date: new Date() });
 
 const props = defineProps({ block: { type: Object, required: true } });
 const readings = computed(() => props.block.gospel || props.block);

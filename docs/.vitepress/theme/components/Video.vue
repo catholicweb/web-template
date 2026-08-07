@@ -50,7 +50,7 @@ const isAudio = (url) => {
 function logo(item) {
   if (item.src.includes("youtube")) return "youtube-logo";
   if (item.src.includes("spotify")) return "spotify-logo";
-  if (item.src.includes("videmo")) return "vimeo-logo";
+  if (item.src.includes("vimeo")) return "vimeo-logo";
   if (item.src.includes(".mp3")) return "audio-logo";
   return "generic-logo";
 }

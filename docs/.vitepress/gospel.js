@@ -70,7 +70,10 @@ const parseReference = (ref) => {
   let [, book, rest] = match;
   const bookMap = { mt: "MAT", mk: "MRK", mc: "MRK", lc: "LUK", lk: "LUK", jn: "JHN" };
   book = bookMap[book.toLowerCase()] || book;
-  let bits = rest.replace(/–(\d+),/g, `-60;$1,1-`).split(";"); //(handle multichapter)
+  // Multi-chapter ranges like "Mt 1–3" (en dash) are rewritten into a two-part
+  // list — chapter 1 to 60..end, then the final chapter — so each chapter is
+  // parsed independently. Brittle by design; an unrecognized shape yields [].
+  let bits = rest.replace(/–(\d+),/g, `-60;$1,1-`).split(";");
   const parseRange = (r) => {
     const [start, end] = r.split("-").map(Number);
     return !end ? [start] : Array.from({ length: end - start + 1 }, (_, i) => start + i);

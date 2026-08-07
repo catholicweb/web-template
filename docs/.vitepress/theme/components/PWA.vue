@@ -27,11 +27,11 @@ let deferredPrompt;
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
 const { updateServiceWorker } = useRegisterSW({
   onNeedRefresh() {
+    // Only auto-reload when the site opts in via theme.pwa.autoReload; the
+    // manual "new version available" banner is intentionally unused.
     if (theme.value.pwa?.autoReload) {
       updateServiceWorker(true);
-    } /*else {
-      state.value.showUpdateBanner = true;
-    }*/
+    }
   },
 });
 

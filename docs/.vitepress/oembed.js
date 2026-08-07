@@ -1,6 +1,6 @@
 // oembed-ultra.js
 import { Parser } from "htmlparser2";
-import { read, write, path } from "./node_utils.js";
+import { read } from "./node_utils.js";
 
 function extractIframeSrc(html) {
   // Busca el atributo src dentro del iframe de Spotify
@@ -23,14 +23,6 @@ async function fetchOembed(url) {
     image: data.thumbnail_url || "",
     aspect: round(data.width / data.height),
   };
-}
-
-// método auxiliar para extraer el ID del vídeo
-function extractVideoId(urlOrId) {
-  if (!urlOrId) return null;
-  if (/^[\w-]{11}$/.test(urlOrId)) return urlOrId; // ya es un id
-  const match = urlOrId.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/);
-  return match ? match[1] : null;
 }
 
 const KNOWN_PROVIDERS = [

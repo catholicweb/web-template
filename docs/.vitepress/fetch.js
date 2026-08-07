@@ -119,6 +119,12 @@ export async function fetchConfig(slug) {
  * The site's canonical public origin — the same resolution translate.js used
  * when fetching the published dictionary: prefer config.dev.siteurl, else fall
  * back to https://{slug}.parroquia.app.
+ *
+ * SECURITY NOTE (acknowledged, see SANITY.md): `config` is downloaded,
+ * untrusted content, so `config.dev.siteurl` can point the build's server-side
+ * fetch at any HTTPS origin (SSRF). Scheme is restricted to https; the host is
+ * not allow-listed against the data host. Hardening was deferred under Focused
+ * scope.
  */
 export function siteOrigin(config, slug) {
   let origin = `https://${slug}.parroquia.app`;
