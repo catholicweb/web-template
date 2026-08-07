@@ -25,6 +25,15 @@ export function groupEvents(events, fields = []) {
   return grouped;
 }
 
+export function toArray(value) {
+  if (Array.isArray(value)) {
+    if (value.length) return value;
+    return [];
+  }
+  if (typeof value === "string") return [value];
+  return [];
+}
+
 export function accessMultikey(obj, multikey) {
   let result = [];
 
