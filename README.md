@@ -50,8 +50,8 @@ node docs/.vitepress/fetch.js <site-slug>
 `pages.list`, events under `calendar.events`), normalizes it, and writes
 `docs/public/config.json` for the adapter. It also best-effort materializes
 `dictionary.json` + `buildtimecache.json` from the site's public URL and `videos.json`
-from the data host, all into `docs/public/`. Media is served remotely with a
-`?quality=low|medium|high` param — it is never downloaded or transformed locally. See
+from the data host, all into `docs/public/`. Media is served remotely — it is
+never downloaded or transformed locally. See
 [CLAUDE.md](CLAUDE.md) for the env overrides and the cross-repo data contract.
 
 ## Stage 2. The adapter: 'npm run docs:before-build'
@@ -68,7 +68,7 @@ npm run docs:before-build
 Key bits are:
 
 - Translate - Autotranslates key fields
-- Rewrites media to remote `?quality=` URLs, generates PWA icons...
+- Rewrites media to remote URLs, generates PWA icons...
 - Fetch Youtube videos
 - Fetch Google calendar events, merging them with the site's own events
 - Fetch gospel

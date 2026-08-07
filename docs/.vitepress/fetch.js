@@ -10,8 +10,7 @@
  *
  * Every page lives inside it under `pages.list` (the index page is marked
  * `protected: "Portada"`, the per-town template `protected: "Plantilla
- * pueblos"`), events under `calendar.events`, and media is served remotely
- * with a `?quality=low|medium|high` param.
+ * pueblos"`), events under `calendar.events`, and media is served remotely.
  *
  * The fetch step also materializes the per-site data files the adapter used to
  * re-download during the build, so every local file is ready before

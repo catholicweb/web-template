@@ -21,8 +21,8 @@ import sharp from "sharp";
 // local `npm run docs:before-build` can run fetchConfig() first.
 let config = read("./docs/public/config.json");
 
-// Remote media: images are served from the data host with a ?quality= param,
-// no local download/transformation. The flattened token replaces "/" with "-",
+// Remote media: images are served from the data host with no local
+// download/transformation. The flattened token replaces "/" with "-",
 // e.g. /media/fotos/iglesia.jpg -> {mediaBase}/media-fotos-iglesia.jpg.
 const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
 const SLUG = process.env.SITE_SLUG || "";
@@ -31,14 +31,14 @@ function mediaBase() {
   return config._media?.base || `${DATA}/${SLUG}`;
 }
 
-// Resolve a media path (/media/...) to its remote ?quality= URL. Absolute URLs
+// Resolve a media path (/media/...) to its remote URL. Absolute URLs
 // (including already-resolved media) pass through untouched.
-function resolveMedia(url, quality = "medium") {
+function resolveMedia(url) {
   if (!url) return url;
   if (/^(https?:)?\/\//.test(url)) return url;
   if (url.startsWith("/media/")) {
     const token = url.replace(/^\/media\//, "").replace(/\//g, "-");
-    return `${mediaBase()}/${token}?quality=${quality}`;
+    return `${mediaBase()}/${token}`;
   }
   return url;
 }
@@ -183,7 +183,7 @@ function render(text, index = 1) {
 
 async function postComplete(fm) {
   if (!fm.sections) return;
-  // Resolve every media image to its remote ?quality= URL up front.
+  // Resolve every media image to its remote URL up front.
   bakeMedia(fm);
   addMeta(fm);
   for (var i = 0; i < fm.sections.length; i++) {
@@ -321,11 +321,11 @@ function absoluteURL(url) {
 }
 
 function imageURL(url) {
-  return resolveMedia(url, "medium");
+  return resolveMedia(url);
 }
 
-// Rewrite every image/media field in a page's data to its remote ?quality= URL,
-// so runtime components simply render an absolute URL. Applies under keys
+// Rewrite every image/media field in a page's data to its remote URL, so
+// runtime components simply render an absolute URL. Applies under keys
 // `image` / `images` anywhere in the tree (sections, elements, events, page).
 function bakeMedia(node) {
   if (Array.isArray(node)) {
@@ -335,8 +335,8 @@ function bakeMedia(node) {
   if (node && typeof node === "object") {
     for (const k of Object.keys(node)) {
       if (k === "image" || k === "images") {
-        if (Array.isArray(node[k])) node[k] = node[k].map((i) => (typeof i === "string" ? resolveMedia(i, "medium") : i));
-        else if (typeof node[k] === "string") node[k] = resolveMedia(node[k], "medium");
+        if (Array.isArray(node[k])) node[k] = node[k].map((i) => (typeof i === "string" ? resolveMedia(i) : i));
+        else if (typeof node[k] === "string") node[k] = resolveMedia(node[k]);
       } else {
         bakeMedia(node[k]);
       }

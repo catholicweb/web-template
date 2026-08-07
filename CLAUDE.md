@@ -10,7 +10,7 @@ Web-template is a **site factory**, not a single website. It ships the machinery
 
 Files are produced in a 3-stage pipeline:
 
-1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the remote `config.json`, plus the previously published `dictionary.json`, `videos.json`, and `buildtimecache.json`, into `docs/public/`), not committed here. No `.md` files or images are downloaded — media is served remotely with a `?quality=` param, and pages/events live inside `config.json`.
+1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the remote `config.json`, plus the previously published `dictionary.json`, `videos.json`, and `buildtimecache.json`, into `docs/public/`), not committed here. No `.md` files or images are downloaded — media is served remotely (no query params, quality is fixed server-side), and pages/events live inside `config.json`.
 2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/config.json`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
 3. **Render** — VitePress + Tailwind v4 + a custom theme turn `docs/*.md` into the static site.
 
@@ -71,4 +71,4 @@ The tracked tree is the **template machinery**: everything under `docs/.vitepres
 ## Cross-repo contract (web-template's role)
 
 - `fetch.js` reads the site config from the public data host (`PARROQUIA_DATA` / `https://data.parroquia.app/{slug}/config.json`). It expects the config to follow the editor/config-api schema: `pages.list` (index page `protected:"Portada"`, town template `protected:"Plantilla pueblos"`), `calendar.events.{list,urls}` + `event-types.list`, and `config.json` must be reachable as a plain flat filename.
-- Media URLs are built as `{PARROQUIA_DATA}/{slug}/{token}?quality=…` where the token flattens a `/media/…` path's slashes to `-`. The canonical editor/config-api schema is `config-api/README.md` (GitHub `catholicweb/config-api`). Any change here should be checked against the editor's authored shape.
+- Media URLs are built as `{PARROQUIA_DATA}/{slug}/{token}` where the token flattens a `/media/…` path's slashes to `-`. The canonical editor/config-api schema is `config-api/README.md` (GitHub `catholicweb/config-api`). Any change here should be checked against the editor's authored shape.
