@@ -1,5 +1,7 @@
 import { slugify } from "./utils.js";
-import { read, write, fg, path } from "./node_utils.js";
+import { read, fg, path } from "./node_utils.js";
+import { dictionary, translateValue } from "./translate.js";
+import { createNaming, buildConfigPages, getCode } from "./naming.js";
 
 export function locales(languages) {
   const loc = {};
@@ -46,33 +48,74 @@ function tr(str, lang) {
   return str;
 }
 
-function getEquiv(file) {
-  if (path.basename(file) == "index.md") return read("./docs/index.md").data;
-  let original = read("./" + file).data;
-  let equiv = slugify(original.title);
-  return read("./docs/" + equiv + ".md").data;
+// Resolve a nav link to an emitted page. Link is either a page id (the editor's
+// random hidden ids) or an all-digits index into pages.list. Never throws;
+// returns null for unresolvable/skippable links.
+function resolveLink(link, pages, rawList) {
+  if (link == null) return null;
+  const s = String(link);
+  // id match wins (future editor ids; a numeric id, if ever assigned, takes
+  // precedence over the positional index).
+  const byId = pages.find((p) => p.id != null && String(p.id) === s);
+  if (byId) return byId;
+  // all-digits -> index into pages.list.
+  if (/^\d+$/.test(s)) {
+    const raw = rawList[Number(s)];
+    if (!raw) return null;
+    // Prefer the emitted page for this raw entry by id...
+    if (raw.id != null) {
+      const m = pages.find((p) => String(p.id) === String(raw.id));
+      if (m) return m;
+    }
+    // ...else positional index among emitted pages (correct in the common case
+    // where no template page is filtered out earlier in the list).
+    return pages[Number(s)] || null;
+  }
+  return null;
 }
 
 async function generateManualNav(config) {
-  let nav = {};
-  config.nav.forEach((section) => {
-    let items = {};
-    section.links.forEach((file) => {
-      const data = getEquiv(file);
-      if (!data?.equiv) {
-        console.log("[generateManualNav] Missing file: ", file);
-        return;
+  const rawList =
+    config.pages?.list ??
+    (Array.isArray(config.pages) ? config.pages : null) ??
+    config.list ??
+    [];
+  const languages = config.languages?.length ? config.languages : ["Español:es"];
+  const naming = createNaming({ languages, dictionary });
+  const pages = buildConfigPages(config, naming);
+  const translatedNames = config.pages?.filenameMode !== "original";
+
+  const nav = {};
+  for (const section of config.nav ?? []) {
+    if (!section?.links?.length) continue;
+    const perLang = {};
+    for (const link of section.links) {
+      const page = resolveLink(link, pages, rawList);
+      if (!page) {
+        console.warn("[generateManualNav] Unresolvable nav link, skipping:", link);
+        continue;
       }
-      data?.equiv?.forEach((equiv) => {
-        const linkEquiv = read("./docs" + equiv.href + ".md").data;
-        if (!items[equiv.lang]) items[equiv.lang] = [];
-        items[equiv.lang].push({ text: linkEquiv.title, link: equiv.href });
-      });
-    });
-    for (const lang in items) {
-      if (!nav[lang]) nav[lang] = [];
-      nav[lang].push({ text: tr(section.title, lang), items: items[lang] });
+      const nameArg = translatedNames ? page.slug + ".md" : page.slug;
+      for (const lang of languages) {
+        const file = naming.filename(nameArg, page.title, lang);
+        // Home href uses a trailing slash; other languages' home is /<code>/.
+        const href =
+          page.slug == "index"
+            ? lang == naming.TARGET_LANGS[0]
+              ? "/"
+              : "/" + getCode(lang) + "/"
+            : "/" + file;
+        // Translated title from the emitted .md; fall back to the dictionary
+        // (or the original title) if the file is somehow missing.
+        let text = read("./docs/" + file + ".md").data?.title;
+        if (!text) text = translateValue(page.title, dictionary[lang] || {}) || page.title;
+        (perLang[lang] ??= []).push({ text, link: href });
+      }
     }
-  });
+    for (const lang in perLang) {
+      if (!perLang[lang].length) continue;
+      (nav[lang] ??= []).push({ text: tr(section.title, lang), items: perLang[lang] });
+    }
+  }
   return nav;
 }
