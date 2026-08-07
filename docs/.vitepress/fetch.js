@@ -17,7 +17,7 @@
  * createFiles.js runs:
  *
  *     {siteurl}/dictionary.json        (translation cache, deployed at site root)
- *     {DATA}/{slug}/videos.json        (known-videos list, from the data host)
+ *     {siteurl}/videos.json        (known-videos list, from the deployed site, falling back to the data host)
  *     {siteurl}/buildtimecache.json    (persisted build-time fetch cache)
  *
  * All three are best-effort: a 404 just means the previous deploy hadn't
@@ -186,11 +186,12 @@ async function downloadDataFile(name, url, fallback) {
  */
 export async function fetchDataFiles(slug, config) {
   const origin = siteOrigin(config, slug);
-  // dictionary.json + buildtimecache.json ride along in the site build output
-  // (docs/public/ -> deployed site root); videos.json lives on the data host.
+  // dictionary.json + buildtimecache.json + videos.json ride along in the site
+  // build output (docs/public/ -> deployed site root)
   await downloadDataFile("dictionary.json", `${origin}/dictionary.json`, {});
   await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json`, {});
-  await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
+  await downloadDataFile("videos.json", `${origin}/videos.json`, []);
+  //await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
 }
 
 // --- CLI ------------------------------------------------------------------
