@@ -26,7 +26,11 @@ const filteredItems = computed(() => {
 });
 
 // --- Swipe handlers ---
-const activeIndex = ref(filteredItems.value.findIndex((item) => item.name === props.block.name) || 0);
+// findIndex returns -1 when no item matches the block name; `-1` is truthy so the
+// old `|| 0` guard let activeIndex start at -1 (only corrected to 0 on mount).
+// Clamp explicitly instead.
+const initialIndex = filteredItems.value.findIndex((item) => item.name === props.block.name);
+const activeIndex = ref(initialIndex < 0 ? 0 : initialIndex);
 
 let startX = 0;
 const onStart = (e) => {

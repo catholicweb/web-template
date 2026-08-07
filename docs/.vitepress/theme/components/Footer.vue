@@ -28,7 +28,7 @@
         <div>
           <h3 class="text-xl font-semibold mb-3">{{ config.title }}</h3>
           <p class="mb-2">{{ config.description }}</p>
-          <div class="flex gap-4 items-center mx-auto items-center justify-center">
+          <div class="flex gap-4 items-center mx-auto justify-center">
             <template v-for="(href, index) in config.social">
               <a v-if="href.includes('youtube')" target="_blank" rel="noopener noreferrer" aria-label="Check our Youtube channel" :href="href" class="inline-block hover:text-red-500 transition-colors">
                 <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">

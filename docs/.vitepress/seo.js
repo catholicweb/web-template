@@ -1,4 +1,4 @@
-import { read, write } from "./node_utils.js";
+import { read } from "./node_utils.js";
 import { slugify, groupEvents, formatDate } from "./utils.js";
 
 const config = read("./docs/public/config.json");
@@ -25,16 +25,20 @@ export function getJSONLD(fm, config, path) {
         },
       ];
 
-  return [
-    [
-      "script",
-      { type: "application/ld+json" },
-      JSON.stringify({
-        "@context": "https://schema.org",
-        "@graph": [...locations, ...eventNodes, ...FAQ],
-      }),
-    ],
-  ];
+  // VitePress serializes head-tag children without HTML-escaping, so a site-
+  // supplied value (event/location/map titles, notes, config.title...) containing
+  // "</script>" could close this block and inject arbitrary JS into the page. We
+  // escape <, > and & to their \uXXXX forms — identical after JSON.parse, but
+  // incapable of terminating the <script type="application/ld+json"> tag.
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [...locations, ...eventNodes, ...FAQ],
+  })
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+
+  return [["script", { type: "application/ld+json" }, jsonLd]];
 }
 
 function getOrg(config, path) {

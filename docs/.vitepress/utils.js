@@ -25,15 +25,6 @@ export function groupEvents(events, fields = []) {
   return grouped;
 }
 
-export function toArray(value) {
-  if (Array.isArray(value)) {
-    if (value.length) return value;
-    return [];
-  }
-  if (typeof value === "string") return [value];
-  return [];
-}
-
 export function accessMultikey(obj, multikey) {
   let result = [];
 
@@ -411,7 +402,6 @@ export async function getAddress(lat, lng, name, zoom = 17) {
   if (!lat || !lng) return {};
   let extra = {
     google: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-    //google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${lat},${lng}`,
     osm: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=${zoom}/${lat}/${lng}`,
   };
 

@@ -1,4 +1,4 @@
-import { read, write, fg } from "./node_utils.js";
+import { read, fg } from "./node_utils.js";
 
 export default {
   async load() {
@@ -6,8 +6,6 @@ export default {
     const fundraisings = [];
     const maps = [];
     const pages = [];
-    //const videos = read("./docs/public/videos.json", []);
-    //const events = read("./docs/public/calendar.json", []);
 
     const files = await fg("**/*.md", { cwd: "./docs", absolute: false });
 
@@ -26,7 +24,9 @@ export default {
         data.sections.forEach((section) => {
           if (section._block === "fundraising") {
             section.lang = data.lang;
-            section.progress = (section.raised / section.goal) * 100;
+            // Guard against a missing/zero `goal` (else Infinity/NaN, which
+            // JSON.stringify collapses to null and breaks the progress bar).
+            section.progress = section.goal ? Math.round((section.raised / section.goal) * 100) : 0;
             fundraisings.push(section);
           } else if (section._block === "map") {
             maps.push({

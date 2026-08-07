@@ -1,6 +1,4 @@
 <script setup>
-import { ref, computed } from "vue";
-import { data } from "./../../blocks.data.js";
 import { formatDate, formatWeekdays, slugify } from "./../../utils.js";
 import Image from "./Image.vue";
 import Grid from "./Grid.vue";

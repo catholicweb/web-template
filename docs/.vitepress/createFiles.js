@@ -1,4 +1,4 @@
-import { read, write, fs, path } from "./node_utils.js";
+import { read, write, path } from "./node_utils.js";
 import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
@@ -193,7 +193,10 @@ async function postComplete(fm) {
       fm.sections[i]._block = "gallery";
     }
     if (fm.sections[i]._block == "legal") {
-      // simple hack to avoid 'legal' being translated, update to interpolate text {{}}
+      // The legal block stores its rich content in `.legal`, NOT `.html`. We
+      // render it here fresh so the project summary will translate the contact
+      // data while this legal boilerplate stays as authored (see the TODO about
+      // interpolating {{placeholders}} instead of hardcoding the text).
       fm.sections[i].html = render(fm.sections[i].legal, i);
       fm.sections[i].type = "text";
       fm.sections[i]._block = "gallery";
@@ -212,6 +215,9 @@ async function postComplete(fm) {
       });
     }
 
+    // "video-gospel" renders the audio+books reading set for the *current* page
+    // language: filters become the book list, elements the audio tracks, all
+    // laid out in one horizontal strip.
     if (fm.sections[i]._block == "video-gospel") {
       const { audios, books } = await getAudio(fm.lang);
       fm.sections[i].filters = books;
@@ -219,6 +225,9 @@ async function postComplete(fm) {
       fm.sections[i].elements = audios;
       (fm.sections[i].tags ??= []).push("horizontal");
     }
+    // "video-channel" slices the site's YouTube uploads by keyword: an optional
+    // `filter` narrows globally, `filters[]` is a word-allowlist, and each match
+    // gets an embeddable iframe src + YouTube thumbnail.
     if (fm.sections[i]._block == "video-channel") {
       fm.sections[i].elements = videos
         .filter((obj) =>
@@ -250,9 +259,13 @@ async function postComplete(fm) {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
 
-    if (fm.events) {
-      fm.faq = getEventFAQ(fm.events, fm.lang);
-    }
+  }
+
+  // FAQ derived from the page's events — computed once, after the section loop
+  // (it doesn't depend on per-section state and was previously recomputed on
+  // every iteration).
+  if (fm.events) {
+    fm.faq = getEventFAQ(fm.events, fm.lang);
   }
 }
 
@@ -286,14 +299,17 @@ async function autocomplete(fm) {
       fm.sections[i] = { ...extra, ...fm.sections[i] };
     }
 
+    // Legacy 47herri nav style: the home page shows every non-recurring event
+    // ("byday:empty"), while non-home pages show only events matching the page
+    // title. This replaces fm.events for the whole page.
     if (THEME.navStyle == "47herri") {
       let filter = fm.home ? "byday:empty" : fm.title;
       fm.events = calendar.filter((obj) => applyComplexFilter(obj, filter));
-      fm.faq = getEventFAQ(fm.events);
+      fm.faq = getEventFAQ(fm.events, fm.lang);
     }
   }
-  // remove hidden sections
-  //fm.sections = fm.sections.filter((obj) => !obj.tags?.includes("hidden"));
+  // Sections tagged "hidden" are NOT dropped here: they're filtered out at render
+  // time by Layout.vue (v-if="!section.tags?.includes('hidden')").
 }
 
 function absoluteURL(url) {
@@ -342,27 +358,6 @@ function addMeta(fm) {
   for (var i = 0; i < fm.equiv.length; i++) {
     const hreflang = i == 0 ? "x-default" : getCode(fm.equiv[i].lang);
     fm.head.push(["link", { rel: "alternate", hreflang, href: absoluteURL(fm.equiv[i].href).replace(/index$/, "") }]);
-  }
-}
-
-async function cleanDir(dir) {
-  // beware this allows redirecting users if a filename chagnes...
-  return
-  const files = await fg(["**/*.md", "!aviso-legal.md"], { cwd: dir, absolute: true });
-  for (const file of files) {
-    try {
-      const data = read(file, {}).data;
-      const source = read(data.source, {}).data;
-      const targetUrl = "/" + filename(file, source.title, data.lang).replace("index", "");
-      write(file, {
-        source: data.source,
-        lang: data.lang,
-        head: [["meta", { "http-equiv": "refresh", content: `0; url=${targetUrl}` }]],
-      });
-    } catch (e) {
-      console.log(e);
-      fs.unlinkSync(file);
-    }
   }
 }
 
@@ -451,8 +446,6 @@ async function run() {
   await createManifest();
   videos = await fetchVideos();
   await buildDictionary();
-
-  // Clean output dir and repopulate
 
   // Pages are authored as data (config.pages.list) by the editor, not as .md
   // files — iterate that array instead of globbing docs/public/pages/*.md.

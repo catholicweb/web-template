@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, watch } from "vue";
 import Image from "./Image.vue";
 import Grid from "./Grid.vue";
 import { data } from "./../../blocks.data.js";
@@ -8,12 +8,14 @@ const { page } = useData();
 
 const props = defineProps({ block: { type: Object, required: true } });
 
-let allItems = data.pages.filter((f) => f.lang === page.value.frontmatter.lang);
+// Must be reactive (`ref`) so switching language re-renders the grid — a plain
+// `let` reassigned in the watch below would not trigger a re-render.
+const allItems = ref(data.pages.filter((f) => f.lang === page.value.frontmatter.lang));
 
 watch(
   () => page.value.frontmatter.lang,
-  (lang, from) => {
-    allItems = data.pages.filter((f) => f.lang === lang);
+  (lang) => {
+    allItems.value = data.pages.filter((f) => f.lang === lang);
   },
 );
 </script>

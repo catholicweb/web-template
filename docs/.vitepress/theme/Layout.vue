@@ -44,9 +44,15 @@ function getSectionClasses(tags = []) {
   return classes;
 }
 
-// Get the component matching the block type
+// Get the component matching the block type.
+// NOTE (known limitation — see SANITY.md): only the first hyphen-segment of the
+// `_block` name is used, so multi-word blocks like "scrolly-telling" resolve to
+// "Scrolly" (not "ScrollyTelling") and fall through to Gallery. Unknown or
+// misspelled `_block` values also silently fall back to Gallery (blank section,
+// no console warning). "video-gospel"/"video-channel" -> "Video" and
+// "gallery-feature" -> "Gallery" work by coincidence of the first segment.
 function getBlockComponent(block = "gallery") {
-  // Convert "hero-options" → "Hero"
+  // e.g. "hero" → "Hero"
   const name = block.split("-")[0].replace(/(^\w)/g, (s) => s.toUpperCase());
   return components[name] || components["Gallery"];
 }

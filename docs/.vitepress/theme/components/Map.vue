@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from "vue";
+import { ref, watch } from "vue";
 import LazyItem from "./LazyItem.vue";
 import { data } from "./../../blocks.data.js";
 import { useData, useRoute } from "vitepress";

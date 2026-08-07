@@ -101,6 +101,10 @@ function getTime(t) {
   return `${hora}:${minuto}`;*/
 }
 
+// Normalizes an ICS recurrence option against the subset this factory
+// understands (FREQ/BYDAY/BYMONTH/BYMONTHDAY/BYWEEK). When FREQ is ambiguous it
+// heuristically infers WEEKLY (has a BYDAY) or MONTHLY (mentions a "WEEKn") —
+// see SANITY.md for the caveats.
 function intersectOptions(options, field) {
   options = options.join(",").toUpperCase().split(",");
   const validValues = {
