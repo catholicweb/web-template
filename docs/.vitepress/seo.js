@@ -3,6 +3,16 @@ import { slugify, groupEvents, formatDate } from "./utils.js";
 
 const config = read("./docs/public/config.json");
 
+// Resolve a media/logo value for JSON-LD. Values are absolute URLs now
+// (https://data.parroquia.app/<slug>/..) and must pass through untouched —
+// only a genuinely relative value gets the site base prepended. Avoids a
+// double origin (e.g. `https://site/https://data.parroquia.app/...`).
+function mediaUrl(baseUrl, u) {
+  if (!u) return u;
+  if (/^(https?:)?\/\//.test(u)) return u;
+  return String(baseUrl || "").replace(/\/$/, "") + "/" + String(u).replace(/^\/+/, "");
+}
+
 export function getJSONLD(fm, config, path) {
   const locations = getLocations(fm, config, path);
   const eventNodes = events2JSONLD(fm, config, path);
@@ -58,7 +68,7 @@ function getOrg(config, path) {
     logo: config.dev?.siteurl + "/icon-512.png",
     name: config.title,
     description: config.description,
-    image: baseUrl + "/" + config.image,
+    image: mediaUrl(baseUrl, config.image),
     telephone: config.collaborators?.[0]?.phone,
     email: config.collaborators?.[0]?.email,
     address: {
@@ -172,7 +182,7 @@ function getLocations(data, config, path) {
           longitude: longitude,
         },
         hasMap: [section.google, section.osm].filter(Boolean),
-        image: baseUrl + (section.image || data.image || config.image),
+        image: mediaUrl(baseUrl, section.image || data.image || config.image),
         telephone: config.collaborators?.[0]?.phone,
         email: config.collaborators?.[0]?.email,
         url: getID(baseUrl, path, section.name),
@@ -292,7 +302,7 @@ function buildEventInstance(event, date, time, baseUrl, path) {
     startDate: `${date}T${time}`,
     endDate: getEndDate(`${date}T${time}`, 60),
     location: event.locations.map((loc) => ({ "@id": getID(baseUrl, loc) })),
-    image: event.images ? event.images.map((i) => baseUrl + i) : undefined,
+    image: event.images ? event.images.map((i) => mediaUrl(baseUrl, i)) : undefined,
     description: event.notes ? event.notes.join(". ") : undefined,
     eventSchedule: event.byday?.length ? { "@id": getID(baseUrl, path, event.title) } : undefined,
     eventStatus: "https://schema.org/EventScheduled",
