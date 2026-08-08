@@ -370,8 +370,8 @@ function addMeta(fm) {
 // array context a whole-string placeholder that resolves to an array is spliced
 // in (e.g. `list: ["{images}"]` -> `list: ["a.webp","b.webp"]`).
 function substitute(template, place) {
-  // `images` is the placeholder used by templates; the data field is `image`.
-  const ctx = { ...place, images: place.image };
+  const tags = Object.fromEntries((place.tags || []).map(item => [item.key, item.value]))
+  const ctx = { ...place, image: place.images?.[0], ...tags };
   // The editor authors placeholders as `{{name}}` (double braces); also accept
   // the legacy single-brace `{name}` form. A whole-string token splices the raw
   // value (arrays intact); inline tokens are string-substituted.
@@ -475,9 +475,6 @@ async function run() {
         title: place.name,
         slug,
         home: false,
-        // Carry the place's source-page path so the emitted frontmatter `source:`
-        // matches the legacy pipeline (./pages/<stem>.md).
-        source: place.source,
       });
     }
   }

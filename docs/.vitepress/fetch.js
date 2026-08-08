@@ -98,7 +98,7 @@ export function normalizeConfig(raw) {
  */
 export async function fetchConfig(slug) {
   if (!slug) throw new Error("fetchConfig: no slug provided (set SITE_SLUG or pass <slug>)");
-  const url = `${DATA}/${slug}/config.json`;
+  const url = `${DATA}/${slug}/config.json?t=${Date.now()}`;
   console.log(`fetch: downloading ${url}`);
   const res = await fetch(url, { cache: "no-cache" });
   if (!res.ok) {
@@ -188,9 +188,9 @@ export async function fetchDataFiles(slug, config) {
   const origin = siteOrigin(config, slug);
   // dictionary.json + buildtimecache.json + videos.json ride along in the site
   // build output (docs/public/ -> deployed site root)
-  await downloadDataFile("dictionary.json", `${origin}/dictionary.json`, {});
-  await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json`, {});
-  await downloadDataFile("videos.json", `${origin}/videos.json`, []);
+  await downloadDataFile("dictionary.json", `${origin}/dictionary.json?t=${Date.now()}`, {});
+  await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json?t=${Date.now()}`, {});
+  await downloadDataFile("videos.json", `${origin}/videos.json?t=${Date.now()}`, []);
   //await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
 }
 
