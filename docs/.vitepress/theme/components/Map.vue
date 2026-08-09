@@ -50,8 +50,8 @@ async function loadMap() {
 
   L = LeafletModule.default || LeafletModule;
 
-  // Try load the geojson file (if any)
-  fetch("/map.geojson")
+  // Try load the geojson file (if any) — served per-site from the data host
+  fetch(`${__DATA_BASE__}/map.geojson`)
     .then((response) => response.json()) // Convert the response to JSON
     .then((data) => {
       L.geoJSON(data).addTo(map);

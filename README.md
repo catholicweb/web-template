@@ -15,7 +15,7 @@ The pipeline has three stages:
 
 1. **User input** — site content lives in a remote R2 bucket (behind the config-api)
    and is edited with the online editor (`editor.parroquia.app`), not on git.
-2. **Adapter** — `npm run docs:before-build` downloads the site's remote `config.json`
+2. **Adapter** — `npm run before-build` downloads the site's remote `config.json`
    (via `fetch.js`) and processes the pages/events it contains into the files Vitepress
    needs.
 3. **Render** — VitePress + Tailwind CSS v4 turn the processed content into a static
@@ -26,8 +26,8 @@ The pipeline has three stages:
 ```bash
 npm install
 node docs/.vitepress/fetch.js <site-slug>
-npm run docs:before-build
-npm run docs:build # or npm run docs:dev
+npm run before-build
+npm run build # or npm run dev
 ```
 
 ## Stage 1. User input: the editor + API
@@ -54,7 +54,7 @@ from the data host, all into `docs/public/`. Media is served remotely — it is
 never downloaded or transformed locally. See
 [CLAUDE.md](CLAUDE.md) for the env overrides and the cross-repo data contract.
 
-## Stage 2. The adapter: 'npm run docs:before-build'
+## Stage 2. The adapter: 'npm run before-build'
 
 This is the key stage: it takes the materialized content and processes it, creating the
 files stage 3 (Vitepress) needs to render. It reads the site's pages, translates and
@@ -62,7 +62,7 @@ enriches them (transform/fetch resources/...) and saves them per language under
 `docs/*.md`.
 
 ```bash
-npm run docs:before-build
+npm run before-build
 ```
 
 Key bits are:
@@ -80,9 +80,9 @@ Key bits are:
 Takes the processed content at `docs/*.md` and creates a magnificent website.
 
 ```bash
-npm run docs:build
+npm run build
 	# or
-npm run docs:dev
+npm run dev
 ```
 
 Key elements are:
@@ -95,7 +95,7 @@ Key elements are:
 This single repository builds and deploys one Cloudflare Pages project per site. A
 GitHub Actions workflow (`.github/workflows/deploy.yml`) is triggered with a
 `site_slug`; the `prepare` job validates the slug, the `build` job runs
-`fetch.js <slug>` → `docs:before-build` → `docs:build` and uploads the
+`fetch.js <slug>` → `before-build` → `build` and uploads the
 artifact with a zero-scoped token, and the `deploy` job pushes that artifact to the
 Cloudflare Pages project named after the slug. A fleet workflow
 (`.github/workflows/dispatch-fleet.yml`) fans out a build per known site on content

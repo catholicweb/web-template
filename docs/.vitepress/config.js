@@ -8,6 +8,9 @@ import { generateNav, locales } from "./navBar.js";
 import { getFontCSS } from "./css.js";
 
 const config = read("./docs/public/config.json");
+const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
+// Trusted per-site data base — set by SITE_SLUG / config._media.base in fetch.js.
+const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}`;
 
 export default defineConfig(async () => {
   const { preloads } = await getFontCSS(config.theme);
@@ -40,6 +43,9 @@ export default defineConfig(async () => {
       return getJSONLD(pageData.frontmatter, config, path);
     },
     vite: {
+      define: {
+        __DATA_BASE__: JSON.stringify(DATA_BASE),
+      },
       plugins: [
         VitePWA({
           strategies: "injectManifest",

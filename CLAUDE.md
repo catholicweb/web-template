@@ -11,17 +11,17 @@ Web-template is a **site factory**, not a single website. It ships the machinery
 Files are produced in a 3-stage pipeline:
 
 1. **User input** — site content (site configuration, pages, events, media) lives in a remote R2 bucket behind config-api and is edited with the online editor (`editor.parroquia.app`), not on git. It is materialized at build time by `fetch.js` (which downloads the remote `config.json`, plus the previously published `dictionary.json`, `videos.json`, and `buildtimecache.json`, into `docs/public/`), not committed here. No `.md` files or images are downloaded — media is served remotely (no query params, quality is fixed server-side), and pages/events live inside `config.json`.
-2. **Adapter** — `npm run docs:before-build` runs `createFiles.js`, which reads `docs/public/config.json`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
+2. **Adapter** — `npm run before-build` runs `createFiles.js`, which reads `docs/public/config.json`, enriches and translates each page per language, and writes the renderable output to `docs/*.md`.
 3. **Render** — VitePress + Tailwind v4 + a custom theme turn `docs/*.md` into the static site.
 
 ## Commands
 
 ```bash
 npm install                       # install deps
-npm run docs:dev                  # VitePress dev server (http://localhost:5173)
-npm run docs:before-build         # REQUIRED before build — runs createFiles.js adapter
-npm run docs:build                # build static site → docs/.vitepress/dist
-npm run docs:preview              # preview the built site
+npm run dev                  # VitePress dev server (http://localhost:5173)
+npm run before-build         # REQUIRED before build — runs createFiles.js adapter
+npm run build                # build static site → docs/.vitepress/dist
+npm run preview              # preview the built site
 node docs/.vitepress/test.js      # manual scratch script (not a test suite — no test runner exists)
 ```
 
@@ -31,9 +31,9 @@ Materialize the remote content (see config-api):
 node docs/.vitepress/fetch.js <slug>    # download remote site data -> docs/public/ (config.json + dictionary/videos/buildtimecache)
 ```
 
-`fetch.js` env overrides: `SITE_SLUG` (slug, or pass as CLI arg), `PARROQUIA_DATA` (public read host, default `https://data.parroquia.app`), `PARROQUIA_LOCAL_ROOT` (default `./docs/public`). `createFiles.js` also calls `fetchConfig()` at the top of its `run()`, so a bare `docs:before-build` re-materializes config automatically when `SITE_SLUG` is set.
+`fetch.js` env overrides: `SITE_SLUG` (slug, or pass as CLI arg), `PARROQUIA_DATA` (public read host, default `https://data.parroquia.app`), `PARROQUIA_LOCAL_ROOT` (default `./docs/public`). `createFiles.js` also calls `fetchConfig()` at the top of its `run()`, so a bare `before-build` re-materializes config automatically when `SITE_SLUG` is set.
 
-**Deployment order matters**: the GitHub workflow runs `fetch.js <slug>` → `docs:before-build` → `docs:build`. `createFiles.js` expects `docs/public/config.json` to exist, so a local `docs:before-build`/`docs:build` needs `fetch.js` run first (or `SITE_SLUG` set).
+**Deployment order matters**: the GitHub workflow runs `fetch.js <slug>` → `before-build` → `build`. `createFiles.js` expects `docs/public/config.json` to exist, so a local `before-build`/`build` needs `fetch.js` run first (or `SITE_SLUG` set).
 
 ## Architecture
 

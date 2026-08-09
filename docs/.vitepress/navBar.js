@@ -54,10 +54,12 @@ function tr(str, lang) {
 function resolveLink(link, pages, rawList) {
   if (link == null) return null;
   const s = String(link);
-  // id match wins (future editor ids; a numeric id, if ever assigned, takes
-  // precedence over the positional index).
+  // id match wins
   const byId = pages.find((p) => p.id != null && String(p.id) === s);
   if (byId) return byId;
+  // name follows
+  const byName = pages.find((p) => p.name != null && String(p.name) === s);
+  if (byName) return byName;
   // all-digits -> index into pages.list.
   if (/^\d+$/.test(s)) {
     const raw = rawList[Number(s)];

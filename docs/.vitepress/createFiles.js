@@ -19,7 +19,7 @@ import sharp from "sharp";
 
 // Config is materialized by fetch.js (downloads + normalizes the remote
 // config.json into ./docs/public/config.json). It's loaded lazily so a bare
-// local `npm run docs:before-build` can run fetchConfig() first.
+// local `npm run before-build` can run fetchConfig() first.
 let config = read("./docs/public/config.json");
 
 // Remote media: images are served from the data host with no local

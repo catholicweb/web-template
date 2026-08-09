@@ -84,10 +84,10 @@ jobs:
           # never echo it. The key's blast radius is bounded by restricting it
           # in the OpenRouter dashboard to the translation model(s) + a credit cap.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: npm run docs:before-build
+        run: npm run before-build
 
       - name: Build with VitePress
-        run: npm run docs:build
+        run: npm run build
 
       - name: Upload build output
         id: upload
