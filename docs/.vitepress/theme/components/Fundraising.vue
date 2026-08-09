@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import Grid from "./Grid.vue";
+import Image from "./Image.vue";
 import { data } from "./../../blocks.data.js";
 import { useData } from "vitepress";
 const { theme, page } = useData();
@@ -18,7 +19,7 @@ const cards = computed(() => data.fundraisings.filter((f) => f.lang === page.val
         <!-- Image Section -->
         <div class="relative aspect-16/9 overflow-hidden">
           <div class="absolute inset-0 flex items-center justify-center">
-            <img :src="card.image" loading="lazy" :alt="card.title" class="w-full h-full object-cover" />
+            <Image :src="card.image" :index="index" :alt="card.title" class="w-full h-full object-cover" />
           </div>
         </div>
 

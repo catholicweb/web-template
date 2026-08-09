@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted } from "vue";
+import Image from "./Image.vue";
 
 const props = defineProps({
   images: { type: Array, required: true },
@@ -27,7 +28,7 @@ onUnmounted(() => window.removeEventListener("keydown", handleKeydown));
     <button @click="closeModal" class="absolute top-5 right-10 text-white text-4xl hover:opacity-70">&times;</button>
 
     <div class="flex-1 flex items-center justify-center w-full">
-      <img :src="images[activeIndex].image" :alt="images[activeIndex].alt" class="max-h-[75vh] max-w-full rounded shadow-2xl object-contain" />
+      <Image :src="images[activeIndex].image" :alt="images[activeIndex].alt" class="max-h-[75vh] max-w-full rounded shadow-2xl object-contain" />
     </div>
 
     <div class="h-20 w-full flex items-center justify-center gap-2 mt-4">

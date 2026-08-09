@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
+import Image from "./Image.vue";
 
 let props = defineProps({
   block: {
@@ -25,7 +26,7 @@ onUnmounted(() => clearInterval(timer));
   <div class="carousel w-full text-center">
     <div class="relative mx-auto container px-8 h-[10vh]">
       <div v-for="(item, i) in block.elements" :key="i" class="absolute inset-0 w-full transition-all duration-2000 ease-in-out" :class="{ 'opacity-100': current === i, 'opacity-0': current !== i }">
-        <img :src="item.image" class="w-full object-cover aspect-16/9" alt="" />
+        <Image :src="item.image" class="w-full object-cover aspect-16/9" alt="" />
         <div class="bg-black/50 opacity-75 text-white p-4 w-full">
           <h3 class="text-lg font-semibold">{{ item.title }}</h3>
           <p class="text-sm">{{ item.description }}</p>
