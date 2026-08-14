@@ -79,6 +79,22 @@ To add a build step or a fetched data source, follow the pattern of the existing
 
 `docs/.vitepress/config.js` reads `docs/public/config.json` and derives VitePress locales, nav, title/description, fonts (`css.js`), and theme. `config.js` is the VitePress entry: it wires up `VitePWA` (injectManifest strategy, SW source `docs/.vitepress/sw.js`), SEO JSON-LD (`seo.js`), and Google Fonts.
 
+### Look & feel: the `theme` object
+
+`config.theme` is the single source of site appearance. Beyond colors and fonts, it now drives several design tokens and structural layouts, all with defaults that keep existing sites looking close to before:
+
+**Design tokens** (generated into the Tailwind `@theme` block by `css.js` `printCSS()`, so every component's `rounded-*` / `shadow-*` utility auto-updates — no per-component edits needed):
+- `theme.radius`: `sharp | soft | rounded | pill` (default `soft` ≈ current Tailwind values). Emits `--radius-sm…3xl`; `--radius-full` stays `9999px`.
+- `theme.shadow`: `none | light | medium | strong` (default `medium` ≈ current). Emits `--shadow-sm…xl`.
+- `theme.container`: `wide` (default, `80rem`). Declarative `--container-max` token, ready to extend.
+
+**Structural options** (branch in components):
+- `theme.navStyle`: `default | 47herri | centered | minimal | two-row | solid-dark` (default `default`). Handled in `Navbar.vue` via a per-style class map (`NAV_STYLES`); `centered` centers links, `minimal` shows only a hamburger, `two-row` stacks logo above links, `solid-dark` uses a dark bar. `47herri` keeps its hero-image scrim + `EventCards` behavior.
+- `theme.footerStyle`: `auto | standard | minimal | expanded` (default `auto`). Handled in `Footer.vue`; `auto` shows only the columns (contact / description+social / bank) that actually have data and gives richer sections more grid space (`md:col-span-2`), `standard` is the legacy 3-column, `minimal` is copyright + one contact line, `expanded` adds a nav-links column and a full-width social row.
+- `theme.buttonStyle`: `solid | outline | soft | pill` (default `solid`). `css.js` emits override CSS keyed by a `data-theme-button` attribute that `config.js`'s `transformHead` injects on `<html>`; `outline`/`soft` retarget `.bg-accent` CTAs and `pill` adds horizontal padding.
+
+Defaults are applied with `||` fallbacks in `css.js` `printCSS()`, so configs that omit these fields render the legacy look.
+
 ### The block/component rendering system
 
 Page markdown frontmatter carries a `sections[]` array. Each section has `_block` (block type), `type`, `tags`, and block-specific fields. `theme/Layout.vue` renders `<main>` by iterating `sections` and mapping each `_block` → a Vue component via `getBlockComponent()` (first token, capitalized, e.g. `hero-options` → `Hero`, falls back to `Gallery`). Section classes come from `tags` (`dark`, `twocols`, `hidden`...). New block types = new component in `theme/components/` + a `_block` value; the `_block` taxonomy mirrors the site schema served by the editor/API (see config-api).

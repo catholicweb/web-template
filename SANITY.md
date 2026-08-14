@@ -94,3 +94,20 @@ listed below as **Deferred** with a rationale. This file is the record; see the 
   `carousel` branch, and `Grid.vue`'s `tags:['carousel']`. Consolidation candidate.
 - `ScrollyTelling.vue` (unreachable via the mapper, #7) and its global `.step` selector would
   both need attention if the block is re-enabled.
+
+## Notes from "maximum customization" idea
+
+- **Deferred: named theme presets** (e.g. "Elegant", "Modern"). The discrete `theme.*` options
+  added here (`radius`, `shadow`, `buttonStyle`, `navStyle`, `footerStyle`) compose into presets
+  later with no new machinery.
+- **Deferred: `theme.container` beyond `wide`.** Only `wide` (`80rem`) exists; the
+  `--container-max` token is declared so `narrow`/`full` can be added by extending the
+  `CONTAINER_WIDTHS` map in `css.js`.
+- **Known pre-existing inconsistency (not fixed):** `css.js` sets `--color-primary` from
+  `theme.accentPrimary` but `--primary-angle` from `theme.primaryColor` — two different fields.
+  A config that sets them differently gets a mismatched gradient angle. Left as-is to avoid a
+  breaking schema change; sites should set both fields identically.
+- **Caveat:** the `buttonStyle` override CSS targets `.bg-accent` on `<a>`/`<button>`; any
+  non-interactive accent badge also carrying `bg-accent` is unaffected because it isn't an
+  `<a>`/`<button>`, but a CTA that intentionally uses a non-accent class (e.g. `bg-primary`)
+  won't get the override and can use the `theme.styles` escape hatch.
