@@ -100,20 +100,3 @@ artifact with a zero-scoped token, and the `deploy` job pushes that artifact to 
 Cloudflare Pages project named after the slug. A fleet workflow
 (`.github/workflows/dispatch-fleet.yml`) fans out a build per known site on content
 changes and nightly.
-
-## Native app (`app/`, Capacitor)
-
-A single native **"home" launcher** app (not per-site) lets users pick their parish once and
-then open it in an embedded full-screen WebView on every launch. The site list is fetched
-live from the parroquia API each time and cached; the current choice is stored in the app.
-
-```bash
-npm run app:build   # build the launcher -> app/dist
-npm run app:add     # generate the Android native project (app/android)
-npm run app:sync    # copy the launcher build into the native project
-npm run app:run     # build + install to a connected device/emulator
-```
-
-Native projects are generated on demand (not committed). See the "Native 'home' app
-(Capacitor)" section in `CLAUDE.md` for details and the build-env notes (needs Node ≥22,
-Android SDK + JDK for APK builds, a Mac for iOS).

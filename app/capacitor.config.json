@@ -1,9 +1,0 @@
-{
-  "appId": "com.parroquia.app",
-  "appName": "Parroquia",
-  "webDir": "dist",
-  "backgroundColor": "#ffffff",
-  "android": {
-    "allowMixedContent": false
-  }
-}

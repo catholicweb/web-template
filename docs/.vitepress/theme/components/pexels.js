@@ -5,9 +5,10 @@
 //
 // Convenio de atribución (contrato con docs/.vitepress/theme/lib/pexels.js del
 // editor): la política de Pexels exige mostrar el nombre del fotógrafo, así que
-// las URLs guardadas pueden llevar un param de query propio — `photographer`
-// (nombre, URL-encoded). Aquí se preserva (URLSearchParams) y PexelsCredit.vue
-// lo lee. NO cambiar este nombre sin actualizar el otro repo.
+// las URLs guardadas pueden llevar dos params de query propios — `photographer`
+// (nombre, URL-encoded) y `url` (página de la foto en pexels.com, URL-encoded).
+// Aquí se preservan (URLSearchParams) y PexelsCredit.vue los lee. NO cambiar
+// estos nombres sin actualizar el otro repo.
 
 import { DEFAULT_WIDTHS } from "./unsplash.js";
 
@@ -24,7 +25,7 @@ export function isPexelsUrl(src) {
 }
 
 // Copia de la URL con el ancho aplicado. Se preserva cualquier query previa
-// (p. ej. auto=compress&cs=tinysrgb y el param de atribución photographer)
+// (p. ej. auto=compress&cs=tinysrgb y los params de atribución photographer/url)
 // y se sobrescribe `w`. Se eliminan `dpr` y `h`: las URLs de `large2x` traen
 // `dpr=2&h=650`, que duplicarían o recortarían el ancho pedido y distorsionarían
 // el aspect ratio.

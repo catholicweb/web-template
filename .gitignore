@@ -5,13 +5,3 @@ docs/.vitepress/theme/style.css
 docs/.vitepress/cache
 docs/.vitepress/dist
 *.log
-
-# Capacitor "home" app — the launcher web build and the native projects are
-# generated on demand (npm run app:build / app:add), so none are committed.
-# The repo keeps the template machinery, not per-site native projects.
-app/dist/
-app/android/
-app/ios/
-app/resources/
-app/.gradle/
-app/android/local.properties
