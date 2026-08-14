@@ -272,7 +272,7 @@ async function postComplete(fm) {
   }
 }
 
-// Resolve a `_block:"links"` value that is a page ref (uuid `name`, or `id`) into a
+// Resolve a `_block:"links"` value that is a page ref (stable `id`) into a
 // card element carrying that page's data plus a `file` set to the page's output
 // slug, so postComplete's link builder (lines ~212-219) emits a correct
 // per-language href — mirroring navBar.resolveLink. Returns null for .md paths,
