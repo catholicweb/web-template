@@ -1,5 +1,7 @@
 <script setup>
+import { computed } from "vue";
 import UnsplashCredit from "./UnsplashCredit.vue";
+import { buildUnsplashSrcset } from "./unsplash.js";
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -11,6 +13,12 @@ const props = defineProps({
 
 // Media srcs are baked to absolute remote URLs, e.g.
 // https://data.parroquia.app/{slug}/{token}.webp — no query params.
+
+// Para URLs de Unsplash se genera un srcset responsive a partir de los
+// parámetros de su CDN (w/auto/q); cualquier otro src queda intacto (sin srcset).
+const DEFAULT_SIZES = "(min-width: 1024px) 50vw, 100vw";
+const srcset = computed(() => buildUnsplashSrcset(props.src));
+const isResponsive = computed(() => srcset.value != null);
 </script>
 
 <template>
@@ -18,6 +26,6 @@ const props = defineProps({
        bloques pasan clases de posicionamiento directamente al img (p. ej.
        `absolute inset-0`), y envolverlo rompería esos layouts. UnsplashCredit
        se autoposiciona y no pinta nada salvo que el src sea de Unsplash. -->
-  <img :src="src" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
+  <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
   <UnsplashCredit :src="src" />
 </template>
