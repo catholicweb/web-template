@@ -272,13 +272,39 @@ async function postComplete(fm) {
   }
 }
 
-async function autocomplete(fm) {
+// Resolve a `_block:"links"` value that is a page ref (uuid `name`, or `id`) into a
+// card element carrying that page's data plus a `file` set to the page's output
+// slug, so postComplete's link builder (lines ~212-219) emits a correct
+// per-language href — mirroring navBar.resolveLink. Returns null for .md paths,
+// external URLs, and unknown refs; the caller then falls back to getPreview.
+function resolveLinkElement(url, pages, translatedNames) {
+  if (
+    typeof url !== "string" ||
+    url.endsWith(".md") ||
+    /^(https?:)?\/\//.test(url) ||
+    url.startsWith("/")
+  ) {
+    return null;
+  }
+  const s = url;
+  const page =
+    pages.find((p) => p.id != null && String(p.id) === s) ||
+    pages.find((p) => p.name != null && String(p.name) === s);
+  if (!page) return null;
+  const file = page.slug + (translatedNames ? ".md" : ""); // index.md / index both handled by filename()
+  return { title: page.title || "", description: page.description || "", image: page.image || "", aspect: 16 / 9, file };
+}
+
+async function autocomplete(fm, pages) {
   console.log("autocomplete: ", fm.title);
   if (!fm.sections) return;
+  const translatedNames = config.pages?.filenameMode !== "original";
   for (var i = 0; i < fm.sections.length; i++) {
     fm.sections[i].index = i;
     if (fm.sections[i].links) {
-      fm.sections[i].elements = await Promise.all(fm.sections[i].links.map((url) => getPreview(url)));
+      fm.sections[i].elements = await Promise.all(
+        fm.sections[i].links.map((url) => resolveLinkElement(url, pages, translatedNames) || getPreview(url))
+      );
     }
     if (fm.sections[i]._block == "links") {
       fm.sections[i]._block = "gallery-feature";
@@ -491,7 +517,7 @@ async function run() {
     data.home = slug == "index" || !!page.home;
     data.source = page.source || (data.home ? "/" : "/" + slug); // 47herri home marker (see autocomplete)
 
-    await autocomplete(data);
+    await autocomplete(data, pages);
 
     // Output basenames are per-language by default: each .md is named from that
     // language's translated title — slug(translate(title)) — e.g. es/imprimir.md,
