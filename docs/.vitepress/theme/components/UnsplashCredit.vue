@@ -1,16 +1,20 @@
 <script setup>
 // Atribución mínima y no intrusiva para imágenes de Unsplash. Las directrices
-// de Unsplash exigen dar crédito (enlazando a la página de la foto) cuando se
-// usan sus imágenes; aquí se *autodetecta* automáticamente desde la URL: si el
-// src apunta a `images.unsplash.com`, se deriva la página de la foto
-// (`https://unsplash.com/photos/<id>`) y se pinta una pequeña píldora
-// «Foto: Unsplash» en la esquina inferior derecha.
+// de Unsplash exigen dar crédito al fotógrafo (nombre + enlace a la página de
+// la foto). El editor guarda la URL de images.unsplash.com con un param de
+// query — `photographer` — cuando está disponible, así que aquí se lee desde
+// la URL para pintar el nombre; si no está presente (imágenes guardadas antes
+// de este cambio), se muestra «Foto: Unsplash».
+//
+// Además se deriva la página de la foto a partir del pathname de la CDN
+// (https://images.unsplash.com/photo-<id>) para construir el enlace de
+// atribución con los utm params que exige Unsplash.
 //
 // El componente se coloca como *hermano* del <img> (no lo envuelve): así no
 // rompe las clases de diseño que los bloques pasan directamente al img (p. ej.
 // `absolute inset-0` en el Hero). Se posiciona de forma absoluta contra el
 // contenedor posicionado más cercano, que suele coincidir con el área de la
-// imagen. Si el src no es de Unsplash no se pinta nada (solo un comentario).
+// imagen. Si el src no es de Unsplash no se pinta nada.
 
 import { computed } from "vue";
 import { isUnsplashUrl } from "./unsplash.js";
@@ -38,7 +42,22 @@ function unsplashPhotoUrl(src) {
   return `https://unsplash.com/photos/${m[1]}?${UTM_PARAMS}`;
 }
 
+function unsplashPhotographer(src) {
+  if (!isUnsplashUrl(src)) return null;
+  let url;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+  return url.searchParams.get("photographer") || null;
+}
+
 const creditUrl = computed(() => unsplashPhotoUrl(props.src));
+const label = computed(() => {
+  const name = unsplashPhotographer(props.src);
+  return name ? `Foto: ${name}` : "Foto: Unsplash";
+});
 </script>
 
 <template>
@@ -47,10 +66,10 @@ const creditUrl = computed(() => unsplashPhotoUrl(props.src));
     :href="creditUrl"
     target="_blank"
     rel="noopener"
-    title="Foto de Unsplash"
+    :title="label"
     class="absolute bottom-1.5 right-1.5 z-20 rounded-full bg-black/55 px-2 py-0.5 text-[11px] leading-none text-white/90 no-underline transition-colors hover:bg-black/75 hover:text-white"
     @click.stop
   >
-    Foto: Unsplash
+    {{ label }}
   </a>
 </template>

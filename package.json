@@ -6,10 +6,17 @@
     "before-build": "node docs/.vitepress/createFiles.js",
     "dev": "vitepress dev docs",
     "build": "vitepress build docs",
-    "preview": "vitepress preview docs"
+    "preview": "vitepress preview docs",
+    "app:build": "cd app && vite build",
+    "app:sync": "cd app && cap sync android",
+    "app:add": "cd app && cap add android",
+    "app:open": "cd app && cap open android",
+    "app:run": "cd app && cap run android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "prettier": "^3.6.2",
+    "vite": "^5.4.21",
     "vite-plugin-pwa": "^1.2.0",
     "workbox-core": "^7.4.0",
     "workbox-precaching": "^7.4.0",
@@ -17,6 +24,11 @@
     "workbox-strategies": "^7.4.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/inappbrowser": "^4.0.2",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/preferences": "^8.0.0",
     "@tailwindcss/postcss": "^4.1.16",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.16",
