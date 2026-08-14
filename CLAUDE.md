@@ -35,6 +35,32 @@ node docs/.vitepress/fetch.js <slug>    # download remote site data -> docs/publ
 
 **Deployment order matters**: the GitHub workflow runs `fetch.js <slug>` → `before-build` → `build`. `createFiles.js` expects `docs/public/config.json` to exist, so a local `before-build`/`build` needs `fetch.js` run first (or `SITE_SLUG` set).
 
+### Native "home" app (Capacitor)
+
+Alongside the web factory there is a single native **launcher** app in `app/` — not per-site:
+it lists every published parish (fetched live from the parroquia API) and opens the chosen
+site inside an embedded full-screen WebView, remembering the choice across launches
+(system back navigates the site's history, then closes back to the picker).
+
+```bash
+npm run app:build   # build the launcher web app -> app/dist (Capacitor webDir)
+npm run app:add     # generate the Android native project under app/android
+npm run app:sync    # copy app/dist into the native project (+ sync plugins)
+npm run app:open    # open app/android in Android Studio
+npm run app:run     # sync + build + install to an attached device/emulator
+```
+
+- Config lives in `app/capacitor.config.json` (appId/name/webDir — keep it a plain JSON
+  file: reading it as `.ts` would pull a TypeScript dependency into the build); the launcher
+  UI is a small Vite app (`app/` — isolated from the VitePress docs/ pipeline).
+- WebView loading uses first-party `@capacitor/inappbrowser` (`openInWebView`,
+  `android.hardwareBack` for the back-to-picker flow). See `app/src/main.js`.
+- Native projects (`app/android`, `app/ios`) are **generated and gitignored** — only the
+  template machinery is committed, matching the repo's content model.
+- **Build env**: Capacitor 8 needs Node ≥22 (see `.nvmrc`). Compiling a real `.apk` needs
+  the Android SDK + a JDK (not available on this box); iOS needs a Mac. Native push (APNs/FCM)
+  is deliberate not wired up yet — the web-PWA push is untouched.
+
 ## Architecture
 
 ### Build is a plain Node CLI pipeline (not a Vite plugin)
