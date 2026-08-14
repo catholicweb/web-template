@@ -49,7 +49,7 @@ function tr(str, lang) {
 }
 
 // Resolve a nav link to an emitted page. Link is either a page id (the editor's
-// random hidden ids) or an all-digits index into pages.list. Never throws;
+// stable id) or an all-digits index into pages.list. Never throws;
 // returns null for unresolvable/skippable links.
 function resolveLink(link, pages, rawList) {
   if (link == null) return null;

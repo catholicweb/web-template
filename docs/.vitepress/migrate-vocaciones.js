@@ -16,11 +16,11 @@
  *   - Every *.md page becomes a pages.list entry (frontmatter copied verbatim,
  *     source path preserved, no authored slug — createFiles derives basenames
  *     from the translated title per language via the default filenameMode).
- *   - Each pages.list entry gets a `name` key = a random uuid. Internal links —
+ *   - Each pages.list entry gets an `id` key = a random uuid. Internal links —
  *     both in `_block:"links"` section `links[]` arrays and in `config.nav`
  *     `links[]` — are rewritten from the old file-path form ("pages/<stem>.md")
- *     to that target page's uuid (the "new link format"; navBar.js and
- *     createFiles.js both resolve uuids to hrefs at build time).
+ *     to that target page's id (the "new link format"; navBar.js and
+ *     createFiles.js both resolve ids to hrefs at build time).
  *   - Every `/media/<name>.{ext}` reference (image fields, gallery lists, inline
  *     ![]() inside rich text) is normalized through the shared media-naming
  *     helper to `/media/<flat>.webp`, so createFiles.resolveMedia rewrites it to
@@ -75,7 +75,7 @@ function normalizeMediaStrings(node) {
   return node;
 }
 
-// Rewrite a file-path link ("pages/<stem>.md") to its target page's uuid.
+// Rewrite a file-path link ("pages/<stem>.md") to its target page's id.
 // External URLs and unknown values are left untouched.
 const LINK_RE = /^pages\/(.+)\.md$/;
 function rewriteLink(link, stemToUuid) {
@@ -96,7 +96,7 @@ function buildConfig() {
     .map((f) => f.replace(/\.md$/, ""));
   const ordered = ["index", ...stems.filter((s) => s !== "index").sort()];
 
-  // Each page gets a fresh random uuid as its `name` (the new link identifier).
+  // Each page gets a fresh random uuid as its `id` (the new link identifier).
   const stemToUuid = new Map(ordered.map((stem) => [stem, crypto.randomUUID()]));
 
   const pages = ordered.map((stem) => {
@@ -116,13 +116,13 @@ function buildConfig() {
     if (typeof page.description === "string" && page.description.includes("/media/")) {
       page.description = normalizeMediaStrings(page.description);
     }
-    page.name = stemToUuid.get(stem);
+    page.id = stemToUuid.get(stem);
     page.source = "./pages/" + stem + ".md";
     if (stem === "index") page.slug = "index";
     return page;
   });
 
-  // Rewrite the manual nav links (file path -> uuid) now that every page has one.
+  // Rewrite the manual nav links (file path -> id) now that every page has one.
   const nav = Array.isArray(site.nav)
     ? site.nav.map((section) => ({
         ...section,
@@ -162,7 +162,7 @@ fs.writeFileSync(outPath, JSON.stringify(config, null, 2), "utf8");
 
 console.log(`migrate-vocaciones: wrote ${outPath}`);
 console.log(`  pages.list: ${config.pages.list.length}`);
-console.log(`  nav sections: ${config.pages.nav?.length ?? 0} (links use uuids)`);
+console.log(`  nav sections: ${config.pages.nav?.length ?? 0} (links use ids)`);
 console.log(`  calendar.events.list: ${config.calendar.events.list.length} (urls: ${config.calendar.events.urls.length})`);
 
 // CLI-only script: always run the build above.
