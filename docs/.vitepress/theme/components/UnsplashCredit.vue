@@ -13,6 +13,7 @@
 // imagen. Si el src no es de Unsplash no se pinta nada (solo un comentario).
 
 import { computed } from "vue";
+import { isUnsplashUrl } from "./unsplash.js";
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -25,14 +26,13 @@ const UTM_PARAMS = "utm_source=parroquia.app&utm_medium=referral";
 //   https://images.unsplash.com/photo-<id>?params...  ->  https://unsplash.com/photos/<id>
 // Devuelve null si el src no es una imagen de Unsplash (no se pinta crédito).
 function unsplashPhotoUrl(src) {
-  if (typeof src !== "string") return null;
+  if (!isUnsplashUrl(src)) return null;
   let url;
   try {
     url = new URL(src);
   } catch {
     return null;
   }
-  if (url.hostname !== "images.unsplash.com") return null;
   const m = url.pathname.match(/^\/photo-([^/]+)/);
   if (!m) return null;
   return `https://unsplash.com/photos/${m[1]}?${UTM_PARAMS}`;
