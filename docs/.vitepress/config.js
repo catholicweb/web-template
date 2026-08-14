@@ -40,7 +40,12 @@ export default defineConfig(async () => {
         .replace(/\.md$/, "")
         .replace(/\.html$/, "")
         .replace(/index$/, "");
-      return getJSONLD(pageData.frontmatter, config, path);
+      const head = getJSONLD(pageData.frontmatter, config, path);
+      const buttonStyle = config.theme?.buttonStyle || "solid";
+      if (buttonStyle !== "solid") {
+        head.push(["script", {}, `document.documentElement.setAttribute("data-theme-button","${buttonStyle}")`]);
+      }
+      return head;
     },
     vite: {
       define: {
