@@ -546,7 +546,7 @@ async function run() {
   const eventTemplate = pagesArr.find((p) => p.protected == "Plantilla eventos");
   const townTemplate =
     pagesArr.find((p) => p.protected == "Plantilla pueblos") ||
-    pagesArr.find((p) => (p.title || "").startsWith("{{") && p.protected !== "Plantilla eventos");
+    pagesArr.find((p) => p.protected == "Plantilla templos")
   // "Crear una página nueva automaticamente para cada templo" checkbox.
   const perPlace = config.pages?.pageperlocatoin ?? true;
 

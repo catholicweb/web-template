@@ -50,7 +50,7 @@ export function buildConfigPages(config, naming) {
     [];
   const townTemplate =
     raw.find((p) => p.protected == "Plantilla pueblos") ||
-    raw.find((p) => (p.title || "").startsWith("{{") && p.protected !== "Plantilla eventos");
+    raw.find((p) => p.protected == "Plantilla templos") ||
   const eventTemplate = raw.find((p) => p.protected == "Plantilla eventos");
   let pages = raw
     .filter((p) => p !== townTemplate && p !== eventTemplate)
