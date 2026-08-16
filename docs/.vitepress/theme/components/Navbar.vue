@@ -5,11 +5,49 @@ import Hero from "./Hero.vue";
 
 import { useData, useRoute } from "vitepress";
 import EventCards from "./EventCards.vue";
+import { getCode } from "./../../naming.js";
 const { theme, site, page } = useData();
 const route = useRoute();
+
+// Languages from site config (e.g. ["Español:es", "Euskara:eu"]), falling back
+// to nav keys (which are also language strings). Always available on every
+// page because they're part of themeConfig.config — not page frontmatter.
+const siteLanguages = computed(() => {
+  const langs = theme.value?.config?.languages;
+  if (langs?.length) return langs;
+  return Object.keys(theme.value.nav || {});
+});
+
+// Current language key (e.g. "Español:es") for nav lookup + display.
+// On 404 routes VitePress provides notFoundPageData with frontmatter
+// { sidebar:false, layout:'page' } — no `lang` — so we derive it from
+// the locale (site.value.lang, resolved from URL path even on 404s).
+const currentLang = computed(() => {
+  if (page.value.frontmatter.lang) return page.value.frontmatter.lang;
+  const localeLang = site.value?.lang;
+  if (localeLang) {
+    const found = siteLanguages.value.find((l) => l.split(":")[1] === localeLang);
+    if (found) return found;
+  }
+  return Object.keys(theme.value.nav || {})[0] || "";
+});
+
+// Language switcher entries — use frontmatter.equiv when available
+// (built pages), otherwise build from the site's languages list (404 pages).
+// On a 404 there's no equivalent page in other languages, so we link to each
+// language's home page — the same destination the switcher offers on homepages.
+const langEntries = computed(() => {
+  const equiv = page.value.frontmatter.equiv;
+  if (equiv && equiv.length > 1) return equiv;
+  return siteLanguages.value.map((l, i) => ({
+    lang: l,
+    href: i === 0 ? "/" : "/" + getCode(l) + "/",
+  }));
+});
+
 const nav = computed(() => {
-  let nav = theme.value.nav[page.value.frontmatter.lang] || [];
-  return nav.length === 1 ? nav[0].items : nav;
+  let items = theme.value.nav[currentLang.value] || [];
+  return items.length === 1 ? items[0].items : items;
 });
 
 const navStyle = computed(() => site?.value?.themeConfig?.config?.theme?.navStyle || "default");
@@ -152,15 +190,15 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
 
           <div class="flex items-center space-x-2" :class="s.controlsBg">
             <!-- Language Switcher -->
-            <div v-if="$frontmatter?.equiv?.length > 1" class="relative" @click.stop>
+            <div v-if="langEntries.length > 1" class="relative" @click.stop>
               <button @click="langOpen = !langOpen" class="px-2 py-1 rounded-sm dark:hover:bg-gray-700 hover:text-accent transition-colors flex items-center space-x-1">
-                <span>{{ $frontmatter.lang.split(":")[0] }}</span>
+                <span>{{ currentLang.split(":")[0] }}</span>
                 <svg class="w-4 h-4 transition-transform" :class="langOpen ? 'rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M5.23 7.21a.75.75 0 011.06 0L10 10.91l3.71-3.7a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.23 8.27a.75.75 0 010-1.06z" />
                 </svg>
               </button>
               <div v-show="langOpen" class="absolute right-0 w-36 shadow-lg rounded-sm z-50 bg-white">
-                <a v-for="equiv in $frontmatter.equiv" :key="equiv.lang" :href="equiv.href" class="block px-3 py-2 rounded-sm dark:hover:bg-gray-700 cursor-pointer transition-colors" :class="equiv.lang === $frontmatter.lang ? 'text-accent' : ''">
+                <a v-for="equiv in langEntries" :key="equiv.lang" :href="equiv.href" class="block px-3 py-2 rounded-sm dark:hover:bg-gray-700 cursor-pointer transition-colors" :class="equiv.lang === currentLang ? 'text-accent' : ''">
                   {{ equiv.lang.split(":")[0] }}
                 </a>
               </div>
@@ -281,15 +319,15 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
           <!-- Right controls (language switcher, mobile menu button, etc.) -->
           <div class="flex items-center space-x-2" :class="s.controlsBg">
             <!-- Language Switcher -->
-            <div v-if="$frontmatter?.equiv?.length > 1" class="relative" :class="navStyle == '47herri' ? '' : ''" @click.stop>
+            <div v-if="langEntries.length > 1" class="relative" :class="navStyle == '47herri' ? '' : ''" @click.stop>
               <button @click="langOpen = !langOpen" class="px-2 py-1 rounded-sm dark:hover:bg-gray-700 hover:text-accent transition-colors flex items-center space-x-1" :class="[navStyle == '47herri' ? '' : 'hover:bg-white']">
-                <span>{{ $frontmatter.lang.split(":")[0] }}</span>
+                <span>{{ currentLang.split(":")[0] }}</span>
                 <svg class="w-4 h-4 transition-transform" :class="langOpen ? 'rotate-180' : ''" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M5.23 7.21a.75.75 0 011.06 0L10 10.91l3.71-3.7a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.23 8.27a.75.75 0 010-1.06z" />
                 </svg>
               </button>
               <div v-show="langOpen" class="absolute right-0 w-36 shadow-lg rounded-sm z-50 bg-white" :class="navStyle == '47herri' ? 'text-black' : ''">
-                <a v-for="equiv in $frontmatter.equiv" :key="equiv.lang" :href="equiv.href" class="block px-3 py-2 rounded-sm dark:hover:bg-gray-700 cursor-pointer transition-colors" :class="equiv.lang === $frontmatter.lang ? 'text-accent' : ''">
+                <a v-for="equiv in langEntries" :key="equiv.lang" :href="equiv.href" class="block px-3 py-2 rounded-sm dark:hover:bg-gray-700 cursor-pointer transition-colors" :class="equiv.lang === currentLang ? 'text-accent' : ''">
                   {{ equiv.lang.split(":")[0] }}
                 </a>
               </div>
