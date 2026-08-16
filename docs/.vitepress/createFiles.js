@@ -561,7 +561,7 @@ async function run() {
           "## ¡Uy! Te has perdido…",
           "No pasa nada: hasta la oveja descarriada tiene un lugar junto al Buen Pastor. Esta página no existe, pero de aquí no te echa nadie.",
           `> "Yo soy el camino, y la verdad, y la vida." (Juan 14, 6)`,
-          `<a href="{{home}}" class="not-prose inline-block bg-accent text-white font-medium px-6 py-2 rounded-lg mt-4">Volver a la página de inicio</a>`,
+          `<a href="./" class="not-prose inline-block bg-accent text-white font-medium px-6 py-2 rounded-lg mt-4">Volver a la página de inicio</a>`,
         ].join("\n\n"),
       }],
     });
@@ -707,14 +707,6 @@ async function run() {
 
       await postComplete(translatedData);
 
-      // Per-language: swap the {{home}} placeholder in the 404 page's CTA link
-      // so each language's "back home" points at its own locale root.
-      if (slug === "404" && translatedData.sections) {
-        const home = lang === NAMING.TARGET_LANGS[0] ? "/" : "/" + getCode(lang) + "/";
-        for (const s of translatedData.sections)
-          if (typeof s.html === "string") s.html = s.html.replaceAll("{{home}}", home);
-      }
-
       // slug/home are pipeline-internal; drop them from the emitted frontmatter
       // (the legacy pages never carried them). Sites opting into stable original
       // slugs keep their frontmatter untouched.
@@ -738,19 +730,6 @@ async function run() {
   } catch (e) {
     console.warn("legal: could not generate the aviso legal page:", e.message);
   }
-
-  // Clean the {{home}} placeholder from config.json so it doesn't leak into
-  // __VP_SITE_DATA__ embedded by config.js. The per-language .md files already
-  // received their locale-specific home URL above; this only affects the
-  // site-config serialised into the page's inline data (never rendered by any
-  // component — NotFound.vue reads from the .md files via notFound.data.js).
-  for (const p of config.pages?.list ?? []) {
-    if (p.slug === "404" && p.sections) {
-      for (const s of p.sections)
-        if (typeof s.html === "string") s.html = s.html.replaceAll("{{home}}", "/");
-    }
-  }
-  write("./docs/public/config.json", config);
 }
 
 run();
