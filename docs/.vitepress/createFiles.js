@@ -157,9 +157,19 @@ async function createManifest() {
 
     // Generate icons
     if (!CFG.icon) return;
+    const iconUrl = resolveMedia(CFG.icon);
+    let iconBuffer;
+    try {
+      const res = await originalFetch(iconUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      iconBuffer = Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      console.warn(`⚠️ No se pudo descargar el icono desde ${iconUrl}: ${err.message}. Se omiten los iconos PWA.`);
+      return;
+    }
     for (const size of [192, 512]) {
       try {
-        await sharp("./docs/public" + CFG.icon)
+        await sharp(iconBuffer)
           .resize(size, size)
           .png()
           .toFile(`./docs/public/icon-${size}.png`);
@@ -170,7 +180,7 @@ async function createManifest() {
 
     // generate the favicon
 
-    await sharp("./docs/public" + CFG.icon)
+    await sharp(iconBuffer)
       .resize(32, 32) // Resize to 32x32 pixels for the favicon size
       .toFile(`./docs/public/favicon.ico`);
   } catch (e) {
