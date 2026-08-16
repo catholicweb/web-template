@@ -123,6 +123,16 @@ globalThis.fetch = async (url, options = {}) => {
     // 2. Si no está, hacemos el fetch real
     const response = await originalFetch(url, options);
 
+    // Defense-in-depth for Nominatim: if the request fails (429, 403, etc.),
+    // return an empty JSON body so callers like getAddress() never see an
+    // XML/HTML error page that would break response.json().
+    if (!response.ok && urlStr?.includes("nominatim.openstreetmap.org")) {
+      return new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (response.ok) {
       // 3. Actualizamos el archivo maestro
       try {

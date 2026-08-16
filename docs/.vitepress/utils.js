@@ -414,26 +414,57 @@ export async function getAddress(lat, lng, name, zoom = 17) {
     osm: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=${zoom}/${lat}/${lng}`,
   };
 
-  // IMPORTANT: Nominatim requires a custom User-Agent to identify your app
+  // IMPORTANT: Nominatim requires a custom User-Agent AND a Referer to identify
+  // your app (see https://operations.osmfoundation.org/policies/nominatim/).
+  // Without a Referer the public instance rejects the request and returns an
+  // XML error page (not JSON), which breaks response.json() below.
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
 
   try {
     const response = await fetch(url, {
       headers: {
         "User-Agent": "ParroquiaApp-Project-Manager (email@parroquia.app)",
+        "Accept": "application/json",
+        "Referer": "https://parroquia.app/",
       },
     });
+
+    // Nominatim may return a non-OK response (429 rate-limit, 403 blocked, etc.)
+    // with an XML/HTML error body instead of JSON. Bail out early with just the
+    // map links.
+    if (!response.ok) {
+      console.error(`Lookup failed: Nominatim returned HTTP ${response.status}`);
+      return extra;
+    }
+
+    // Verify the response is actually JSON before parsing. A CDN/proxy or
+    // Nominatim error page can come back as text/xml or text/html even with
+    // format=jsonv2 requested.
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.error(`Lookup failed: expected JSON but got ${contentType || "unknown content-type"}`);
+      return extra;
+    }
+
     const data = await response.json();
+
+    // Nominatim returns { "error": "..." } for points it can't reverse-geocode
+    // (e.g. ocean coordinates).
+    if (data.error) {
+      console.error(`Lookup failed: ${data.error}`);
+      return extra;
+    }
+
     return {
       ...extra,
-      street: data.address.road || data.address.pedestrian,
-      city: data.address.hamlet || data.address.village || data.address.town || data.address.city,
-      zip: data.address.postcode,
+      street: data.address?.road || data.address?.pedestrian,
+      city: data.address?.hamlet || data.address?.village || data.address?.town || data.address?.city,
+      zip: data.address?.postcode,
       full: data.display_name,
-      region: data.address.state,
-      country: data.address.country,
-      country_code: data.address.country_code,
-      name: data.address.amenity,
+      region: data.address?.state,
+      country: data.address?.country,
+      country_code: data.address?.country_code,
+      name: data.address?.amenity,
     };
   } catch (error) {
     console.error("Lookup failed:", error);
