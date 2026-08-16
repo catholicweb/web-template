@@ -127,6 +127,7 @@ export async function fetchConfig(slug) {
  */
 export function siteOrigin(config, slug) {
   let origin = `https://${slug}.parroquia.app`;
+  return origin // restrict so far
   let siteurl = config?.dev?.siteurl;
   if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
   if (siteurl) return new URL(siteurl).origin;

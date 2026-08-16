@@ -78,12 +78,10 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           SITE_SLUG: ${{ needs.prepare.outputs.site_slug }}
-          # Only OPENROUTER_API_KEY is injected here (LLM auto-translation of
-          # static, pre-rendered content). This step still executes per-site
-          # downloaded config, so keep the injected secret list minimal and
-          # never echo it. The key's blast radius is bounded by restricting it
-          # in the OpenRouter dashboard to the translation model(s) + a credit cap.
+          # Only OPENROUTER_API_KEY and YT_API_KEY are injected here.
+          # Both have a bounded blast radius in case of leakeage
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: npm run before-build
 
       - name: Build with VitePress
