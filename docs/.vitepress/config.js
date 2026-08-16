@@ -9,6 +9,8 @@ import { getFontCSS } from "./css.js";
 
 const config = read("./docs/public/config.json");
 const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
+// Languages may live at config.pages.languages (editor schema) or top-level (legacy/flat).
+const languages = config.languages ?? config.pages?.languages ?? [];
 // Trusted per-site data base — set by SITE_SLUG / config._media.base in fetch.js.
 const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}`;
 
@@ -24,7 +26,7 @@ export default defineConfig(async () => {
       ["link", { rel: "icon", href: "/favicon.ico", type: "image/x-icon" }],
       ["script", { "data-goatcounter": config.dev?.goatcounter || "", async: true, src: "//gc.zgo.at/count.js" }],
     ],
-    locales: locales(config.languages),
+    locales: locales(languages),
     title: config.title,
     cleanUrls: true,
     description: config.description,
