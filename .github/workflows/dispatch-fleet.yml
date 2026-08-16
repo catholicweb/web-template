@@ -3,9 +3,6 @@ name: Dispatch fleet builds
 on:
   push:
     branches: [main]
-    paths:
-      - "**/*.json"
-      - "**/*.md"
   schedule:
     - cron: "0 1 * * *"   # 2am CET (winter, UTC+1)
   workflow_dispatch:

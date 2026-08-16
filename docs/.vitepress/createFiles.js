@@ -552,6 +552,7 @@ async function run() {
       title: "Página no encontrada",
       description: "La página que buscas no existe, pero el Buen Pastor sí te ha encontrado a ti.",
       slug: "404",
+      hideHero: true,
       home: false,
       sections: [{
         _block: "gallery",
