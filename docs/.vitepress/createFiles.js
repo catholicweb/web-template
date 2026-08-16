@@ -539,6 +539,36 @@ async function run() {
   config = read("./docs/public/config.json");
   loadAppState();
 
+  // Inject a synthetic 404 page into the page list so it flows through the same
+  // LLM translation + per-language emission pipeline as authored pages. We write
+  // config.json back to disk first — buildDictionary() re-reads it from disk
+  // (translate.js) to harvest translatable strings, so an in-memory-only mutation
+  // would miss the 404 copy. The `slug === "404"` guard prevents double-injection
+  // on fetch-fallback re-runs.
+  if (!config.pages?.list?.some((p) => p.slug === "404")) {
+    (config.pages ??= {}).list ??= [];
+    config.pages.list.push({
+      id: "__nf__404",
+      title: "Página no encontrada",
+      description: "La página que buscas no existe, pero el Buen Pastor sí te ha encontrado a ti.",
+      slug: "404",
+      home: false,
+      sections: [{
+        _block: "gallery",
+        type: "text",
+        html: [
+          `<img src="/good-shepherd.svg" alt="El Buen Pastor" style="width:min(520px,100%)" />`,
+          "## ¡Uy! Te has perdido…",
+          "No pasa nada: hasta la oveja descarriada tiene un lugar junto al Buen Pastor. Esta página no existe, pero de aquí no te echa nadie.",
+          `> "Yo soy el camino, y la verdad, y la vida." (Juan 14, 6)`,
+          `<a href="{{home}}" class="not-prose inline-block bg-accent text-white font-medium px-6 py-2 rounded-lg mt-4">Volver a la página de inicio</a>`,
+        ].join("\n\n"),
+      }],
+    });
+    write("./docs/public/config.json", config);
+    config = read("./docs/public/config.json");
+  }
+
   // Create some basic files. Fonts are downloaded + subset here (pre-build) so
   // the VitePress build step stays offline — config.js's getFontCSS short-
   // circuits on the already-present docs/public/*.woff2.
@@ -586,7 +616,12 @@ async function run() {
   pages = pages.filter((p) => p.title !== LEGAL_TITLE);
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
-  if (pages.length && !pages.some((p) => p.slug == "index")) pages[0] = { ...pages[0], slug: "index", home: true };
+  // Skip the injected 404 page so it is never promoted to index — slugify never
+  // produces "404" from a title, but the injected page carries slug:"404" verbatim.
+  if (pages.length && !pages.some((p) => p.slug == "index")) {
+    const firstReal = pages.findIndex((p) => p.slug !== "404");
+    if (firstReal >= 0) pages[firstReal] = { ...pages[firstReal], slug: "index", home: true };
+  }
 
   // Auto-generate one page per place when the checkbox is on, a towntemplate is
   // authored, and an actual places list exists (skip otherwise).
@@ -672,6 +707,14 @@ async function run() {
 
       await postComplete(translatedData);
 
+      // Per-language: swap the {{home}} placeholder in the 404 page's CTA link
+      // so each language's "back home" points at its own locale root.
+      if (slug === "404" && translatedData.sections) {
+        const home = lang === NAMING.TARGET_LANGS[0] ? "/" : "/" + getCode(lang) + "/";
+        for (const s of translatedData.sections)
+          if (typeof s.html === "string") s.html = s.html.replaceAll("{{home}}", home);
+      }
+
       // slug/home are pipeline-internal; drop them from the emitted frontmatter
       // (the legacy pages never carried them). Sites opting into stable original
       // slugs keep their frontmatter untouched.
@@ -695,6 +738,19 @@ async function run() {
   } catch (e) {
     console.warn("legal: could not generate the aviso legal page:", e.message);
   }
+
+  // Clean the {{home}} placeholder from config.json so it doesn't leak into
+  // __VP_SITE_DATA__ embedded by config.js. The per-language .md files already
+  // received their locale-specific home URL above; this only affects the
+  // site-config serialised into the page's inline data (never rendered by any
+  // component — NotFound.vue reads from the .md files via notFound.data.js).
+  for (const p of config.pages?.list ?? []) {
+    if (p.slug === "404" && p.sections) {
+      for (const s of p.sections)
+        if (typeof s.html === "string") s.html = s.html.replaceAll("{{home}}", "/");
+    }
+  }
+  write("./docs/public/config.json", config);
 }
 
 run();

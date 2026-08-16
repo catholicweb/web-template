@@ -20,7 +20,7 @@ export async function generateNav(config) {
   if (config?.nav?.length) return generateManualNav(config);
 
   // Otherwise, generate automatically
-  const files = await fg(["**/*.md", "!aviso-legal*"], { cwd: docsDir, absolute: false });
+  const files = await fg(["**/*.md", "!aviso-legal*", "!**/404.md"], { cwd: docsDir, absolute: false });
   const nav = files.reduce((acc, f) => {
     const { data } = read(`docs/${f}`);
     if (!data.lang) return acc;

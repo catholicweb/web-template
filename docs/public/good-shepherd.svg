@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="100%" height="100%" role="img" aria-label="El Buen Pastor cargando con su cayado junto a una oveja">
+  <!-- Line-art "Good Shepherd" illustration for the 404 page.
+       Hand-authored, theme-neutral warm sepia + gold palette; transparent background. -->
+
+  <!-- Ground strip -->
+  <path d="M -10 352 Q 320 324 650 352 L 650 410 L -10 410 Z" fill="#f3e3c0"/>
+
+  <!-- Distant hills -->
+  <path d="M -10 348 Q 160 296 330 350" fill="none" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 300 352 Q 480 308 650 348" fill="none" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Cross on the hill -->
+  <path d="M 150 300 v 24 M 142 308 h 16" fill="none" stroke="#d9a441" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Sun with rays -->
+  <circle cx="108" cy="98" r="32" fill="#f9e8b8" stroke="#8a5a28" stroke-width="2"/>
+  <g stroke="#d9a441" stroke-width="3" stroke-linecap="round">
+    <path d="M 108 58 L 108 40"/>
+    <path d="M 108 138 L 108 156"/>
+    <path d="M 60 98 L 42 98"/>
+    <path d="M 156 98 L 174 98"/>
+    <path d="M 71 61 L 58 48"/>
+    <path d="M 145 61 L 158 48"/>
+    <path d="M 71 135 L 58 148"/>
+    <path d="M 145 135 L 158 148"/>
+  </g>
+
+  <!-- Stars -->
+  <g fill="#d9a441">
+    <circle cx="200" cy="64" r="2.2"/>
+    <circle cx="262" cy="40" r="2"/>
+    <circle cx="330" cy="84" r="2.2"/>
+    <circle cx="470" cy="96" r="2"/>
+    <circle cx="520" cy="58" r="2.2"/>
+    <circle cx="556" cy="108" r="2"/>
+    <circle cx="170" cy="152" r="2"/>
+    <circle cx="616" cy="122" r="2.2"/>
+  </g>
+
+  <!-- Birds -->
+  <g fill="none" stroke="#8a5a28" stroke-width="2" stroke-linecap="round">
+    <path d="M 300 120 q 6 8 12 0"/>
+    <path d="M 350 90 q 5 6 10 0"/>
+    <path d="M 560 140 q 6 8 12 0"/>
+  </g>
+
+  <!-- Grass tufts -->
+  <g stroke="#8a5a28" stroke-width="2" stroke-linecap="round">
+    <path d="M 90 356 q 2 -8 0 -12 M 96 358 q 3 -7 2 -11"/>
+    <path d="M 520 354 q 2 -8 0 -12 M 526 356 q 3 -7 2 -11"/>
+    <path d="M 180 372 q 2 -8 0 -12 M 186 374 q 3 -7 2 -11"/>
+  </g>
+
+  <!-- Ground shadows -->
+  <ellipse cx="246" cy="372" rx="56" ry="7" fill="#e8d5a8" opacity="0.7"/>
+  <ellipse cx="427" cy="376" rx="46" ry="7" fill="#e8d5a8" opacity="0.7"/>
+
+  <!-- Winding lost path -->
+  <path d="M -10 388 Q 140 362 250 380 T 500 392 T 656 368" fill="none" stroke="#d9a441" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- ============ Lamb ============ -->
+  <ellipse cx="238" cy="330" rx="45" ry="27" fill="#fdf6e3" stroke="#8a5a28" stroke-width="2.5"/>
+  <circle cx="196" cy="322" r="7" fill="#fdf6e3" stroke="#8a5a28" stroke-width="2"/>
+  <path d="M 204 318 q 10 -18 24 -10 q 12 -16 26 -4 q 14 -10 24 4 q 8 -6 12 2" fill="none" stroke="#8a5a28" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 220 350 L 220 366 M 234 352 L 234 368 M 250 352 L 250 368 M 264 350 L 264 366" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="288" cy="304" r="16" fill="#fdf6e3" stroke="#8a5a28" stroke-width="2.5"/>
+  <ellipse cx="276" cy="292" rx="6" ry="9" fill="#fdf6e3" stroke="#8a5a28" stroke-width="2" transform="rotate(-25 276 292)"/>
+  <ellipse cx="300" cy="292" rx="6" ry="9" fill="#fdf6e3" stroke="#8a5a28" stroke-width="2" transform="rotate(25 300 292)"/>
+  <path d="M 282 292 q 5 -8 12 -4" fill="none" stroke="#8a5a28" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="293" cy="302" r="2" fill="#8a5a28"/>
+  <path d="M 298 308 l 2 2" stroke="#8a5a28" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- ============ Shepherd ============ -->
+  <!-- Staff (crook) -->
+  <path d="M 376 392 L 378 208 C 378 188 404 188 402 208" fill="none" stroke="#8a5a28" stroke-width="4" stroke-linecap="round"/>
+  <!-- Halo -->
+  <circle cx="430" cy="246" r="34" fill="none" stroke="#d9a441" stroke-width="2" opacity="0.8"/>
+  <!-- Robe -->
+  <path d="M 396 288 C 394 324 402 352 427 360 C 452 350 460 324 458 288 Z" fill="#f6e7cc" stroke="#8a5a28" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Belt rope -->
+  <path d="M 412 328 L 444 330" stroke="#8a5a28" stroke-width="3" stroke-linecap="round"/>
+  <!-- Left arm grasping the staff -->
+  <path d="M 402 306 C 392 322 380 332 372 336" fill="none" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="370" cy="337" r="4" fill="#f7e4c8" stroke="#8a5a28" stroke-width="2"/>
+  <!-- Right arm reaching toward the lamb -->
+  <path d="M 452 306 C 470 320 470 344 460 354" fill="none" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="458" cy="356" r="3.5" fill="#f7e4c8" stroke="#8a5a28" stroke-width="2"/>
+  <!-- Head -->
+  <circle cx="430" cy="252" r="23" fill="#f7e4c8" stroke="#8a5a28" stroke-width="2.5"/>
+  <path d="M 408 240 A 22 22 0 0 1 452 240" fill="none" stroke="#8a5a28" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="435" cy="250" r="2" fill="#8a5a28"/>
+  <path d="M 442 256 L 441 261" stroke="#8a5a28" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 416 270 Q 431 282 446 270" fill="none" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Feet -->
+  <path d="M 413 356 L 412 372 M 442 355 L 445 372" stroke="#8a5a28" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
