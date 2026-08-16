@@ -437,6 +437,78 @@ function substitute(template, place) {
 let videos = [];
 let calendar = [];
 
+// Legal / privacy-policy page. The repo-root, hand-authored template
+// (aviso-legal-y-politica-de-privacidad.md) ships with {{PLACEHOLDER}} tokens for
+// parish identity/contact data. Here we fill them from config and render the
+// `.legal` markdown into `.html`, so every generated site gets a real, personalized
+// legal/privacy/cookies page instead of a placeholder-filled stub. The parish
+// identity fields (CIF, diocese, structured address...) are not in the config
+// schema yet, so most are inferred (first temple reverse-geocoded, first
+// collaborator contact) and the rest default to blank. Spanish only for now — the
+// template is Castilian and legal wording shouldn't be machine-translated.
+async function generateLegalPage() {
+  const template = read("./aviso-legal-y-politica-de-privacidad.md");
+  const section = template.data?.sections?.[0];
+  if (!section?.legal) {
+    console.warn("legal: no aviso-legal-y-politica-de-privacidad.md template found; skipping");
+    return;
+  }
+
+  // First temple (info.places[0]) is reverse-geocoded like the map blocks, so we
+  // can pull a street / town / province / postcode from real coordinates. When the
+  // temple has no `.geo` the address fields stay blank.
+  const place = config.info?.places?.[0] ?? config.places?.list?.[0];
+  const address = place?.geo
+    ? await getAddress(...place.geo.split(",").map((s) => Number(s.trim())), place.name)
+    : {};
+
+  // Contact data lives on collaborators as free-form social[] strings (or legacy
+  // phonenumber). Regex-pick the first phone and the first email across them.
+  const collaborators = config.info?.collaborators ?? config.site?.collaborators ?? [];
+  const contact = collaborators
+    .flatMap((c) => [...(c.social ?? []), c.phonenumber].filter(Boolean))
+    .filter(Boolean);
+  const findContact = (re) => contact.find((s) => re.test(s)) || "";
+
+  const ctx = {
+    NOMBRE_PARROQUIA: config.site?.title || config.info?.title || config.title || "",
+    DIRECCION_COMPLETA: address.street || "",
+    LOCALIDAD: address.city || "",
+    PROVINCIA: address.region || "",
+    CODIGO_POSTAL: address.zip || "",
+    DIOCESIS: address.region ? `Diócesis de ${address.region}` : "",
+    TELEFONO: findContact(/^\+?[\d\s().-]{6,}$/),
+    EMAIL_CONTACTO: findContact(/\S+@\S+\.\S+/),
+    // CIF isn't collected on the schema yet — emit blank and replace.
+    CIF_PARROQUIA: "",
+    // Hosting is ours (Cloudflare Pages, EU), not the parish's — a factory constant.
+    UBICACION_SERVIDOR: "la Unión Europea (Cloudflare)",
+    FECHA_ACTUALIZACION: new Date().toLocaleDateString("es-ES", {
+      day: "numeric", month: "long", year: "numeric",
+    }),
+  };
+
+  // Substitute {{NAME}} / legacy {name} tokens in the legal text — same token regex
+  // as substitute() above, but driven by the contact context (values may be empty
+  // strings, so use an own-key check, not truthiness).
+  const TOKEN = /\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\}/g;
+  section.legal = section.legal.replace(TOKEN, (m, a, b) => (Object.hasOwn(ctx, a || b) ? ctx[a || b] : m));
+
+  // Render into a normal gallery/text section (the same path postComplete takes).
+  // Spanish only — legal wording must not be auto-translated. Resolve the Spanish
+  // language entry from the site's configured languages so the lang metadata and
+  // path are correct even when Spanish isn't the first language (e.g. 47herri).
+  const esLang = NAMING.TARGET_LANGS.find((l) => l.endsWith(":es")) || NAMING.TARGET_LANGS[0];
+  const page = {
+    title: template.data.title || "Aviso legal y política de privacidad",
+    lang: esLang,
+    sections: [{ ...section, type: "text", _block: "gallery", html: render(section.legal) }],
+  };
+  addMeta(page);
+  const dest = "./docs/" + NAMING.filename("aviso-legal-y-politica-de-privacidad.md", template.data.title, esLang) + ".md";
+  write(dest, page, "");
+}
+
 async function run() {
   // Materialize (or refresh) the remote config before reading any page data.
   try {
@@ -483,6 +555,12 @@ async function run() {
   let pages = pagesArr
     .filter((p) => p !== townTemplate)
     .map((p) => ({ ...p, slug: NAMING.resolveSlug(p) }));
+
+  // The legal/privacy page is generated solely by generateLegalPage() below (which
+  // fills its {{PLACEHOLDER}} tokens from config). Remove it from the page loop so
+  // the loop doesn't emit un-substituted stubs for every language.
+  const LEGAL_TITLE = "Aviso legal y política de privacidad";
+  pages = pages.filter((p) => p.title !== LEGAL_TITLE);
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
   if (pages.length && !pages.some((p) => p.slug == "index")) pages[0] = { ...pages[0], slug: "index", home: true };
@@ -549,6 +627,14 @@ async function run() {
       const dest = "./docs/" + NAMING.filename(nameArg, data.title, lang) + ".md";
       write(dest, translatedData, ""); // config pages have no markdown body
     }
+  }
+
+  // Emit the legal/privacy page last; a failure here (e.g. a geocode timeout)
+  // must never abort an otherwise-good build.
+  try {
+    await generateLegalPage();
+  } catch (e) {
+    console.warn("legal: could not generate the aviso legal page:", e.message);
   }
 }
 
