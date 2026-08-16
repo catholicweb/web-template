@@ -471,3 +471,10 @@ export async function getAddress(lat, lng, name, zoom = 17) {
     return extra;
   }
 }
+
+
+// Language codes are authored "Label:code" (e.g. "Español:es"); the bit after
+// ":" is the URL code, else fall back to the first two lowercase letters.
+export function getCode(lang) {
+  return lang.split(":")[1] || lang.slice(0, 2).toLowerCase();
+}

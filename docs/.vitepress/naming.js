@@ -1,12 +1,9 @@
-import { slugify } from "./utils.js";
+import { slugify, getCode } from "./utils.js";
 import { translateValue } from "./translate.js";
 import { path } from "./node_utils.js";
 
-// Language codes are authored "Label:code" (e.g. "Español:es"); the bit after
-// ":" is the URL code, else fall back to the first two lowercase letters.
-export function getCode(lang) {
-  return lang.split(":")[1] || lang.slice(0, 2).toLowerCase();
-}
+// Re-export a named export
+export { getCode } from './utils.js';
 
 const DEFAULT_LANGS = ["Español:es"];
 

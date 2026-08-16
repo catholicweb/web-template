@@ -559,8 +559,8 @@ async function run() {
         type: "text",
         html: [
           `<img src="/good-shepherd.svg" alt="El Buen Pastor" style="width:min(520px,100%)" />`,
-          "## ¡Uy! Te has perdido…",
-          "No pasa nada: hasta la oveja descarriada tiene un lugar junto al Buen Pastor. Esta página no existe, pero de aquí no te echa nadie.",
+          "## ¡Uy! Te has perdido...",
+          "No pasa nada: hasta la oveja descarriada tiene un lugar junto al Buen Pastor. Puede que te sientas perdido... pero no te preocupes: por muy perdido que estés, siempre hay un camino de regreso.",
           `> "Yo soy el camino, y la verdad, y la vida." (Juan 14, 6)`,
           `<a href="./" class="not-prose inline-block bg-accent text-white font-medium px-6 py-2 rounded-lg mt-4">Volver a la página de inicio</a>`,
         ].join("\n\n"),

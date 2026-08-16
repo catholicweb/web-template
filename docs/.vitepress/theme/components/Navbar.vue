@@ -5,7 +5,7 @@ import Hero from "./Hero.vue";
 
 import { useData, useRoute } from "vitepress";
 import EventCards from "./EventCards.vue";
-import { getCode } from "./../../naming.js";
+import { getCode } from "./../../utils.js";
 const { theme, site, page } = useData();
 const route = useRoute();
 
@@ -178,7 +178,7 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
 <template>
   <div :class="[s.wrapper]" class="z-50 transition-all">
     <!-- 47herri: hero image behind the nav -->
-    <Image v-if="s.heroBg" :src="$frontmatter.image" alt="" class="z-[-10] absolute inset-0 size-full object-cover" />
+    <Image v-if="s.heroBg" :src="$frontmatter.image || 'https://data.parroquia.app/47herri/hero-bg.webp'" alt="" class="z-[-10] absolute inset-0 size-full object-cover" />
 
     <!-- Two-row layout: logo + controls on top row, nav links centered below -->
     <template v-if="s.twoRow">
