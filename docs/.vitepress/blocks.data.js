@@ -7,7 +7,7 @@ export default {
     const maps = [];
     const pages = [];
 
-    const files = await fg("**/*.md", { cwd: "./docs", absolute: false });
+    const files = await fg(["**/*.md", "!**/404.md"], { cwd: "./docs", absolute: false });
 
     for (const file of files) {
       const { data } = read("./docs/" + file);

@@ -16,6 +16,12 @@
       </template>
     </main>
 
+    <!-- 404 Fallback — renders the Good Shepherd 404 content on any broken URL
+         (not just /404.html). VitePress sets page.isNotFound when the router fails
+         to match a route; without this branch the custom Layout would show an
+         empty main area. -->
+    <NotFound v-else-if="page.isNotFound" class="flex-1" />
+
     <!-- Footer Component -->
     <component :is="components.Footer" />
 
@@ -27,6 +33,10 @@
 <script setup>
 import components from "./components";
 import { slugify } from "./../utils.js";
+import { useData } from "vitepress";
+import NotFound from "./components/NotFound.vue";
+
+const { page } = useData();
 
 function getSectionClasses(tags = []) {
   const classes = [];

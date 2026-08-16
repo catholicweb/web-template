@@ -36,6 +36,8 @@ export default defineConfig(async () => {
     },
     sitemap: {
       hostname: config.dev?.siteurl,
+      // Keep the synthetic 404 pages out of sitemap.xml — they're error handlers, not content.
+      transformItems: (items) => items.filter((i) => !String(i.url).endsWith("/404")),
     },
     async transformHead({ pageData }) {
       const path = pageData.relativePath

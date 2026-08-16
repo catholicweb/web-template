@@ -20,6 +20,10 @@ export function createNaming({ languages, dictionary }) {
     const code = TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/";
     const isIndex = name == "index" || path.basename(name || "") == "index.md";
     if (isIndex) return code + "index";
+    // Force the 404 basename regardless of filenameMode — the page slug is always
+    // "404" (never translated), so every language writes docs/404.md / docs/<code>/404.md.
+    const isMissing = name == "404" || path.basename(name || "") == "404.md";
+    if (isMissing) return code + "404";
     const dict = dictionary[lang] || {};
     // `.md` names take the translated-title slug; plain slugs are used verbatim
     // (filenameMode:"original").
@@ -50,7 +54,7 @@ export function buildConfigPages(config, naming) {
     [];
   const townTemplate =
     raw.find((p) => p.protected == "Plantilla pueblos") ||
-    raw.find((p) => p.protected == "Plantilla templos") ||
+    raw.find((p) => p.protected == "Plantilla templos")
   const eventTemplate = raw.find((p) => p.protected == "Plantilla eventos");
   let pages = raw
     .filter((p) => p !== townTemplate && p !== eventTemplate)
