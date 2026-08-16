@@ -469,19 +469,22 @@ async function run() {
   const places = config.info?.places ?? config.places?.list ?? [];
   // The town template is a page in pages.list marked protected:"Plantilla
   // pueblos" (its title is a {{name}} placeholder). If none is marked, fall back
-  // to any page whose title looks like a placeholder.
+  // to any page whose title looks like a placeholder — but never one that's the
+  // event template (which also starts with a `{{` placeholder title).
+  const eventTemplate = pagesArr.find((p) => p.protected == "Plantilla eventos");
   const townTemplate =
     pagesArr.find((p) => p.protected == "Plantilla pueblos") ||
-    pagesArr.find((p) => (p.title || "").startsWith("{{"));
+    pagesArr.find((p) => (p.title || "").startsWith("{{") && p.protected !== "Plantilla eventos");
   // "Crear una página nueva automaticamente para cada templo" checkbox.
   const perPlace = config.pages?.pageperlocatoin ?? true;
 
   // The index page is the one marked protected:"Portada" (or home/slug==index),
   // resolved by the shared naming module.
-  // Authored pages = the pages.list minus the town template (which is only ever
-  // expanded per-place below, never emitted as a literal {{name}} page).
+  // Authored pages = the pages.list minus the two template pages (town + event),
+  // which are only ever expanded per-place/per-event below, never emitted as a
+  // literal {{...}} page.
   let pages = pagesArr
-    .filter((p) => p !== townTemplate)
+    .filter((p) => p !== townTemplate && p !== eventTemplate)
     .map((p) => ({ ...p, slug: NAMING.resolveSlug(p) }));
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
@@ -503,6 +506,38 @@ async function run() {
         home: false,
       });
     }
+  }
+
+  // "Plantilla eventos" — same idea, for events: a page in pages.list marked
+  // protected:"Plantilla eventos" whose sections carry `{{event.*}}` placeholders,
+  // expanded once per selected event. Selection is driven by the `page` switch on
+  // an event-type entry (the same editor pattern as the event-type `icon`): every
+  // event belonging to a `page:true` type gets a dedicated page.
+  const evTypes = config["event-types"]?.list ?? [];
+  const pageTypes = new Set(
+    evTypes
+      .filter((t) => t.page)
+      .flatMap((t) => [t.name, t.label].filter(Boolean).map((s) => String(s).toLowerCase()))
+  );
+  if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pageTypes.size) {
+    const taken = new Set(pages.map((p) => p.slug));
+    for (const ev of calendar) {
+      if (!ev || !pageTypes.has(ev.type)) continue; // only page-flagged event types
+      // Title + first date keeps colliding titles (many "Misa"/"Encuentro")
+      // unique, e.g. /campamento-verano-2027-07-20/.
+      const slug = slugify([ev.title, ev.dates?.[0]].filter(Boolean).join(" ")) || "evento";
+      if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
+      taken.add(slug);
+      ev.link = "/" + slug + "/"; // surface for event cards / calendar
+      pages.push({
+        ...substitute(eventTemplate, { ...ev, description: ev.notes }),
+        title: ev.title,
+        slug,
+        home: false,
+      });
+    }
+    // Re-write calendar.json with the link field added to page-producing events.
+    write("./docs/public/calendar.json", calendar);
   }
 
   for (const page of pages) {
@@ -533,7 +568,8 @@ async function run() {
       const translatedData = translateObject(data, dict);
       translatedData.lang = lang;
       translatedData.equiv = NAMING.TARGET_LANGS.map((lan) => {
-        return { lang: lan, href: "/" + NAMING.filename(nameArg, data.title, lan) };
+        const href = "/" + NAMING.filename(nameArg, data.title, lan);
+        return { lang: lan, href };
       });
 
       await postComplete(translatedData);
@@ -546,7 +582,10 @@ async function run() {
         delete translatedData.home;
       }
 
-      const dest = "./docs/" + NAMING.filename(nameArg, data.title, lang) + ".md";
+      const dest =
+        "./docs/" +
+        NAMING.filename(nameArg, data.title, lang) +
+        ".md";
       write(dest, translatedData, ""); // config pages have no markdown body
     }
   }

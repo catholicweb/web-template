@@ -1,9 +1,20 @@
 <script setup>
 import { formatDate, formatWeekdays, slugify } from "./../../utils.js";
+import { useData } from "vitepress";
 import Image from "./Image.vue";
 import Grid from "./Grid.vue";
 
 const props = defineProps({ block: { type: Object, required: true } });
+const { localeIndex } = useData();
+
+// Page-producing events carry a root-language `/<slug>/` link (set at build time in
+// createFiles.js). Non-root languages live at `/<code>/<slug>/`, so prefix with the
+// current locale key unless it's the root ("root"/"index").
+function eventHref(event) {
+  if (!event?.link) return "";
+  const idx = localeIndex.value;
+  return !idx || idx === "root" || idx === "index" ? event.link : "/" + idx + event.link;
+}
 </script>
 
 <template>
@@ -33,6 +44,14 @@ const props = defineProps({ block: { type: Object, required: true } });
           <p v-if="event.notes" class="mt-4 italic clear-none">
             {{ event.notes?.map((i) => formatDate(i, $frontmatter.lang)).join(", ") }}
           </p>
+
+          <a
+            v-if="eventHref(event)"
+            :href="eventHref(event)"
+            class="mt-5 inline-block bg-accent text-white px-5 py-2 rounded-lg font-semibold transition hover:opacity-90 no-underline"
+          >
+            Más información →
+          </a>
         </div>
       </Grid>
     </div>

@@ -50,9 +50,10 @@ export function buildConfigPages(config, naming) {
     [];
   const townTemplate =
     raw.find((p) => p.protected == "Plantilla pueblos") ||
-    raw.find((p) => (p.title || "").startsWith("{{"));
+    raw.find((p) => (p.title || "").startsWith("{{") && p.protected !== "Plantilla eventos");
+  const eventTemplate = raw.find((p) => p.protected == "Plantilla eventos");
   let pages = raw
-    .filter((p) => p !== townTemplate)
+    .filter((p) => p !== townTemplate && p !== eventTemplate)
     .map((p) => ({ ...p, slug: naming.resolveSlug(p) }));
   if (pages.length && !pages.some((p) => p.slug == "index"))
     pages[0] = { ...pages[0], slug: "index", home: true };

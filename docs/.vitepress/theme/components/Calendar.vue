@@ -1,7 +1,17 @@
 <script setup>
 import { data } from "./../../blocks.data.js";
 import { formatDate, slugify, grid } from "./../../utils.js";
+import { useData } from "vitepress";
 const props = defineProps({ block: { type: Object, required: true } });
+const { localeIndex } = useData();
+
+// Page-producing events carry a root `/<slug>/` link (set at build time).
+// Prefix with the current locale key unless it's the root.
+function eventHref(event) {
+  if (!event?.link) return "";
+  const idx = localeIndex.value;
+  return !idx || idx === "root" || idx === "index" ? event.link : "/" + idx + event.link;
+}
 
 function getSubKeys(table) {
   const keys = new Set();
@@ -40,7 +50,16 @@ function getSubKeys(table) {
               <td v-for="subKey in getSubKeys(table)" class="p-3 align-top border-1">
                 <!-- Cada fila de la tabla puede tener múltiples elementos -->
                 <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
-                  {{ formatDate(lineKey, $frontmatter.lang) }}
+                  <a
+                    v-if="eventHref(line)"
+                    :href="eventHref(line)"
+                    class="text-accent font-medium hover:underline no-underline"
+                  >
+                    {{ line.title || formatDate(lineKey, $frontmatter.lang) }}
+                  </a>
+                  <template v-else>
+                    {{ formatDate(lineKey, $frontmatter.lang) }}
+                  </template>
                   <span class="extra italic text-sm">
                     {{
                       Object.keys(line)
