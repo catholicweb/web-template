@@ -57,19 +57,28 @@ function logo(item) {
 
 const playingVideo = ref(null);
 
+// Cloudflare Web Analytics has no custom-event API (GoatCounter's
+// count({event:true}) is gone), but it records SPA navigations by overriding
+// history.pushState. Emulate the event by briefly pushing a synthetic
+// `/reproducir/...` route the beacon logs as a page, then restoring the real
+// URL — replaceState is not intercepted, so the URL bar and history length
+// end unchanged (single-tick, no repaint in between).
 watch(playingVideo, (src) => {
   if (!src) return;
-  const item = props.block.elements?.find((i) => i.src === src);
-  const platform = src.includes("youtube") ? "youtube"
-    : src.includes("spotify") ? "spotify"
-    : src.includes("vimeo") ? "vimeo"
-    : src.includes(".mp3") ? "audio"
-    : "video";
-  window.goatcounter?.count({
-    path: `Reproducir: ${(item?.title || src).slice(0, 60)}`,
-    title: props.block.title +' @'+ platform,
-    event: true,
-  });
+  try {
+    const item = props.block.elements?.find((i) => i.src === src);
+    const real = window.location.pathname + window.location.search;
+    const slug = (item?.title || src)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+    const fake = `/reproducir/${slug || "video"}`;
+    history.pushState(history.state, "", fake);
+    history.replaceState(history.state, "", real);
+  } catch (e) {
+    // Tracking is best-effort — never let a beacon hiccup break the video UI.
+  }
 });
 </script>
 

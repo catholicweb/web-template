@@ -8,6 +8,7 @@ import fs from "node:fs";
 // are touched.
 const TEST_CONFIG = {
   site: { title: "Título del Sitio", description: "desc", languages: ["Español:es"] },
+  dev: { webAnalyticsToken: "TESTTOKEN" },
   _media: { base: "https://data.parroquia.app" },
 };
 
@@ -129,5 +130,11 @@ describe("getConfig", () => {
     expect(cfg.description).toBe("desc");
     expect(cfg.languages).toEqual(["Español:es"]);
     expect(cfg.theme).toEqual({});
+  });
+
+  it("exposes the Cloudflare web-analytics token and not the legacy goatcounter code", () => {
+    const cfg = createFiles.getConfig();
+    expect(cfg.webAnalyticsToken).toBe("TESTTOKEN");
+    expect(cfg.goatcounter).toBeUndefined();
   });
 });

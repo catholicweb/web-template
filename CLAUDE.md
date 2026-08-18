@@ -53,6 +53,15 @@ To add a build step or a fetched data source, follow the pattern of the existing
 
 `docs/.vitepress/config.js` reads `docs/public/config.json` and derives VitePress locales, nav, title/description, fonts (`css.js`), and theme. `config.js` is the VitePress entry: it wires up `VitePWA` (injectManifest strategy, SW source `docs/.vitepress/sw.js`), SEO JSON-LD (`seo.js`), and Google Fonts.
 
+### Analytics: Cloudflare Web Analytics (no GoatCounter)
+
+Sites are tracked with **Cloudflare Web Analytics** — cookie-less, no local storage, so no cookie-consent banner is ever needed (see the shipped privacy-policy template `aviso-legal-y-politica-de-privacidad.md`). Two complementary paths:
+
+- **Per-zone automatic injection** (preferred): enable Web Analytics on a Cloudflare zone once (dashboard, or `POST /accounts/{acc}/rum/site_info` with `{ zone_tag, auto_install: true }`); the beacon is server-injected for every proxied host/subdomain, needing no template code. Caveat: skipped if responses carry `Cache-Control: public, no-transform`.
+- **Per-site token fallback**: read `config.dev.webAnalyticsToken` (nested in `site.*` tolerated, see `createFiles.js` `getConfig()`), and `docs/.vitepress/analytics.js` `webAnalyticsHead()` emits the beacon `<script>` when a token is set. Covers hosts automatic injection can't reach (`*.pages.dev`, non-Cloudflare-zone domains). Never both on one hostname — Cloudflare allows a single beacon snippet per page.
+
+The beacon tracks SPA navigations itself (it hooks `history.pushState`/`popstate`) — there is no route-change wiring in the theme. `Video.vue` emulates playback events by briefly pushing a synthetic route and restoring it (Cloudflare Web Analytics has no custom-event API).
+
 ### Look & feel: the `theme` object
 
 `config.theme` is the single source of site appearance. Beyond colors and fonts, it now drives several design tokens and structural layouts, all with defaults that keep existing sites looking close to before:

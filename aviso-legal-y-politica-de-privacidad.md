@@ -384,31 +384,32 @@ sections:
       **{{NOMBRE_PARROQUIA}} NO utiliza cookies en este sitio web.**
 
 
-      Para el análisis estadístico de visitas utilizamos **GoatCounter**, una
-      herramienta de analítica web diseñada específicamente para respetar la
-      privacidad de los usuarios y que **no emplea cookies ni ningún tipo de
-      almacenamiento local en el navegador**.
+      Para el análisis estadístico de visitas utilizamos **Cloudflare Web
+      Analytics**, el sistema de analítica nativa del servicio Cloudflare Pages
+      en el que está alojado este sitio web. Está diseñado específicamente para
+      respetar la privacidad de los usuarios y **no emplea cookies ni ningún
+      tipo de almacenamiento local en el navegador**.
 
 
-      ### 3. Herramienta de análisis: GoatCounter
+      ### 3. Herramienta de análisis: Cloudflare Web Analytics
 
 
-      **¿Qué es GoatCounter?**
+      **¿Qué es Cloudflare Web Analytics?**
 
 
-      GoatCounter es una plataforma de analítica web de código abierto,
-      orientada a la privacidad, que permite obtener estadísticas sobre el uso
-      del sitio web sin comprometer la privacidad de los visitantes.
+      Cloudflare es la plataforma que aloja este sitio web (a través de
+      Cloudflare Pages) y **Cloudflare Web Analytics** es su sistema nativo de
+      analítica web, orientado a la privacidad de los visitantes.
 
 
-      **Características de privacidad de GoatCounter:**
+      **Características de privacidad de Cloudflare Web Analytics:**
 
 
       - ✅ **No utiliza cookies** de ningún tipo
 
       - ✅ **No utiliza almacenamiento local** (localStorage, sessionStorage)
 
-      - ✅ **No recopila información personal identificable** (PII)
+      - ✅ **No recopila ni usa información personal identificable** (PII)
 
       - ✅ **No realiza seguimiento entre sitios** (cross-site tracking)
 
@@ -420,11 +421,11 @@ sections:
       - ✅ **No requiere banner de consentimiento de cookies**
 
 
-      **¿Qué información recopila GoatCounter?**
+      **¿Qué información recopila Cloudflare Web Analytics?**
 
 
-      GoatCounter recopila únicamente datos agregados y completamente anónimos:
-
+      Cloudflare Web Analytics recopila únicamente datos agregados y
+      completamente anónimos:
 
       - URL de la página visitada
 
@@ -433,23 +434,25 @@ sections:
       - User-Agent del navegador (tipo de navegador y dispositivo, de forma
       genérica)
 
-      - Tamaño de pantalla (resolución aproximada)
-
       - País de origen (aproximado, basado en la dirección IP, que NO se
       almacena)
+
+      - Tamaño de pantalla (resolución aproximada)
+
+      - Tiempo de carga y rendimiento de la página (Core Web Vitals)
 
       - Fecha y hora de la visita
 
 
-      **Importante:** GoatCounter NO almacena direcciones IP, NO crea perfiles
+      **Importante:** Cloudflare NO almacena direcciones IP, NO crea perfiles
       de usuario, NO permite reidentificar a visitantes individuales y NO
       comparte datos con terceros.
 
 
-      **Base legal para el uso de GoatCounter:**
+      **Base legal para el uso de Cloudflare Web Analytics:**
 
 
-      El uso de GoatCounter se basa en el **interés legítimo** de
+      El uso de Cloudflare Web Analytics se basa en el **interés legítimo** de
       {{NOMBRE_PARROQUIA}} (art. 6.1.f del RGPD) para:
 
 
@@ -464,7 +467,6 @@ sections:
       identificar a usuarios individuales, no se requiere consentimiento previo
       conforme a:
 
-
       - Considerando 26 del RGPD: "No se aplica el presente Reglamento al
       tratamiento de datos personales de personas fallecidas ni a datos
       anónimos"
@@ -475,14 +477,12 @@ sections:
       - Directrices del Comité Europeo de Protección de Datos sobre cookies
 
 
-      **Más información sobre GoatCounter:**
+      **Más información sobre Cloudflare Web Analytics:**
 
 
-      - Sitio web oficial: https://www.goatcounter.com
+      - Documentación oficial: https://developers.cloudflare.com/web-analytics/
 
-      - Política de privacidad: https://www.goatcounter.com/help/privacy
-
-      - Código fuente: https://github.com/arp242/goatcounter
+      - Política de privacidad de Cloudflare: https://www.cloudflare.com/privacy/
 
 
       ### 4. Cookies técnicas esenciales
@@ -499,40 +499,39 @@ sections:
       Si esto ocurre, se actualizará esta política informando de su uso.
 
 
-      ### 5. ¿Cómo desactivar el seguimiento de GoatCounter?
+      ### 5. ¿Cómo desactivar el seguimiento de Cloudflare Web Analytics?
 
 
-      Aunque GoatCounter es completamente anónimo y no requiere consentimiento,
-      respetamos el deseo de aquellos usuarios que prefieran no ser
-      contabilizados en las estadísticas.
+      Cloudflare Web Analytics es completamente anónimo y no requiere
+      consentimiento, y dado que no utiliza cookies ni almacenamiento local en
+      su navegador, no existe ninguna "cookie de seguimiento" que deba
+      eliminar ni ningún banner que aceptar. En cualquier caso, respetamos el
+      deseo de los usuarios que prefieran no ser contabilizados en las
+      estadísticas.
 
 
-      **Opción 1: Configuración Do Not Track (DNT)**
+      **Opción 1: Configuración de privacidad del navegador**
 
-      GoatCounter respeta la señal "Do Not Track" de su navegador. Si activa
-      esta opción, no se registrará su visita.
+      La mayoría de los navegadores incluyen protección contra el seguimiento
+      que puede bloquear los scripts de analítica:
 
+      - **Chrome:** Configuración > Privacidad y seguridad > Protección contra
+      el seguimiento (o "No realizar seguimiento" en versiones anteriores)
 
-      Para activar Do Not Track:
+      - **Firefox:** Opciones > Privacidad y seguridad > Protección reforzada
+      contra el rastreo
 
+      - **Safari:** Preferencias > Privacidad > Prevención inteligente de
+      seguimiento
 
-      - **Chrome:** Configuración > Privacidad y seguridad > Enviar solicitud de
-      "No realizar seguimiento"
-
-      - **Firefox:** Opciones > Privacidad y seguridad > Enviar a los sitios web
-      una señal de "No rastrear"
-
-      - **Safari:** Preferencias > Privacidad > Solicitar a los sitios web que
-      no hagan seguimiento
-
-      - **Edge:** Configuración > Privacidad, búsqueda y servicios > Enviar
-      solicitudes "No realizar seguimiento"
+      - **Edge:** Configuración > Privacidad, búsqueda y servicios > Prevención
+      de seguimiento
 
 
-      **Opción 2: Bloqueadores de scripts**
+      **Opción 2: Bloqueadores de contenido**
 
       Puede utilizar extensiones del navegador como uBlock Origin, Privacy
-      Badger o similar para bloquear el script de GoatCounter.
+      Badger o similares para bloquear el script de analítica de Cloudflare.
 
 
       ### 6. Configuración del navegador

@@ -6,6 +6,7 @@ import { getJSONLD } from "./seo.js";
 
 import { generateNav, locales } from "./navBar.js";
 import { getFontCSS } from "./css.js";
+import { webAnalyticsHead } from "./analytics.js";
 
 const config = read("./docs/public/config.json");
 const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
@@ -24,7 +25,10 @@ export default defineConfig(async () => {
       // Manifest and icons
       ["link", { rel: "manifest", href: "/manifest.json" }],
       ["link", { rel: "icon", href: "/favicon.ico", type: "image/x-icon" }],
-      ["script", { "data-goatcounter": config.dev?.goatcounter || "", async: true, src: "//gc.zgo.at/count.js" }],
+      // Cloudflare Web Analytics: per-zone automatic injection is the primary
+      // path (server-side, covers all proxied subdomains). This conditional
+      // token fallback covers hosts automatic injection can't reach.
+      ...webAnalyticsHead(config.dev?.webAnalyticsToken ?? config.site?.webAnalyticsToken),
     ],
     locales: locales(languages),
     title: config.title,

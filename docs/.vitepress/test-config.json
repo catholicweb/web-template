@@ -21,7 +21,7 @@
   },
   "dev": {
     "siteurl": "https://test.parroquia.app",
-    "goatcounter": "GCCTEST"
+    "webAnalyticsToken": "TESTTOKEN"
   },
   "_media": { "base": "https://data.parroquia.app" },
   "nav": [

@@ -58,7 +58,7 @@ export const getConfig = () => {
     languages: config.languages ?? config.pages?.languages ?? s.languages,
     theme: config.theme ?? s.theme ?? {},
     siteurl: config.dev?.siteurl ?? s.siteurl,
-    goatcounter: config.dev?.goatcounter ?? s.goatcounter,
+    webAnalyticsToken: config.dev?.webAnalyticsToken ?? s.webAnalyticsToken,
   };
 };
 
