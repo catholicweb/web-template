@@ -136,7 +136,7 @@ export function formatDate(isoString, lang = "Español:es") {
   if (isNaN(date.getTime())) return tr(isoString, lang);
   const monthIndex = date.getMonth();
   const now = new Date();
-  const note = date.getFullYear() < now.getFullYear() ? ` (${date.getFullYear()})` : "";
+  const note = date.getFullYear() < now.getFullYear() ? `(${date.getFullYear()})` : "";
 
   const months = {
     eu: ["Urtarrilak", "Otsailak", "Martxoak", "Apirilak", "Maiatzak", "Ekainak", "Uztailak", "Abuztuak", "Irailak", "Urriak", "Azaroak", "Abenduak"],

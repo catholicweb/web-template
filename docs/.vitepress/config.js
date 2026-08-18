@@ -15,7 +15,7 @@ const languages = config.languages ?? config.pages?.languages ?? [];
 const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}`;
 
 export default defineConfig(async () => {
-  const { preloads } = await getFontCSS(config.theme);
+  const { preloads } = await getFontCSS(config.theme ?? {});
   return {
     head: [
       // Load google fonts
