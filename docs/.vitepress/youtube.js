@@ -161,8 +161,11 @@ async function getChannelIdFromUrl(channelUrl) {
 }
 
 export async function fetchVideos(channelUrl) {
+  // `videos` is declared in function scope (not inside the `try` block below) so
+  // that the `catch` block can return the previously-known list instead of
+  // throwing ReferenceError when an upstream call fails mid-fetch.
+  let videos = read("./docs/public/videos.json", []);
   try {
-    let videos = read("./docs/public/videos.json", []);
     const config = read("./docs/public/config.json");
     if (!API_KEY) {
       console.error("Error: La API Key no está definida. Asegúrate de exportarla.");
@@ -174,7 +177,15 @@ export async function fetchVideos(channelUrl) {
     // pages through NEW YouTube videos on top of the previously published list.
 
     console.log("Fetching videos...");
-    const youtubeStr = config.social.find((s) => s.toLowerCase().includes("youtube"));
+    const youtubeStr = (config.social || []).find((s) =>
+      s.toLowerCase().includes("youtube")
+    );
+    // Sites without a YouTube channel in their social config skip video
+    // fetching gracefully — YouTube is optional.
+    if (!youtubeStr) {
+      console.log("No YouTube channel configured in social; skipping video fetch.");
+      return videos;
+    }
     const CHANNEL_ID = await getChannelIdFromUrl(youtubeStr);
     // Get main videos
     const playlistId = await getUploadsPlaylistId(CHANNEL_ID);
