@@ -31,7 +31,8 @@ async function downloadAndSubset(fontUrl, fontPath) {
   }
 }
 
-function camelCase(str) {
+export function camelCase(str) {
+  if (!str) return "";
   return str
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -87,7 +88,7 @@ const SHADOW_PRESETS = {
   },
 };
 
-const getHue = (hex) => {
+export const getHue = (hex) => {
   try {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -122,12 +123,12 @@ export async function printCSS() {
 
 @theme {
   /* === Your core parameters === */
-  --font-body: '${config.theme.bodyFont}', sans-serif;
-  --font-heading: '${config.theme.headingFont}', sans-serif;
-  --color-accent: ${config.theme.accentColor};
-  --color-primary: ${config.theme.accentPrimary};
-  --accent-angle: ${getHue(config.theme.accentColor)}deg;
-  --primary-angle: ${getHue(config.theme.primaryColor)}deg;
+  --font-body: '${theme.bodyFont}', sans-serif;
+  --font-heading: '${theme.headingFont}', sans-serif;
+  --color-accent: ${theme.accentColor};
+  --color-primary: ${theme.accentPrimary};
+  --accent-angle: ${getHue(theme.accentColor)}deg;
+  --primary-angle: ${getHue(theme.primaryColor)}deg;
 
   /* === Design tokens (customizable per site) === */
   --radius-sm: ${rv.sm};
@@ -151,19 +152,19 @@ export async function printCSS() {
 
 
   @font-face {
-    font-family: '${config.theme.bodyFont}';
+    font-family: '${theme.bodyFont}';
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url(/${camelCase(config.theme.bodyFont)}.woff2);
+    src: url(/${camelCase(theme.bodyFont)}.woff2);
   }
 
   @font-face {
-    font-family: '${config.theme.headingFont}';
+    font-family: '${theme.headingFont}';
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url(/${camelCase(config.theme.headingFont)}.woff2);
+    src: url(/${camelCase(theme.headingFont)}.woff2);
   }
 
 /* You can also include other global styles */

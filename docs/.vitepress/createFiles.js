@@ -11,6 +11,7 @@ import { getEventFAQ } from "./seo.js";
 import { fetchCalendar } from "./calendar.js";
 import { sendNotifications } from "./notify.js";
 import crypto from "crypto";
+import { fileURLToPath } from "node:url";
 
 import MarkdownIt from "markdown-it";
 import sharp from "sharp";
@@ -28,13 +29,13 @@ let config = read("./docs/public/config.json");
 const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
 const SLUG = process.env.SITE_SLUG || "";
 
-function mediaBase() {
+export function mediaBase() {
   return config._media?.base || `${DATA}/${SLUG}`;
 }
 
 // Resolve a media path (/media/...) to its remote URL. Absolute URLs
 // (including already-resolved media) pass through untouched.
-function resolveMedia(url) {
+export function resolveMedia(url) {
   if (!url) return url;
   if (/^(https?:)?\/\//.test(url)) return url;
   if (url.startsWith("/media/")) {
@@ -47,7 +48,7 @@ function resolveMedia(url) {
 // Tolerant reads: fields may sit top-level (legacy layout) or nested per the
 // editor's tabbed schema (site.* / pages.languages). Fallbacks only kick in
 // when the top-level key is absent, so existing configs are unaffected.
-const getConfig = () => {
+export const getConfig = () => {
   const s = config.site ?? {};
   return {
     title: config.title ?? s.title,
@@ -376,7 +377,7 @@ function imageURL(url) {
 // Rewrite every image/media field in a page's data to its remote URL, so
 // runtime components simply render an absolute URL. Applies under keys
 // `image` / `images` anywhere in the tree (sections, elements, events, page).
-function bakeMedia(node) {
+export function bakeMedia(node) {
   if (Array.isArray(node)) {
     for (const item of node) bakeMedia(item);
     return node;
@@ -415,7 +416,7 @@ function addMeta(fm) {
 // value (an array); inline {prop} placeholders are string-substituted. In an
 // array context a whole-string placeholder that resolves to an array is spliced
 // in (e.g. `list: ["{images}"]` -> `list: ["a.webp","b.webp"]`).
-function substitute(template, place) {
+export function substitute(template, place) {
   const tags = Object.fromEntries((place.tags || []).map(item => [item.key, item.value]))
   const ctx = { ...place, image: place.images?.[0], ...tags };
   // The editor authors placeholders as `{{name}}` (double braces); also accept
@@ -676,6 +677,10 @@ async function run() {
         title: ev.title,
         slug,
         home: false,
+        // Event URLs must keep their date-suffixed slug (e.g. /misa-2027-07-20/),
+        // so opt this page out of translated-title basenames — otherwise every
+        // "Misa" on a different date would collide on the same .md file.
+        filenameMode: "original",
       });
     }
     // Re-write calendar.json with the link field added to page-producing events.
@@ -701,8 +706,12 @@ async function run() {
     // de/drucken.md, ar/<hash>.md. Passing a `.md`-suffixed name makes filename()
     // take its translated-title branch (same path postComplete already uses).
     // A site can opt back into stable source-slug names with
-    // pages.filenameMode:"original" (plain `slug` is used verbatim for every lang).
-    const translatedNames = config.pages?.filenameMode !== "original";
+    // pages.filenameMode:"original" (plain `slug` is used verbatim for every lang);
+    // individual pages can do the same with their own filenameMode:"original"
+    // (event pages use it to keep their date-suffixed slug in the URL).
+    const original =
+      config.pages?.filenameMode === "original" || page.filenameMode === "original";
+    const translatedNames = !original;
     const nameArg = translatedNames ? slug + ".md" : slug;
 
     for (const lang of NAMING.TARGET_LANGS) {
@@ -741,4 +750,8 @@ async function run() {
   }
 }
 
-run();
+// Guard run() behind a main-module check (same pattern as fetch.js) so this
+// module can be imported by test runners without triggering the full build.
+const isMain = fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) run();
+export { run };

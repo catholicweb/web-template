@@ -1,0 +1,166 @@
+{
+  "title": "Parroquia de Test",
+  "description": "Sitio web de prueba para vitest",
+  "languages": ["Español:es", "Euskara:eu"],
+  "social": ["https://example.com"],
+  "icon": "https://data.parroquia.app/test-icon.png",
+  "collaborators": [
+    { "phone": "+34 948 123 456", "email": "test@parroquia.example" }
+  ],
+  "theme": {
+    "bodyFont": "Open Sans",
+    "headingFont": "Montserrat",
+    "accentColor": "#1e3a8a",
+    "accentPrimary": "#3b82f6",
+    "radius": "soft",
+    "shadow": "medium",
+    "buttonStyle": "solid",
+    "container": "wide",
+    "navStyle": "default",
+    "footerStyle": "auto"
+  },
+  "dev": {
+    "siteurl": "https://test.parroquia.app",
+    "goatcounter": "GCCTEST"
+  },
+  "_media": { "base": "https://data.parroquia.app" },
+  "nav": [
+    {
+      "title": "Menú principal",
+      "links": [0, 1, 2, 3, 4]
+    }
+  ],
+  "info": {
+    "title": "Parroquia de Test",
+    "collaborators": [
+      { "name": "P. Miguel", "social": ["+34 948 123 456", "test@parroquia.example"] }
+    ],
+    "places": [
+      { "name": "Leitza", "geo": "42.8333,-1.5" },
+      { "name": "Betelu", "geo": "42.9,-1.4" }
+    ]
+  },
+  "pages": {
+    "pageperevent": ["mass"],
+    "list": [
+      {
+        "id": "home",
+        "title": "Portada",
+        "protected": "Portada",
+        "sections": [
+          {
+            "type": "hero",
+            "image": "https://data.parroquia.app/test-hero.webp",
+            "title": "Bienvenidos",
+            "html": "# Bienvenida a la parroquia"
+          },
+          {
+            "type": "gallery",
+            "image": "https://data.parroquia.app/test-gallery.webp",
+            "title": "Sobre nosotros",
+            "html": "Somos una parroquia acogedora en el corazón de la comunidad."
+          }
+        ]
+      },
+      {
+        "id": "contact",
+        "title": "Contacto",
+        "slug": "contacto",
+        "sections": [
+          {
+            "type": "text",
+            "html": "## Contacto\n\nPuedes contactar con nosotros en cualquier momento.\n\n- Teléfono: 948 123 456\n- Email: test@parroquia.example"
+          }
+        ]
+      },
+      {
+        "id": "map",
+        "title": "Dónde estamos",
+        "slug": "donde-estamos",
+        "sections": [
+          {
+            "type": "map",
+            "name": "Parroquia Test",
+            "geo": "40.4168,-3.7038",
+            "image": "https://data.parroquia.app/test-map.webp"
+          }
+        ]
+      },
+      {
+        "id": "fundraising",
+        "title": "Campaña de restauración",
+        "slug": "campana",
+        "sections": [
+          {
+            "type": "fundraising",
+            "goal": 10000,
+            "raised": 2500,
+            "title": "Restauración de la fachada",
+            "image": "https://data.parroquia.app/test-campaign.webp",
+            "html": "Ayúdanos a restaurar la fachada de la iglesia."
+          }
+        ]
+      },
+      {
+        "id": "video",
+        "title": "Vídeos",
+        "slug": "videos",
+        "sections": [
+          {
+            "type": "video-channel",
+            "filter": "",
+            "filters": []
+          }
+        ]
+      },
+      {
+        "id": "town-template",
+        "title": "{{name}}",
+        "protected": "Plantilla pueblos",
+        "sections": [
+          {
+            "type": "hero",
+            "title": "{{name}}",
+            "image": "https://data.parroquia.app/test-town.webp",
+            "html": "# Bienvenidos a {{name}}"
+          }
+        ]
+      },
+      {
+        "id": "event-template",
+        "title": "{{title}}",
+        "protected": "Plantilla eventos",
+        "sections": [
+          {
+            "type": "gallery",
+            "title": "{{title}}",
+            "image": "https://data.parroquia.app/test-event.webp",
+            "html": "# {{title}}\n\n{{description}}\n\n📅 {{dates}}"
+          }
+        ]
+      }
+    ]
+  },
+  "calendar": {
+    "events": {
+      "list": [
+        {
+          "type": "mass",
+          "title": "Misa",
+          "date": ["25/12/2099"],
+          "times": ["10:00", "12:00"],
+          "location": "Iglesia"
+        }
+      ]
+    }
+  },
+  "event-types": {
+    "list": [
+      {
+        "name": "mass",
+        "label": "Misa",
+        "defaults": { "image": "https://data.parroquia.app/mass.webp" }
+      }
+    ]
+  }
+}

@@ -148,6 +148,8 @@ export const getBibleReadings = async (options = {}) => {
     };
   } catch (err) {
     console.error("BibleApp Module Error:", err);
-    throw err;
+    // Return empty readings instead of re-throwing — a Bible API outage should
+    // not crash every parish site's build. The page renders without readings.
+    return { day_title: "", list: [] };
   }
 };
