@@ -62,6 +62,7 @@ const EXPECTED = [
   "docs/eu/leitza.md",
   "docs/misa-2099-12-25.md", // event template, per pageperevent — date must stay in the URL
   "docs/eu/misa-2099-12-25.md",
+  "docs/aviso-legal-y-politica-de-privacidad.md", // generated legal/privacy page (es root)
   "docs/.vitepress/dist/index.html",
   "docs/.vitepress/dist/404.html",
   "docs/.vitepress/dist/eu/index.html",
@@ -100,6 +101,37 @@ function main() {
         console.error(`  ✗ ${rel} MISSING`);
       }
     }
+    // Analytics: the Cloudflare Web Analytics beacon must be injected and the
+    // legacy GoatCounter tracker must be gone from the built HTML.
+    const indexHtml = fs.readFileSync(path.join(root, "docs/.vitepress/dist/index.html"), "utf8");
+    const expectInIndex = (needle, label) => {
+      if (indexHtml.includes(needle)) console.log(`  ✓ dist/index.html ${label}`);
+      else {
+        fails.push(`dist/index.html missing ${label}`);
+        console.error(`  ✗ dist/index.html missing ${label}`);
+      }
+    };
+    expectInIndex('src="https://static.cloudflareinsights.com/beacon.min.js"', "injects the CF RUM beacon");
+    expectInIndex("TESTTOKEN", "carries the fixture web-analytics token");
+    if (!/gc\.zgo\.at|goatcounter/i.test(indexHtml)) console.log("  ✓ dist/index.html has no legacy GoatCounter tracker");
+    else {
+      fails.push("dist/index.html still references goatcounter");
+      console.error("  ✗ dist/index.html still references goatcounter");
+    }
+
+    // Legal page: describes Cloudflare Web Analytics, never GoatCounter.
+    const legalMd = fs.readFileSync(path.join(root, "docs/aviso-legal-y-politica-de-privacidad.md"), "utf8");
+    if (legalMd.includes("Cloudflare Web Analytics")) console.log("  ✓ legal page mentions Cloudflare Web Analytics");
+    else {
+      fails.push("legal page missing 'Cloudflare Web Analytics'");
+      console.error("  ✗ legal page missing 'Cloudflare Web Analytics'");
+    }
+    if (!/GoatCounter/i.test(legalMd)) console.log("  ✓ legal page never mentions GoatCounter");
+    else {
+      fails.push("legal page still mentions GoatCounter");
+      console.error("  ✗ legal page still mentions GoatCounter");
+    }
+
     // Sanity: the per-event page must not be the only thing missing when the
     // event-template code path silently stops producing pages.
     const generatedMd = fs
