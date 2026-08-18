@@ -644,13 +644,21 @@ async function run() {
 
   // "Plantilla eventos" — same idea, for events: a page in pages.list marked
   // protected:"Plantilla eventos" whose sections carry `{{event.*}}` placeholders,
-  // expanded once per selected event. Selection is driven by the `page` switch on
-  // an event-type entry (the same editor pattern as the event-type `icon`): every
-  // event belonging to a `page:true` type gets a dedicated page.
+  // expanded once per selected event. Selection is driven by pages.pageperevent,
+  // a site-level list of event-type names/labels (the same editor pattern as
+  // the event-type `icon`): every event belonging to a listed type gets a
+  // dedicated page.
   const evTypes = config["event-types"]?.list ?? [];
+  const pagePerEvent = new Set(
+    (config.pages?.pageperevent ?? []).map((s) => String(s).toLowerCase())
+  );
   const pageTypes = new Set(
     evTypes
-      .filter((t) => t.page)
+      .filter((t) =>
+        [t.name, t.label].filter(Boolean).some((f) =>
+          pagePerEvent.has(String(f).toLowerCase())
+        )
+      )
       .flatMap((t) => [t.name, t.label].filter(Boolean).map((s) => String(s).toLowerCase()))
   );
   if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pageTypes.size) {

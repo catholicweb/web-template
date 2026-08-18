@@ -149,6 +149,7 @@ function buildConfig() {
       nav,
       languages: site.languages || ["Español:es"],
       list: pages,
+      pageperevent: [], // vocaciones has no event-types to page-ify
       // filenameMode unset -> default translated per-language basenames.
     },
     dev: site.dev || {},
