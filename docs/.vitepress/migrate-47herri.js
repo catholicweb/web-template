@@ -161,6 +161,7 @@ function buildConfig() {
       languages: site.languages || [],
       list: pages,
       pageperlocatoin: true,
+      pageperevent: [],
       // 47herri names every output file from that language's translated title
       // (slug(translate(title))), e.g. es/imprimir.md, de/drucken.md. That is
       // createFiles' default; no flag needed (a site wanting stable slugs would
