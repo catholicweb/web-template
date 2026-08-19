@@ -32,27 +32,11 @@
 
 <script setup>
 import components from "./components";
-import { slugify } from "./../utils.js";
+import { slugify, getSectionClasses } from "./../utils.js";
 import { useData } from "vitepress";
 import NotFound from "./components/NotFound.vue";
 
 const { page } = useData();
-
-function getSectionClasses(tags = []) {
-  const classes = [];
-
-  if (tags.includes("dark")) {
-    classes.push("[&_*]:text-white", "bg-[#222831]", "pt-4");
-  }
-
-  if (tags.includes("twocols")) {
-    classes.push("w-full", "md:w-1/2", "flex-none", "align-top", "px-4", "mx-auto");
-  } else {
-    classes.push("block", "w-full");
-  }
-
-  return classes;
-}
 
 // Get the component matching the block type.
 // NOTE (known limitation — see SANITY.md): only the first hyphen-segment of the
