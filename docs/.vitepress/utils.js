@@ -386,6 +386,11 @@ function hash(s) {
 export function grid(section) {
   let { tags = [], elements = [] } = section;
 
+  // Masonry layout uses CSS columns instead of flex
+  if (tags.includes("masonry")) {
+    return "container mx-auto columns-1 sm:columns-2 md:columns-3 gap-4 *:w-full *:break-inside-avoid";
+  }
+
   // 1. Layout Base
   const base = "container mx-auto flex";
   const directions = {
@@ -393,18 +398,53 @@ export function grid(section) {
     vertical: "flex-wrap justify-center text-center",
   };
   const sizes = {
+    xs: "py-2 *:w-1/2 *:sm:w-1/3 *:md:w-1/6 *:p-1",
     tiny: "py-4 *:w-1/3 *:sm:w-1/4 *:md:w-1/5 *:p-1",
     small: "py-4 *:w-1/2 *:md:w-1/3 *:lg:w-1/4 *:p-2",
     medium: "py-4 *:w-full *:sm:w-1/2 *:md:w-1/3 *:p-2 px-2",
     large: "py-4 *:w-full *:sm:w-2/3 *:p-2",
+    xl: "py-4 *:w-full *:md:w-5/6 *:p-2",
   };
 
-  // 3. Logic: Find the active size
+  // 2. Find the active size and direction
   const defaultSize = elements.length == 1 ? "large" : "medium";
   const activeSize = Object.keys(sizes).find((s) => tags.includes(s)) || defaultSize;
   const activeDirection = Object.keys(directions).find((s) => tags.includes(s)) || "vertical";
 
-  return `${base} ${directions[activeDirection]} ${sizes[activeSize]}`;
+  // 3. Visual modifiers (applied via Tailwind star-variants to child elements)
+  const modifiers = [];
+  if (tags.includes("dense")) modifiers.push("gap-1");
+  if (tags.includes("spacious")) modifiers.push("gap-6");
+  if (tags.includes("cards")) modifiers.push("*:shadow-sm", "*:rounded-xl", "*:bg-white");
+  if (tags.includes("bordered")) modifiers.push("*:border", "*:border-gray-200");
+  if (tags.includes("flat")) modifiers.push("*:shadow-none");
+
+  return `${base} ${directions[activeDirection]} ${sizes[activeSize]}${modifiers.length ? " " + modifiers.join(" ") : ""}`;
+
+}
+
+// Determine the CSS classes for a section based on its tags.
+// Extracted from Layout.vue to be unit-testable.
+export function getSectionClasses(tags = []) {
+  const classes = [];
+
+  if (tags.includes("dark")) {
+    classes.push("[&_*]:text-white", "bg-[#222831]", "pt-4");
+  }
+
+  if (tags.includes("fullbleed")) {
+    classes.push("w-full", "px-0");
+  } else if (tags.includes("twocols")) {
+    classes.push("w-full", "md:w-1/2", "flex-none", "align-top", "px-4", "mx-auto");
+  } else {
+    classes.push("block", "w-full");
+  }
+
+  if (tags.includes("narrow")) {
+    classes.push("max-w-3xl", "mx-auto");
+  }
+
+  return classes;
 }
 
 export async function getAddress(lat, lng, name, zoom = 17) {
