@@ -20,8 +20,7 @@
     "footerStyle": "auto"
   },
   "dev": {
-    "siteurl": "https://test.parroquia.app",
-    "webAnalyticsToken": "TESTTOKEN"
+    "siteurl": "https://test.parroquia.app"
   },
   "_media": { "base": "https://data.parroquia.app" },
   "nav": [
