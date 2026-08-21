@@ -326,6 +326,7 @@ async function autocomplete(fm, pages) {
       fm.sections[i].elements = await Promise.all(
         fm.sections[i].links.map((url) => resolveLinkElement(url, pages, translatedNames) || getPreview(url))
       );
+      (fm.sections[i].tags ??= []).push("small");
     }
     if (fm.sections[i]._block == "links") {
       fm.sections[i]._block = "gallery-feature";
