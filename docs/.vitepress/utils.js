@@ -25,6 +25,40 @@ export function groupEvents(events, fields = []) {
   return grouped;
 }
 
+// Assembles the event grouping order from the new per-level single-select
+// fields (orderTabla, orderFila, orderColumna, orderSubfila, orderNotas) into
+// the flat array that groupEvents() expects.  Falls back to the legacy `order`
+// array for existing configs, then to a sensible default.
+//
+// Important: groupEvents reads the array by index, so each level must stay in
+// its fixed position.  We do NOT filter out unset levels — instead we emit the
+// "empty" sentinel (a valid option from the ordering component) so positional
+// integrity is preserved.  Calendar.vue already hides "" keys via CSS
+// (h3:empty, td:empty { display: none }).
+export function assembleOrder(section) {
+  const LEVELS = [
+    "orderTabla",
+    "orderFila",
+    "orderColumna",
+    "orderSubfila",
+    "orderNotas",
+  ];
+
+  // New format: always return all 5 levels in order, using "empty" as a
+  // placeholder for unset levels to preserve positional integrity.
+  if (LEVELS.some((f) => section[f])) {
+    return LEVELS.map((f) => section[f] || "empty");
+  }
+
+  // Backward compatibility: legacy `order` array
+  if (Array.isArray(section.order) && section.order.length) {
+    return section.order;
+  }
+
+  // Default fallback
+  return ["type", "times"];
+}
+
 export function toArray(value) {
   if (Array.isArray(value)) {
     if (value.length) return value;

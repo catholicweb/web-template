@@ -1,5 +1,5 @@
 import { read, write, path } from "./node_utils.js";
-import { slugify, applyComplexFilter, groupEvents, getAddress } from "./utils.js";
+import { slugify, applyComplexFilter, groupEvents, getAddress, assembleOrder } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { buildDictionary, translateObject, dictionary as DICTIONARY } from "./translate.js";
@@ -273,10 +273,12 @@ async function postComplete(fm) {
         (fm.sections[i].tags ??= []).push("horizontal", "medium");
       }
     } else if (fm.sections[i]._block == "calendar") {
-      // Calendar.vue renders a grouped table (group -> subkey -> rows). An empty
-      // `order` would leave `events` as the raw list and crash the renderer, so
-      // fall back to a sensible grouping (by event type, then time).
-      const order = fm.sections[i].order?.length ? fm.sections[i].order : ["type", "times"];
+      // Calendar.vue renders a grouped table (group -> subkey -> rows). The
+      // order can come from the new per-level single-select fields
+      // (orderTabla, orderFila, orderColumna, orderSubfila, orderNotas) or, for
+      // backward compatibility, from the legacy `order` array. assembleOrder()
+      // normalizes both into the flat array that groupEvents() expects.
+      const order = assembleOrder(fm.sections[i]);
       fm.sections[i].events = groupEvents(fm.sections[i].events, order);
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
