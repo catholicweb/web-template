@@ -47,9 +47,18 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     permissions: {}   # explicitly zero-scope — no GITHUB_TOKEN usable here either
-    # NO SECRETS anywhere in this job. Assume every step from "Fetch site
-    # config" onward runs attacker-controlled code (it downloads per-site
-    # config that theoretically isn't fully trusted).
+    # Public Firebase config values (safe to expose in client-side HTML).
+    # These are used by the browser FCM client SDK (PWA.vue / sw.js) only;
+    # notification sending now happens in config-api (CF Worker cron), not here.
+    # config.json is fetched as JSON (not code) and createFiles.js/vitepress
+    # don't eval anything, so these env vars don't leak to untrusted input.
+    env:
+      SITE_SLUG: ${{ needs.prepare.outputs.site_slug }}
+      FCM_API_KEY: ${{ secrets.FCM_API_KEY }}
+      FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+      FCM_APP_ID: ${{ secrets.FCM_APP_ID }}
+      FCM_MESSAGING_SENDER_ID: ${{ secrets.FCM_MESSAGING_SENDER_ID }}
+      FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
@@ -77,9 +86,8 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
-          SITE_SLUG: ${{ needs.prepare.outputs.site_slug }}
-          # Only OPENROUTER_API_KEY and YT_API_KEY are injected here.
-          # Both have a bounded blast radius in case of leakeage
+          # SITE_SLUG is at job-level env (needed by config.js for __FCM_TOPIC__)
+          # It has a bounded blast radius in case of leakage
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: npm run before-build

@@ -1,7 +1,6 @@
 import { read, write } from "./node_utils.js";
 
 const API_KEY = process.env.YT_API_KEY; // Leer API Key de env
-let newImportantVideos = [];
 
 async function getUploadsPlaylistId(CHANNEL_ID) {
   const url = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${CHANNEL_ID}&key=${API_KEY}`;
@@ -59,7 +58,7 @@ async function getNewVideos(playlistId, cachedIds, pageToken = "") {
     }
     newVideos.push(video);
     // Add the video if it is important
-    if (cachedIds && cachedIds.size && video.title.includes("*")) newImportantVideos.push(video);
+    // (Removed writeNotification — no longer polls for starred videos)
   }
   return { newVideos, nextPageToken: data.nextPageToken || null };
 }
@@ -83,22 +82,6 @@ async function updateVideos(playlistId, cachedVideos, playlist) {
   return [...allNewVideos, ...cachedVideos];
 }
 
-async function writeNotification(newImportantVideos) {
-  if (!newImportantVideos || !newImportantVideos.length) return;
-  let notifications = newImportantVideos.map((video) => {
-    return {
-      title: video.title,
-      options: {
-        body: "YouTuben bideo berria! Klikatu eta ikusi!",
-        image: `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`,
-        badge: "https://img.icons8.com/fluency-systems-regular/48/000000/church.png",
-        data: { url: "/#video-" + video.videoId },
-      },
-    };
-  });
-  console.log("writeNotification...");
-  return write("./docs/public/notifications.json", notifications);
-}
 async function getChannelIdFromUrl(channelUrl) {
   // 1. Extract the identifier (handle, username, or ID)
   const url = new URL(channelUrl);
@@ -200,7 +183,6 @@ export async function fetchVideos(channelUrl) {
     console.log("Fetched ", videos.length, " videos.");
     // Save videos
     write("./docs/public/videos.json", videos); // Guardar el resultado en un archivo
-    await writeNotification(newImportantVideos);
     return videos || [];
   } catch (error) {
     console.error("Error loading youtube data:", error);
