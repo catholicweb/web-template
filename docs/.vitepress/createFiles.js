@@ -9,7 +9,6 @@ import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
 import { fetchCalendar } from "./calendar.js";
-import { sendNotifications } from "./notify.js";
 import crypto from "crypto";
 import { fileURLToPath } from "node:url";
 
@@ -148,23 +147,8 @@ globalThis.fetch = async (url, options = {}) => {
   }
 };
 
-async function createManifest() {
+async function generateIcons() {
   try {
-    const manifest = {
-      name: CFG.title,
-      short_name: CFG.title,
-      description: CFG.description,
-      start_url: "/",
-      display: "standalone",
-      background_color: THEME.accentColor,
-      theme_color: THEME.accentColor,
-      icons: [
-        { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-        { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      ],
-    };
-    write("./docs/public/manifest.json", manifest);
-
     // Generate icons
     if (!CFG.icon) return;
     const iconUrl = resolveMedia(CFG.icon);
@@ -188,13 +172,23 @@ async function createManifest() {
       }
     }
 
+    // Generate Apple touch icon (180x180) for iOS home-screen install
+    try {
+      await sharp(iconBuffer)
+        .resize(180, 180)
+        .png()
+        .toFile(`./docs/public/apple-touch-icon.png`);
+    } catch (err) {
+      console.error(`⚠️ Error generando apple-touch-icon:`, err.message);
+    }
+
     // generate the favicon
 
     await sharp(iconBuffer)
       .resize(32, 32) // Resize to 32x32 pixels for the favicon size
       .toFile(`./docs/public/favicon.ico`);
   } catch (e) {
-    console.log(e, "failed to createManifest");
+    console.log(e, "failed to generateIcons");
   }
 }
 
@@ -579,8 +573,7 @@ async function run() {
   await getFontCSS(THEME);
   await printCSS();
   calendar = await fetchCalendar();
-  await sendNotifications();
-  await createManifest();
+  await generateIcons();
   videos = await fetchVideos();
   await buildDictionary();
 

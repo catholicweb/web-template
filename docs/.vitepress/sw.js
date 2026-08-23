@@ -3,6 +3,12 @@ import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 
+// Firebase Messaging — must come after Workbox imports so __WB_MANIFEST
+// is available for precacheAndRoute above. The /sw import path is the
+// SW-specific entry point (see firebase docs).
+import { initializeApp } from "firebase/app";
+import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
+
 // Remove precache entries from old service worker versions
 cleanupOutdatedCaches();
 
@@ -33,12 +39,28 @@ registerRoute(
   new StaleWhileRevalidate({ cacheName: "assets" })
 );
 
-/* ── PUSH NOTIFICATIONS ─────────────────────────────────────────────────── */
+/* ── FCM BACKGROUND MESSAGES ──────────────────────────────────────────────── */
 
-self.addEventListener("push", (event) => {
-  const data = event.data?.json() ?? { title: "New Notification" };
-  event.waitUntil(self.registration.showNotification(data.title, data.options));
-});
+// Initialize Firebase only when config is provided (canary builds / dev
+// without env vars get __FIREBASE_CONFIG__ === {} → apiKey is undefined → skipped)
+if (typeof __FIREBASE_CONFIG__ !== "undefined" && __FIREBASE_CONFIG__?.apiKey) {
+  initializeApp(__FIREBASE_CONFIG__);
+  const messaging = getMessaging();
+  onBackgroundMessage(messaging, (payload) => {
+    const notification = payload.notification || {};
+    const data = payload.data || {};
+    const title = notification.title || data.title || "Nueva notificación";
+    const options = {
+      body: notification.body || data.body || "",
+      icon: notification.image || "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: data.url || "/" },
+    };
+    self.registration.showNotification(title, options);
+  });
+}
+
+/* ── NOTIFICATION CLICK HANDLERS ────────────────────────────────────────────── */
 
 self.addEventListener("notificationclick", (event) => {
   const url = event.notification.data?.url || "/";

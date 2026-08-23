@@ -26,6 +26,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           SITES=$(curl -sf "https://api.parroquia.app/sites/list" | jq -c '.slugs')
+          # Notifications are now sent by config-api (CF Worker cron), not at
+          # build time — so this workflow only dispatches builds, no notify flag.
           echo "$SITES" | jq -r '.[]' | while read -r site; do
             # Defense in depth: deploy.yml re-validates the slug, but reject
             # anything unexpected here too so we don't dispatch garbage.
