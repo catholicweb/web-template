@@ -150,15 +150,24 @@ globalThis.fetch = async (url, options = {}) => {
 async function generateIcons() {
   try {
     // Generate icons
-    if (!CFG.icon) return;
-    const iconUrl = resolveMedia(CFG.icon);
+    // Try icon sources: config.icon first, then theme.icon fallback
+    const sources = [CFG.icon, CFG.theme?.icon].filter(Boolean);
+    if (!sources.length) return;
     let iconBuffer;
-    try {
-      const res = await originalFetch(iconUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      iconBuffer = Buffer.from(await res.arrayBuffer());
-    } catch (err) {
-      console.warn(`⚠️ No se pudo descargar el icono desde ${iconUrl}: ${err.message}. Se omiten los iconos PWA.`);
+    for (const src of sources) {
+      try {
+        const iconUrl = resolveMedia(src);
+        const res = await originalFetch(iconUrl);
+        if (res.ok) {
+          iconBuffer = Buffer.from(await res.arrayBuffer());
+          break;
+        }
+      } catch (err) {
+        // try next source
+      }
+    }
+    if (!iconBuffer) {
+      console.warn("⚠️ No se pudo descargar ningún icono PWA (intentado: " + sources.join(", ") + ")");
       return;
     }
     for (const size of [192, 512]) {
