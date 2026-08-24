@@ -152,7 +152,6 @@ async function generateIcons() {
     // Generate icons
     // Try icon sources: config.icon first, then theme.icon fallback
     const sources = [CFG.icon, CFG.theme?.icon].filter(Boolean);
-    if (!sources.length) return;
     let iconBuffer;
     for (const src of sources) {
       try {
@@ -167,8 +166,12 @@ async function generateIcons() {
       }
     }
     if (!iconBuffer) {
-      console.warn("⚠️ No se pudo descargar ningún icono PWA (intentado: " + sources.join(", ") + ")");
-      return;
+      // Fallback: accent tile + site initial so manifest URLs never 404
+      const accent = CFG.theme?.color?.accent || CFG.theme?.primary || "#cfa14d";
+      const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="${accent}"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
+      iconBuffer = Buffer.from(svg);
+      console.log("⚠️ No remote icon; using fallback accent tile for PWA icons.");
     }
     for (const size of [192, 512]) {
       try {
@@ -194,8 +197,9 @@ async function generateIcons() {
     // generate the favicon
 
     await sharp(iconBuffer)
-      .resize(32, 32) // Resize to 32x32 pixels for the favicon size
-      .toFile(`./docs/public/favicon.ico`);
+      .resize(32, 32)
+      .png()
+      .toFile(`./docs/public/favicon.png`);
   } catch (e) {
     console.log(e, "failed to generateIcons");
   }
