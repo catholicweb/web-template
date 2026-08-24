@@ -23,6 +23,9 @@ export default defineConfig(async () => {
       ...preloads,
       // Manifest and icons
       ["link", { rel: "icon", href: "/favicon.ico", type: "image/x-icon" }],
+      ["link", { rel: "icon", href: "/favicon.png", type: "image/png" }],
+      ["link", { rel: "manifest", href: "/manifest.webmanifest" }],
+      ["link", { rel: "apple-touch-icon", href: "/apple-touch-icon.png" }],
       // iOS / PWA installability
       ["meta", { name: "apple-mobile-web-app-capable", content: "yes" }],
       ["meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" }],
