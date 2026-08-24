@@ -26,8 +26,9 @@ export default defineConfig(async () => {
       // iOS / PWA installability
       ["meta", { name: "apple-mobile-web-app-capable", content: "yes" }],
       ["meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" }],
-      ["meta", { name: "theme-color", content: config.theme?.accentColor || "#000000" }],
-      ["meta", { name: "color-scheme", content: "light dark" }],
+      ["meta", { name: "theme-color", content: config.theme?.accentColor || "#ffffff" }],
+      ["meta", { name: "color-scheme", content: "light" }],
+      ["meta", { name: "viewport", content: "width=device-width, initial-scale=1" }],
     ],
     locales: locales(languages),
     title: config.title,
@@ -79,8 +80,8 @@ export default defineConfig(async () => {
             description: config.description || "",
             start_url: "/",
             display: "standalone",
-            background_color: config.theme?.accentColor || "#000000",
-            theme_color: config.theme?.accentColor || "#000000",
+            background_color: config.theme?.accentColor || "#ffffff",
+            theme_color: config.theme?.accentColor || "#ffffff",
             icons: [
               { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
               { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
