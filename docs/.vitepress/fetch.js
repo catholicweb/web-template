@@ -82,10 +82,10 @@ export function normalizeConfig(raw) {
   const pages = raw.pages ?? {};
   return {
     ...raw,
-    title: raw.title ?? s.title,
-    description: raw.description ?? s.description,
-    image: raw.image ?? s.image,
-    icon: raw.icon ?? s.icon,
+    title: raw.title || s.title || raw.info?.title,
+    description: raw.description || s.description || raw.info?.description,
+    image: raw.image || s.image || raw.theme?.image,
+    icon: raw.icon || s.icon || raw.theme?.icon,
     languages: raw.languages ?? pages.languages ?? s.languages,
     theme: raw.theme ?? s.theme ?? {},
     social: raw.social ?? s.social,
@@ -114,12 +114,16 @@ export async function fetchConfig(slug) {
   }
   const text = await res.text();
   const raw = parseJSON(text, {});
+  if (!raw.info?.title) {
+    raw.info = raw.info || {};
+    raw.info.title = slugToTitle(slug);
+  }
+  if (!raw.theme?.image) {
+    raw.theme = raw.theme || {};
+    raw.theme.image = 'https://images.unsplash.com/photo-1546374232-3ec12be8caa6?ixlib=rb-4.1.0&w=1600&q=80&fit=crop&auto=format&photographer=DDP';
+  }
   const config = normalizeConfig({ ...raw, _media: { ...(raw._media || {}), slug } });
   config._media.base = `${DATA}/${slug}`;
-  if (!config.info?.title) {
-    config.info = config.info || {};
-    config.info.title = slugToTitle(slug);
-  }
   await fsp.mkdir(LOCAL_ROOT, { recursive: true });
   await fsp.writeFile(path.join(LOCAL_ROOT, "config.json"), JSON.stringify(config, null, 2));
   console.log(`fetch: wrote ${path.join(LOCAL_ROOT, "config.json")}`);

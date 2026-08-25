@@ -326,6 +326,7 @@ function resolveLinkElement(url, pages, translatedNames) {
 
 async function autocomplete(fm, pages) {
   console.log("autocomplete: ", fm.title);
+  if (!fm.image) fm.image = config?.theme?.image
   if (!fm.sections) return;
   const translatedNames = config.pages?.filenameMode !== "original";
   for (var i = 0; i < fm.sections.length; i++) {
