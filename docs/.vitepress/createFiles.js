@@ -10,6 +10,7 @@ import { printCSS, getFontCSS } from "./css.js";
 import { getEventFAQ } from "./seo.js";
 import { fetchCalendar } from "./calendar.js";
 import crypto from "crypto";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import MarkdownIt from "markdown-it";
@@ -173,12 +174,21 @@ async function generateIcons() {
       iconBuffer = Buffer.from(svg);
       console.log("⚠️ No remote icon; using fallback accent tile for PWA icons.");
     }
+    const versions = {};
+    function hashFile(p) {
+      try {
+        const buf = fs.readFileSync(p);
+        versions[path.basename(p)] = crypto.createHash("sha256").update(buf).digest("hex").slice(0, 12);
+      } catch (e) {}
+    }
     for (const size of [192, 512]) {
       try {
+        const p = `./docs/public/icon-${size}.png`;
         await sharp(iconBuffer)
           .resize(size, size)
           .png()
-          .toFile(`./docs/public/icon-${size}.png`);
+          .toFile(p);
+        hashFile(p);
       } catch (err) {
         console.error(`⚠️ Error generando icono ${size}:`, err.message);
       }
@@ -186,20 +196,50 @@ async function generateIcons() {
 
     // Generate Apple touch icon (180x180) for iOS home-screen install
     try {
+      const p = `./docs/public/apple-touch-icon.png`;
       await sharp(iconBuffer)
         .resize(180, 180)
         .png()
-        .toFile(`./docs/public/apple-touch-icon.png`);
+        .toFile(p);
+      hashFile(p);
     } catch (err) {
       console.error(`⚠️ Error generando apple-touch-icon:`, err.message);
     }
 
     // generate the favicon
+    try {
+      const p = `./docs/public/favicon.png`;
+      await sharp(iconBuffer)
+        .resize(32, 32)
+        .png()
+        .toFile(p);
+      hashFile(p);
+    } catch (err) {
+      console.error(`⚠️ Error generando favicon:`, err.message);
+    }
 
-    await sharp(iconBuffer)
-      .resize(32, 32)
-      .png()
-      .toFile(`./docs/public/favicon.png`);
+    // Write icon versions for query-param cache busting
+    try {
+      fs.writeFileSync(`./docs/public/icon-versions.json`, JSON.stringify(versions, null, 2));
+    } catch (e) {
+      console.error("⚠️ Error writing icon-versions.json:", e.message);
+    }
+
+    // Patch service-worker icon URLs with version hashes (idempotent, handles prior ?v=)
+    try {
+      if (fs.existsSync("./docs/.vitepress/sw.js")) {
+        let sw = fs.readFileSync("./docs/.vitepress/sw.js", "utf8");
+        for (const [f, h] of Object.entries(versions)) {
+          // Match quoted path with optional existing ?v=... suffix
+          const q = `"/${f}`;
+          const regex = new RegExp(`(["\'])/${f.replace(/\./g, "\\.")}(\\?v=[^"\']*)?\\1`, "g");
+          sw = sw.replace(regex, (m, q, p1, _old) => `${q}/${f}?v=${h}${q}`);
+        }
+        fs.writeFileSync("./docs/.vitepress/sw.js", sw);
+      }
+    } catch (e) {
+      console.error("⚠️ Error patching sw.js:", e.message);
+    }
   } catch (e) {
     console.log(e, "failed to generateIcons");
   }

@@ -189,7 +189,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 }\n\n`;
 
-  config.theme.styles?.forEach(({ selector, cssClass, scroll }) => {
+  config.theme?.styles?.forEach(({ selector, cssClass, scroll }) => {
     if (scroll) {
       css += `${selector} {
   ${cssClass};

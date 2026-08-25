@@ -52,8 +52,8 @@ if (typeof __FIREBASE_CONFIG__ !== "undefined" && __FIREBASE_CONFIG__?.apiKey) {
     const title = notification.title || data.title || "Nueva notificación";
     const options = {
       body: notification.body || data.body || "",
-      icon: notification.image || "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: notification.image || "/icon-192.png?v=b8ffb0ffec0c",
+      badge: "/icon-192.png?v=b8ffb0ffec0c",
       data: { url: data.url || "/" },
     };
     self.registration.showNotification(title, options);
