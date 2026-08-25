@@ -18,7 +18,7 @@
 
     <!-- 2. Image Gallery (Pinterest/Instagram style) -->
     <div v-if="block.type === 'gallery'" :class="grid(block)">
-      <div v-for="(item, i) in block.elements" :key="i">
+      <div v-for="(item, i) in block.elements" :key="i" :class="{ 'md:col-span-2 md:row-span-2': i % 5 === 0 }">
         <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" @click="currentGalleryIdx = i">
           <Image :src="item.image" :alt="item.title" :index="block.index" class="w-full h-full object-cover transition-transform group-hover:scale-110" />
           <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all">
