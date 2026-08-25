@@ -59,6 +59,7 @@ export async function generateNav(config) {
     const langNav = nav[lang] ??= [...(flat[lang] || [])];
     for (const key in groups[lang]) {
       const children = groups[lang][key];
+      if (!children?.length) continue; // don't show empty groups
       langNav.push({ text: tr(groupLabels[key] || key, lang), items: children });
     }
   }
