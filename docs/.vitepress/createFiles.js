@@ -225,21 +225,6 @@ async function generateIcons() {
       console.error("⚠️ Error writing icon-versions.json:", e.message);
     }
 
-    // Patch service-worker icon URLs with version hashes (idempotent, handles prior ?v=)
-    try {
-      if (fs.existsSync("./docs/.vitepress/sw.js")) {
-        let sw = fs.readFileSync("./docs/.vitepress/sw.js", "utf8");
-        for (const [f, h] of Object.entries(versions)) {
-          // Match quoted path with optional existing ?v=... suffix
-          const q = `"/${f}`;
-          const regex = new RegExp(`(["\'])/${f.replace(/\./g, "\\.")}(\\?v=[^"\']*)?\\1`, "g");
-          sw = sw.replace(regex, (m, q, p1, _old) => `${q}/${f}?v=${h}${q}`);
-        }
-        fs.writeFileSync("./docs/.vitepress/sw.js", sw);
-      }
-    } catch (e) {
-      console.error("⚠️ Error patching sw.js:", e.message);
-    }
   } catch (e) {
     console.log(e, "failed to generateIcons");
   }
