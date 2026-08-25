@@ -277,29 +277,13 @@ const handleClick = (item) => {
 </style>
 
 <style>
-.masonry-grid > *:nth-child(3n+2) {
+.masonry-grid > *:nth-child(5n) {
   grid-column: span 2 / span 2;
   grid-row: span 2 / span 2;
 }
-.masonry-grid > *:nth-child(4n+3) {
-  grid-column: span 2 / span 1;
-  grid-row: span 1 / span 1;
-}
-.masonry-grid > *:nth-child(5n+1) {
-  grid-column: span 1 / span 1;
-  grid-row: span 2 / span 2;
-}
 @media (min-width: 768px) {
-  .masonry-grid > *:nth-child(3n+2) {
+  .masonry-grid > *:nth-child(5n) {
     grid-column: span 2 / span 2;
-    grid-row: span 2 / span 2;
-  }
-  .masonry-grid > *:nth-child(4n+3) {
-    grid-column: span 2 / span 1;
-    grid-row: span 1 / span 1;
-  }
-  .masonry-grid > *:nth-child(5n+1) {
-    grid-column: span 1 / span 1;
     grid-row: span 2 / span 2;
   }
 }
