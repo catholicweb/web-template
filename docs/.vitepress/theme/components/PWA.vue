@@ -18,6 +18,8 @@
 import { ref, onMounted } from "vue";
 import { useData } from "vitepress";
 import { useRegisterSW } from "virtual:pwa-register/vue";
+import versions from "../../../public/icon-versions.json";
+const v = (f) => versions[f] ? `?v=${versions[f]}` : "";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
@@ -108,8 +110,8 @@ async function setupNotifications() {
       const title = notification.title || data.title || "Nueva notificación";
       new Notification(title, {
         body: notification.body || data.body || "",
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon: `/icon-192.png${v("icon-192.png")}`,
+        badge: `/icon-192.png${v("icon-192.png")}`,
         data: { url: data.url || "/" },
       });
     });

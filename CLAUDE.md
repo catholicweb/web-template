@@ -88,3 +88,4 @@ The tracked tree is the **template machinery**: everything under `docs/.vitepres
 
 - `fetch.js` reads the site config from the public data host (`PARROQUIA_DATA` / `https://data.parroquia.app/{slug}/config.json`). It expects the config to follow the editor/config-api schema: `pages.list` (index page `protected:"Portada"`, town template `protected:"Plantilla pueblos"`), `calendar.events.{list,urls}` + `event-types.list`, and `config.json` must be reachable as a plain flat filename.
 - Media field values in `config.json` are **absolute URLs** (e.g. `https://data.parroquia.app/<slug>/<name>.webp`) authored by the editor. `resolveMedia()` in `createFiles.js` passes them through untouched and only rewrites legacy `/media/…` values (flattening slashes to `-`) for backward compat. The canonical endpoint/URL contract is `config-api/README.md` (GitHub `catholicweb/config-api`).
+- Run `npx vitest run` (all tests) before committing (pre-commit hook enforces it).

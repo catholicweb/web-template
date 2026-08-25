@@ -2,6 +2,7 @@ import { read } from "./node_utils.js";
 import { slugify, groupEvents, formatDate } from "./utils.js";
 
 const config = read("./docs/public/config.json");
+const versions = read("./docs/public/icon-versions.json", {});
 
 // Resolve a media/logo value for JSON-LD. Values are absolute URLs now
 // (https://data.parroquia.app/<slug>/..) and must pass through untouched —
@@ -65,7 +66,7 @@ function getOrg(config, path) {
     "@type": "Organization",
     url: config.dev?.siteurl,
     sameAs: config.social,
-    logo: config.dev?.siteurl + "/icon-512.png",
+    logo: config.dev?.siteurl + "/icon-512.png" + (versions["icon-512.png"] ? "?v=" + versions["icon-512.png"] : ""),
     name: config.title,
     description: config.description,
     image: mediaUrl(baseUrl, config.image),
