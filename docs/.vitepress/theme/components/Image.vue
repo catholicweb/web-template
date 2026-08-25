@@ -21,11 +21,11 @@ const srcset = computed(() => buildImageSrcset(props.src));
 const isResponsive = computed(() => srcset.value != null);
 </script>
 
+<!-- El crédito va como hermano (fragmento), nunca envolviendo el <img>: los
+     bloques pasan clases de posicionamiento directamente al img (p. ej.
+     `absolute inset-0`), y envolverlo rompería esos layouts. ImageCredit
+     se autoposiciona y no pinta nada salvo que el src sea de Unsplash/Pexels. -->
 <template>
-  <!-- El crédito va como hermano (fragmento), nunca envolviendo el <img>: los
-       bloques pasan clases de posicionamiento directamente al img (p. ej.
-       `absolute inset-0`), y envolverlo rompería esos layouts. ImageCredit
-       se autoposiciona y no pinta nada salvo que el src sea de Unsplash/Pexels. -->
   <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
   <ImageCredit :src="src" />
 </template>

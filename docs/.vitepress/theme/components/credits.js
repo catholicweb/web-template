@@ -66,7 +66,7 @@ function pexelsCredit(src) {
   } catch {
     return null;
   }
-  const name = url.searchParams.get("photographer");
+  const name = url.searchParams.get("photographer") || "Pexels";
   const photoUrl = url.searchParams.get("url");
   if (!name || !photoUrl) return null;
   return { name, url: photoUrl };
@@ -82,9 +82,10 @@ function unsplashCredit(src) {
   } catch {
     return null;
   }
+  const name = url.searchParams.get("photographer")  || "Unsplash";
   const m = url.pathname.match(/^\/photo-([^/]+)/);
   if (!m) return null;
-  return { name: "Unsplash", url: `https://unsplash.com/photos/${m[1]}?${UTM_PARAMS}` };
+  return { name: name, url: `https://unsplash.com/photos/${m[1]}?${UTM_PARAMS}` };
 }
 
 // --- Srcset responsive --------------------------------------------------------

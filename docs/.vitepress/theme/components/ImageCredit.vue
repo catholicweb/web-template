@@ -35,7 +35,7 @@ const credit = computed(() => imageCredit(props.src));
     rel="noopener"
     :title="`Foto de ${credit.name}`"
     class="absolute bottom-1 right-1 z-20 text-[10px] leading-none text-white no-underline whitespace-nowrap transition-opacity hover:opacity-85"
-    style="mix-blend-mode: difference; text-shadow: 0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.9)"
+    style="mix-blend-mode: difference;"
     @click.stop
   >
     Foto: {{ credit.name }}
