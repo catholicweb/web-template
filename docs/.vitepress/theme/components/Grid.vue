@@ -85,6 +85,19 @@ const getCardClass = (index) => {
 	return diff > 0 ? "card-hidden-right" : "card-hidden-left";
 };
 
+const tileSizes = ref([]);
+const randomTileClass = (index) => {
+	if (tileSizes.value.length < filteredItems.value.length) {
+		tileSizes.value = Array.from({ length: filteredItems.value.length }, () => {
+			const r = Math.random();
+			if (r < 0.33) return 'tile-big';
+			if (r < 0.66) return 'tile-wide';
+			return 'tile-tall';
+		});
+	}
+	return tileSizes.value[index] || 'tile-big';
+};
+
 function vtr(key, lang) {
 	const code = lang.split(":").toReversed()[0];
 	const dict = {
@@ -166,6 +179,13 @@ function vtr(key, lang) {
 		</div>
 	</template>
 
+	<template v-else-if="block?.tags?.includes('masonry')">
+		<div :class="grid(block)">
+			<div v-for="(item, index) in filteredItems" :key="index" :class="randomTileClass(index)">
+				<slot :item="item" :index="index"></slot>
+			</div>
+		</div>
+	</template>
 	<template v-else>
 		<div :class="grid(block)">
 			<template v-for="(item, index) in filteredItems">
@@ -234,4 +254,7 @@ function vtr(key, lang) {
 	opacity: 0;
 	z-index: 0;
 }
+.tile-big { grid-column: span 2 / span 2; grid-row: span 2 / span 2; }
+.tile-wide { grid-column: span 2 / span 1; grid-row: span 1 / span 1; }
+.tile-tall { grid-column: span 1 / span 1; grid-row: span 2 / span 2; }
 </style>
