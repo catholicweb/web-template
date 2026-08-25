@@ -167,7 +167,7 @@ async function generateIcons() {
     }
     if (!iconBuffer) {
       // Fallback: accent tile + site initial so manifest URLs never 404
-      const accent = CFG.theme?.color?.accent || CFG.theme?.primary || "#cfa14d";
+      const accent = CFG.theme?.accentColor || CFG.theme?.accentPrimary || "#cfa14d";
       const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="${accent}"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
       iconBuffer = Buffer.from(svg);

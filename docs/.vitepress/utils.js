@@ -420,16 +420,12 @@ function hash(s) {
 export function grid(section) {
   let { tags = [], elements = [] } = section;
 
-  // Masonry layout uses CSS columns instead of flex
-  if (tags.includes("masonry")) {
-    return "container mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[minmax(220px,auto)] masonry-grid";
-  }
-
   // 1. Layout Base
-  const base = "container mx-auto flex";
+  const base = "container mx-auto";
   const directions = {
-    horizontal: "flex-nowrap overflow-x-scroll *:flex-shrink-0 hidescrollbar pr-8",
-    vertical: "flex-wrap justify-center text-center",
+    horizontal: "flex flex-nowrap overflow-x-scroll *:flex-shrink-0 hidescrollbar pr-8",
+    masonry: "columns-2 md:columns-3 lg:columns-4 gap-0 *:!w-1/1",
+    vertical: "flex flex-wrap justify-center text-center",
   };
   const sizes = {
     xs: "py-2 *:w-1/2 *:sm:w-1/3 *:md:w-1/6 *:p-1",
@@ -447,13 +443,13 @@ export function grid(section) {
 
   // 3. Visual modifiers (applied via Tailwind star-variants to child elements)
   const modifiers = [];
-  if (tags.includes("dense")) modifiers.push("gap-1");
-  if (tags.includes("spacious")) modifiers.push("gap-6");
-  if (tags.includes("cards")) modifiers.push("*:shadow-sm", "*:rounded-xl", "*:bg-white");
-  if (tags.includes("bordered")) modifiers.push("*:border", "*:border-gray-200");
-  if (tags.includes("flat")) modifiers.push("*:shadow-none");
+  if (tags.includes("dense")) modifiers.push("*:!p-1");
+  if (tags.includes("spacious")) modifiers.push("*:!p-4");
+  if (tags.includes("cards")) modifiers.push("[&>*>*]:!shadow-xl", "[&>*>*]:!rounded-xl", "[&>*>*]:!bg-white", "[&>*>*]:overflow-hidden");
+  if (tags.includes("bordered")) modifiers.push("[&>*>*]:!border-2", "[&>*>*]:!border-accent", "[&>*>*]:!rounded-xl");
+  if (tags.includes("flat")) modifiers.push("[&>*>*]:!hadow-none");
 
-  return `${base} ${directions[activeDirection]} ${sizes[activeSize]}${modifiers.length ? " " + modifiers.join(" ") : ""}`;
+  return `${base} ${directions[activeDirection]} ${sizes[activeSize]} ${modifiers.join(" ")}`;
 
 }
 

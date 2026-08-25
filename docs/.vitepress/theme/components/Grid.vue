@@ -85,17 +85,23 @@ const getCardClass = (index) => {
 	return diff > 0 ? "card-hidden-right" : "card-hidden-left";
 };
 
-const tileSizes = ref([]);
+// 1. Curated pattern (prevents long streaks of tall/wide cards)
+const TILE_PATTERN = {
+  1: '[&>*>*]:!aspect-square',  // 1 = Square
+  2: 'aspect-[16/9]',            // 2 = Wide
+  3: '[&>*>*]:!aspect-[9/16]'   // 3 = Tall
+};
+
+// A rhythmically balanced sequence of 20 items (1, 2, 3)
+const BALANCED_SEQUENCE = [ 1, 2, 3, 1, 3, 2, 1, 1, 3, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3, 2];
+
+// 2. Random starting point generated ONCE per load
+const randomOffset = Math.floor(Math.random() * BALANCED_SEQUENCE.length);
+
+// 3. Pure lookup function
 const randomTileClass = (index) => {
-	if (tileSizes.value.length < filteredItems.value.length) {
-		tileSizes.value = Array.from({ length: filteredItems.value.length }, () => {
-			const r = Math.random();
-			if (r < 0.33) return 'tile-big';
-			if (r < 0.66) return 'tile-wide';
-			return 'tile-tall';
-		});
-	}
-	return tileSizes.value[index] || 'tile-big';
+  const patternValue = BALANCED_SEQUENCE[(index + randomOffset) % 20];
+  return TILE_PATTERN[patternValue];
 };
 
 function vtr(key, lang) {
@@ -254,7 +260,4 @@ function vtr(key, lang) {
 	opacity: 0;
 	z-index: 0;
 }
-.tile-big { grid-column: span 2 / span 2; grid-row: span 2 / span 2; }
-.tile-wide { grid-column: span 2 / span 1; grid-row: span 1 / span 1; }
-.tile-tall { grid-column: span 1 / span 1; grid-row: span 2 / span 2; }
 </style>
