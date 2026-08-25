@@ -19,7 +19,7 @@
     <!-- 2. Image Gallery (Pinterest/Instagram style) -->
     <div v-if="block.type === 'gallery'" :class="grid(block)">
       <div v-for="(item, i) in block.elements" :key="i">
-        <div class="relative aspect-square rounded-lg overflow-hidden group cursor-pointer" @click="currentGalleryIdx = i">
+        <div class="relative aspect-[4/3] rounded-lg overflow-hidden group cursor-pointer" @click="currentGalleryIdx = i">
           <Image :src="item.image" :alt="item.title" :index="block.index" class="w-full h-full object-cover transition-transform group-hover:scale-110" />
           <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all">
             <div class="absolute inset-0 p-4 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -273,5 +273,18 @@ const handleClick = (item) => {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+</style>
+
+<style>
+.masonry-grid > *:nth-child(5n) {
+  grid-column: span 2 / span 2;
+  grid-row: span 2 / span 2;
+}
+@media (min-width: 768px) {
+  .masonry-grid > *:nth-child(5n) {
+    grid-column: span 2 / span 2;
+    grid-row: span 2 / span 2;
+  }
 }
 </style>
