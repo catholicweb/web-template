@@ -235,6 +235,18 @@ export async function buildDictionary() {
     // Calendar events (built from config.calendar.events) also carry text.
     for (const v of extractValues(read("./docs/public/calendar.json"))) valueSet.add(v);
 
+    // Also extract hardcoded navbar group labels so they get translated.
+    try {
+      const navSrc = read("./docs/.vitepress/navBar.js");
+      const groupMatches = navSrc.match(/groupLabels\s*=\s*\{[^}]*\}/);
+      if (groupMatches) {
+        const labelMatches = groupMatches[0].match(/"([^"]+)"/g);
+        if (labelMatches) {
+          for (const m of labelMatches) valueSet.add(m.replace(/"/g, ""));
+        }
+      }
+    } catch {}
+
     const valuesArray = [...valueSet];
 
     // Translate

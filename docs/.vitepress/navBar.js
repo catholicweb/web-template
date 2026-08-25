@@ -21,10 +21,14 @@ export async function generateNav(config) {
 
   // Otherwise, generate automatically
   const files = await fg(["**/*.md", "!aviso-legal*", "!**/404.md"], { cwd: docsDir, absolute: false });
-  const nav = files.reduce((acc, f) => {
-    const { data } = read(`docs/${f}`);
-    if (!data.lang) return acc;
+  const groups = {}; // lang -> { groupKey -> { text, link, group? }[] }
+  const flat = {};    // lang -> array of flat nav items
 
+  for (const f of files) {
+    const { data } = read(`docs/${f}`);
+    if (!data.lang) continue;
+
+    const lang = data.lang;
     const base = "/" + f.replace(/index\.md$/, "").replace(/\.md$/, "");
     const sections = data.sections ?? [];
 
@@ -35,17 +39,35 @@ export async function generateNav(config) {
         link: `${base}#${slugify(s.title)}`,
       }));
 
-    const nav = items.length ? { text: data.title, items } : { text: data.title, link: base };
+    const pageNav = items.length ? { text: data.title, items } : { text: data.title, link: base };
+    const groupKey = data.group;
 
-    (acc[data.lang] ??= []).push(nav);
-    return acc;
-  }, {});
+    if (groupKey) {
+      (groups[lang] ??= {})[groupKey] ??= [];
+      groups[lang][groupKey].push(pageNav);
+    } else {
+      (flat[lang] ??= []).push(pageNav);
+    }
+  }
+
+  const nav = {};
+  const groupLabels = { templos: "Templos", eventos: "Eventos" };
+  for (const lang in flat) {
+    nav[lang] = [...flat[lang]];
+  }
+  for (const lang in groups) {
+    const langNav = nav[lang] ??= [...(flat[lang] || [])];
+    for (const key in groups[lang]) {
+      const children = groups[lang][key];
+      langNav.push({ text: tr(groupLabels[key] || key, lang), items: children });
+    }
+  }
   return nav;
 }
 
 function tr(str, lang) {
-  console.log("Remember to translate section titles", str, lang);
-  return str;
+  const d = dictionary[lang] || {};
+  return translateValue(str, d) || str;
 }
 
 // Resolve a nav link to an emitted page. Link is either a page id (the editor's

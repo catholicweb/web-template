@@ -673,6 +673,7 @@ async function run() {
         title: place.name,
         slug,
         home: false,
+        group: "templos",
       });
     }
   }
@@ -714,6 +715,7 @@ async function run() {
         // so opt this page out of translated-title basenames — otherwise every
         // "Misa" on a different date would collide on the same .md file.
         filenameMode: "original",
+        group: "eventos",
       });
     }
     // Re-write calendar.json with the link field added to page-producing events.
