@@ -69,6 +69,14 @@ export function parseJSON(text, fallback = {}) {
  * translate.js, youtube.js). Non-config payload blocks (pages / calendar /
  * event-types) are kept intact.
  */
+function slugToTitle(slug) {
+  if (!slug) return '';
+  return slug
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function normalizeConfig(raw) {
   const s = raw.site ?? {};
   const pages = raw.pages ?? {};
@@ -108,6 +116,10 @@ export async function fetchConfig(slug) {
   const raw = parseJSON(text, {});
   const config = normalizeConfig({ ...raw, _media: { ...(raw._media || {}), slug } });
   config._media.base = `${DATA}/${slug}`;
+  if (!config.info?.title) {
+    config.info = config.info || {};
+    config.info.title = slugToTitle(slug);
+  }
   await fsp.mkdir(LOCAL_ROOT, { recursive: true });
   await fsp.writeFile(path.join(LOCAL_ROOT, "config.json"), JSON.stringify(config, null, 2));
   console.log(`fetch: wrote ${path.join(LOCAL_ROOT, "config.json")}`);
