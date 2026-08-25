@@ -422,7 +422,7 @@ export function grid(section) {
 
   // Masonry layout uses CSS columns instead of flex
   if (tags.includes("masonry")) {
-    return "container mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[minmax(220px,auto)]";
+    return "container mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[minmax(220px,auto)] masonry-grid";
   }
 
   // 1. Layout Base
