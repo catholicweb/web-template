@@ -671,13 +671,12 @@ async function run() {
       )
       .flatMap((t) => [t.name, t.label].filter(Boolean).map((s) => String(s).toLowerCase()))
   );
-  if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pageTypes.size) {
+  if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pagePerEvent.size) {
     const taken = new Set(pages.map((p) => p.slug));
     for (const ev of calendar) {
-      if (!ev || !pageTypes.has(ev.type)) continue; // only page-flagged event types
-      // Title + first date keeps colliding titles (many "Misa"/"Encuentro")
+      if (!ev || !pagePerEvent.has(ev.type)) continue; // only page-flagged event types
       // unique, e.g. /campamento-verano-2027-07-20/.
-      const slug = slugify([ev.title, ev.dates?.[0]].filter(Boolean).join(" ")) || "evento";
+      const slug = slugify([ev.title, ev.dates?.[0], ev.rrule?.join('-')].filter(Boolean).join(" ")) || "evento";
       if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
       taken.add(slug);
       ev.link = "/" + slug + "/"; // surface for event cards / calendar

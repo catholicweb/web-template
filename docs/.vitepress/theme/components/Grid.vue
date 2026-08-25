@@ -88,7 +88,7 @@ const getCardClass = (index) => {
 // 1. Curated pattern (prevents long streaks of tall/wide cards)
 const TILE_PATTERN = {
   1: '[&>*>*]:!aspect-square',  // 1 = Square
-  2: 'aspect-[16/9]',            // 2 = Wide
+  2: '[&>*>*]:!aspect-[16/9]',  // 2 = Wide
   3: '[&>*>*]:!aspect-[9/16]'   // 3 = Tall
 };
 
@@ -100,7 +100,7 @@ const randomOffset = Math.floor(Math.random() * BALANCED_SEQUENCE.length);
 
 // 3. Pure lookup function
 const randomTileClass = (index) => {
-  const patternValue = BALANCED_SEQUENCE[(index + randomOffset) % 20];
+  const patternValue = BALANCED_SEQUENCE[(index) % 20];
   return TILE_PATTERN[patternValue];
 };
 
