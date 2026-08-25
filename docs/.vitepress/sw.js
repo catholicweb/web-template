@@ -46,14 +46,27 @@ registerRoute(
 if (typeof __FIREBASE_CONFIG__ !== "undefined" && __FIREBASE_CONFIG__?.apiKey) {
   initializeApp(__FIREBASE_CONFIG__);
   const messaging = getMessaging();
-  onBackgroundMessage(messaging, (payload) => {
+  onBackgroundMessage(messaging, async (payload) => {
     const notification = payload.notification || {};
     const data = payload.data || {};
     const title = notification.title || data.title || "Nueva notificación";
+
+    let iconUrl = "/icon-192.png";
+    try {
+      const res = await fetch("/icon-versions.json");
+      if (res.ok) {
+        const versions = await res.json();
+        const hash = versions["icon-192.png"] || versions["icon-192"];
+        if (hash) iconUrl = `/icon-192.png?v=${hash}`;
+      }
+    } catch {
+      // fallback: unversioned URL
+    }
+
     const options = {
       body: notification.body || data.body || "",
-      icon: notification.image || "/icon-192.png?v=b8ffb0ffec0c",
-      badge: "/icon-192.png?v=b8ffb0ffec0c",
+      icon: notification.image || iconUrl,
+      badge: iconUrl,
       data: { url: data.url || "/" },
     };
     self.registration.showNotification(title, options);
