@@ -515,7 +515,7 @@ async function generateLegalPage() {
   // temple has no `.geo` the address fields stay blank.
   const place = config.info?.places?.[0] ?? config.places?.list?.[0];
   const address = place?.geo
-    ? await getAddress(...place.geo.split(",").map((s) => Number(s.trim())), place.name)
+    ? (await getAddress(...place.geo.split(",").map((s) => Number(s.trim())), place.name).catch(() => ({})))
     : {};
 
   // Contact data lives on collaborators as free-form social[] strings (or legacy
