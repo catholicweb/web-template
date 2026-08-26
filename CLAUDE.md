@@ -22,7 +22,9 @@ npm run dev                  # VitePress dev server (http://localhost:5173)
 npm run before-build         # REQUIRED before build — runs createFiles.js adapter
 npm run build                # build static site → docs/.vitepress/dist
 npm run preview              # preview the built site
-node docs/.vitepress/test.js      # manual scratch script (not a test suite — no test runner exists)
+node docs/.vitepress/test.js      # manual scratch script
+npx vitest run                # all tests (pre-commit hook enforces)
+npx vitest run tests/unit/css.test.js   # single test file
 ```
 
 Materialize the remote content (see config-api):
