@@ -39,6 +39,14 @@ export function camelCase(str) {
     .join("");
 }
 
+export function toArray(x) {
+  const arr = Array.isArray(x) ? x : [x];
+  return arr
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 export async function getFontCSS(theme) {
   const fonts = [theme.headingFont, theme.bodyFont];
   let preloads = [];
@@ -190,16 +198,22 @@ h1, h2, h3, h4, h5, h6 {
 }\n\n`;
 
   config.theme?.styles?.forEach(({ selector, cssClass, scroll }) => {
-    if (scroll) {
-      css += `${selector} {
-  ${cssClass};
+    const selectors = toArray(selector);
+    const classes = toArray(cssClass);
+    selectors.forEach((s) => {
+      classes.forEach((c) => {
+        if (scroll) {
+          css += `${s} {
+  ${c};
   animation: scrolled linear both;
   animation-timeline: view();
   animation-range: entry 30% cover 30%;
 }\n\n`;
-    } else {
-      css += `${selector} {  ${cssClass}; }\n\n`;
-    }
+        } else {
+          css += `${s} {  ${c}; }\n\n`;
+        }
+      });
+    });
   });
 
   // Button style overrides (non-solid only)
