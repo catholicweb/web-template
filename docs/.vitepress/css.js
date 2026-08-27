@@ -47,6 +47,32 @@ export function toArray(x) {
     .filter((item) => item.length > 0);
 }
 
+const COMBINABLE_PROPS = new Set(["transform", "filter"]);
+
+export function mergeCssDeclarations(x) {
+  const merged = new Map();
+  const combined = new Map(); // prop -> array of values, for transform/filter
+
+  for (const str of toArray(x)) {
+    const idx = str.indexOf(":");
+    if (idx === -1) continue;
+    const prop = str.slice(0, idx).trim();
+    const value = str.slice(idx + 1).replace(/;$/, "").trim();
+
+    if (COMBINABLE_PROPS.has(prop)) {
+      combined.set(prop, [...(combined.get(prop) || []), value]);
+    } else {
+      merged.set(prop, value); // last one wins
+    }
+  }
+
+  for (const [prop, values] of combined) {
+    merged.set(prop, values.join(" "));
+  }
+
+  return Array.from(merged, ([prop, value]) => `${prop}: ${value};`);
+}
+
 export async function getFontCSS(theme) {
   const fonts = [theme.headingFont, theme.bodyFont];
   let preloads = [];
@@ -197,18 +223,14 @@ h1, h2, h3, h4, h5, h6 {
   }
 }\n\n`;
 
+  const onScroll = 'animation: scrolled linear both; animation-timeline: view(); animation-range: entry 30% cover 30%;'
   config.theme?.styles?.forEach(({ selector, cssClass, scroll }) => {
     const selectors = toArray(selector);
-    const classes = toArray(cssClass);
+    const classes = mergeCssDeclarations(cssClass);
     selectors.forEach((s) => {
       classes.forEach((c) => {
         if (scroll) {
-          css += `${s} {
-  ${c};
-  animation: scrolled linear both;
-  animation-timeline: view();
-  animation-range: entry 30% cover 30%;
-}\n\n`;
+          css += `${s} { ${c}; ${onScroll} }\n\n`;
         } else {
           css += `${s} {  ${c}; }\n\n`;
         }
