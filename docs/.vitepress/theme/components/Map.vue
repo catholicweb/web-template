@@ -70,7 +70,7 @@ async function loadMap() {
 
   map.fitBounds(bounds, { padding: [40, 40] });
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { attribution: "Voyager", crossOrigin: "anonymous", maxZoom: 24 }).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2df3_1_08c8b82d39fd5531dad06748", { attribution: "Voyager", crossOrigin: "anonymous", maxZoom: 24 }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
 

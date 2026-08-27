@@ -34,9 +34,11 @@ export async function fetchInstagram() {
       }
     }
     if (!feedDataStr) throw new Error("social_feed_data field missing");
+    // Sanitize common bad escaped characters in embedded JSON before parsing
+    feedDataStr = feedDataStr.replace(/\\([^"\\/bfnrtu])/g, "$1");
     let feed;
     try { feed = JSON.parse(feedDataStr); } catch (e) {
-      console.error("instagram feedData parse error (non-fatal):", e.message);
+      console.error("instagram feedData parse error (non-fatal, bad escapes):", e.message);
       feed = { sources: [] };
     }
     const posts = (feed.sources || []).flatMap((src) => src.posts || []);
