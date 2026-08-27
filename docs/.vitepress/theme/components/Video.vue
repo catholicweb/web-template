@@ -48,6 +48,7 @@ const isAudio = (url) => {
 };
 
 function logo(item) {
+  if (item.src.includes("instagram") || item.url?.includes("instagram")) return "instagram-logo";
   if (item.src.includes("youtube")) return "youtube-logo";
   if (item.src.includes("spotify")) return "spotify-logo";
   if (item.src.includes("vimeo")) return "vimeo-logo";
@@ -94,6 +95,9 @@ watch(playingVideo, (src) => {
   transition: transform 0.3s;
 }
 /* YouTube logo overlay centrado */
+.instagram-logo {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' ry='5'/%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Ccircle cx='17.5' cy='6.5' r='1' fill='white' stroke='none'/%3E%3C/svg%3E");
+}
 .youtube-logo {
   background-image: url("data:image/svg+xml,%3Csvg width='159' height='110' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m154 17.5c-1.82-6.73-7.07-12-13.8-13.8-9.04-3.49-96.6-5.2-122 0.1-6.73 1.82-12 7.07-13.8 13.8-4.08 17.9-4.39 56.6 0.1 74.9 1.82 6.73 7.07 12 13.8 13.8 17.9 4.12 103 4.7 122 0 6.73-1.82 12-7.07 13.8-13.8 4.35-19.5 4.66-55.8-0.1-75z' fill='%23f00'/%3E%3Cpath d='m105 55-40.8-23.4v46.8z' fill='%23fff'/%3E%3C/svg%3E%0A");
 }

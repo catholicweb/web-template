@@ -208,6 +208,7 @@ export async function fetchDataFiles(slug, config) {
   await downloadDataFile("dictionary.json", `${origin}/dictionary.json?t=${Date.now()}`, {});
   await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json?t=${Date.now()}`, {});
   await downloadDataFile("videos.json", `${origin}/videos.json?t=${Date.now()}`, []);
+  await downloadDataFile("instagram.json", `${origin}/instagram.json?t=${Date.now()}`, []);
   //await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
 }
 
