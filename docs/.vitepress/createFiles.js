@@ -2,6 +2,7 @@ import { read, write, path } from "./node_utils.js";
 import { slugify, applyComplexFilter, groupEvents, getAddress, assembleOrder } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
+import { fetchInstagram } from "./instagram.js";
 import { buildDictionary, translateObject, dictionary as DICTIONARY } from "./translate.js";
 import { fetchConfig } from "./fetch.js";
 import { createNaming, getCode } from "./naming.js";
@@ -304,6 +305,21 @@ async function postComplete(fm) {
       } else {
         (fm.sections[i].tags ??= []).push("horizontal", "medium");
       }
+    } else if (fm.sections[i]._block == "video-instagram") {
+      fm.sections[i].elements = instagram
+        .filter((obj) =>
+          JSON.stringify(obj)
+            .toLowerCase()
+            .includes((fm.sections[i].filter || "").toLowerCase()),
+        )
+        .filter((item) => {
+          const haystack = JSON.stringify(item).toLowerCase();
+          if (!fm.sections[i].filters) return true;
+          return fm.sections[i].filters.some((word) => haystack.includes(word?.toLowerCase()));
+        })
+        .map((v) => ({ ...v, src: v.url || `https://www.instagram.com/p/${v.videoId || ""}/embed/`, image: v.image || v.thumbnailUrl || "" }))
+        .slice(0, 150);
+      (fm.sections[i].tags ??= []).push("horizontal", "medium");
     } else if (fm.sections[i]._block == "calendar") {
       // Calendar.vue renders a grouped table (group -> subkey -> rows). The
       // order can come from the new per-level single-select fields
@@ -491,6 +507,7 @@ export function substitute(template, place) {
 }
 
 let videos = [];
+let instagram = [];
 let calendar = [];
 
 // Legal / privacy-policy page. The repo-root, hand-authored template
@@ -614,6 +631,7 @@ async function run() {
   calendar = await fetchCalendar();
   await generateIcons();
   videos = await fetchVideos();
+  instagram = await fetchInstagram();
   await buildDictionary();
 
   // Pages are authored as data (config.pages.list) by the editor, not as .md
