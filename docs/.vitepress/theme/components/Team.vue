@@ -6,11 +6,13 @@ import { ref } from "vue";
 import { useData } from "vitepress";
 const { theme } = useData();
 const config = ref(theme.value.config || {});
+const getPhone = (social) => social?.find((s) => /^\+?[\d\s().-]{6,}$/.test(s)) || "";
+const getEmail = (social) => social?.find((s) => /\S+@\S+\.\S+/.test(s)) || "";
 </script>
 
 <template>
   <div class="w-full max-w-6xl mx-auto p-4 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-bold">
-    <div v-for="(collab, index) in config.collaborators" :key="index" class="flex items-center px-2 py-6 rounded-xl bg-[#1e252b] shadow-lg transition-transform">
+    <div v-for="(collab, index) in config.info.collaborators" :key="index" class="flex items-center px-2 py-6 rounded-xl bg-[#1e252b] shadow-lg transition-transform">
       <div class="relative flex-shrink-0 w-1/3 md:w-1/2 rounded-full border-4 border-accent overflow-hidden aspect-square">
         <Image :index="block.index" :src="collab.image" :alt="'Foto de ' + collab.name" class="w-full h-full object-cover hover:scale-[1.05]" />
       </div>
@@ -30,12 +32,12 @@ const config = ref(theme.value.config || {});
           </svg>
           <span>{{ collab.phonenumber }}</span>
         </a>
-        <a v-if="collab.email" :href="`mailto:${collab.email}`" class="inline-flex items-center justify-center px-3 text-xs py-2 bg-accent hover:bg-accent/90 text-white rounded-full transition-colors duration-200">
+        <a v-if="getEmail(collab.social)" :href="`mailto:${getEmail(collab.social)}`" class="inline-flex items-center justify-center px-3 text-xs py-2 bg-accent hover:bg-accent/90 text-white rounded-full transition-colors duration-200">
           <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
           </svg>
-          <span>{{ collab.email }}</span>
+          <span>{{ getEmail(collab.social) }}</span>
         </a>
       </div>
     </div>

@@ -62,8 +62,7 @@ function logo(item) {
 
 const playingVideo = ref(null);
 
-// Cloudflare Web Analytics has no custom-event API (GoatCounter's
-// count({event:true}) is gone), but it records SPA navigations by overriding
+// Cloudflare Web Analytics has no custom-event API, but it records SPA navigations by overriding
 // history.pushState. Emulate the event by briefly pushing a synthetic
 // `/reproducir/...` route the beacon logs as a page, then restoring the real
 // URL — replaceState is not intercepted, so the URL bar and history length

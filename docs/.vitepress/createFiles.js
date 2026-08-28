@@ -376,11 +376,11 @@ async function autocomplete(fm, pages) {
       fm.sections[i].elements = await Promise.all(
         fm.sections[i].links.map((url) => resolveLinkElement(url, pages, translatedNames) || getPreview(url))
       );
-      (fm.sections[i].tags ??= []).push("small");
     }
     if (fm.sections[i]._block == "links") {
       fm.sections[i]._block = "gallery-feature";
       fm.sections[i].type = fm.sections[i].type || "team-cards";
+      (fm.sections[i].tags ??= []).push("small");
     } else if (fm.sections[i]._block == "gallery-feature") {
       fm.sections[i].type = "team-cards";
       (fm.sections[i].tags ??= []).push("small");
@@ -400,7 +400,7 @@ async function autocomplete(fm, pages) {
       fm.sections[i] = { ...extra, ...fm.sections[i] };
     }
 
-    // Legacy 47herri nav style: the home page shows every non-recurring event
+    // 47herri nav style: the home page shows every non-recurring event
     // ("byday:empty"), while non-home pages show only events matching the page
     // title. This replaces fm.events for the whole page.
     if (THEME.navStyle == "47herri") {
