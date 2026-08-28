@@ -24,7 +24,7 @@ export async function fetchInstagram() {
     // Extract const widgetData = '{...}';
     const match = html.match(/const widgetData = '(.+?)';\s*<\/script>/s) || html.match(/const widgetData = '(.+?)';/s);
     if (!match) throw new Error("instagram widgetData not found in HTML");
-    const widget = JSON.parse(JSON.parse('"' + match[1] + '"'));
+    const widget = JSON.parse(JSON.parse('"' + match[1].replace(/\\'/g, "'") + '"'));
     // Navigate to posts inside the embedded social feed data
     // widget.schema[].fields[] contains social_feed_data with nested JSON
     let feedDataStr = null;
@@ -35,10 +35,10 @@ export async function fetchInstagram() {
     }
     if (!feedDataStr) throw new Error("social_feed_data field missing");
     // Sanitize common bad escaped characters in embedded JSON before parsing
-    feedDataStr = feedDataStr.replace(/\\([^"\\/bfnrtu])/g, "$1");
+    feedDataStr = feedDataStr.replace(/\\'/g, "'").replace(/\\([^"\\/bfnrtu])/g, "$1");
     let feed;
     try { feed = JSON.parse(feedDataStr); } catch (e) {
-      console.error("instagram feedData parse error (non-fatal, bad escapes):", e.message);
+      console.log("instagram feedData parse (non-fatal, bad escapes):", e.message);
       feed = { sources: [] };
     }
     const posts = (feed.sources || []).flatMap((src) => src.posts || []);
@@ -61,7 +61,7 @@ export async function fetchInstagram() {
     write(local, merged);
     return merged;
   } catch (e) {
-    console.error("fetchInstagram error:", e.message || e);
+    console.log("instagram fetch skipped/failed (non-fatal):", e.message || e);
     return existing;
   }
 }
