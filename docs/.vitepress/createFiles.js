@@ -568,17 +568,15 @@ async function generateLegalPage() {
   section.legal = section.legal.replace(TOKEN, (m, a, b) => (Object.hasOwn(ctx, a || b) ? ctx[a || b] : m));
 
   // Render into a normal gallery/text section (the same path postComplete takes).
-  // Spanish only — legal wording must not be auto-translated. Resolve the Spanish
-  // language entry from the site's configured languages so the lang metadata and
-  // path are correct even when Spanish isn't the first language (e.g. 47herri).
+  // Spanish only — legal wording must not be auto-translated.
   const esLang = NAMING.TARGET_LANGS.find((l) => l.endsWith(":es")) || NAMING.TARGET_LANGS[0];
   const page = {
-    title: template.data.title || "Aviso legal y política de privacidad",
+    title: "Aviso legal y política de privacidad",
     lang: esLang,
     sections: [{ ...section, type: "text", _block: "gallery", html: render(section.legal) }],
   };
   addMeta(page);
-  const dest = "./docs/" + NAMING.filename("aviso-legal-y-politica-de-privacidad.md", template.data.title, esLang) + ".md";
+  const dest = "./docs/aviso-legal-y-politica-de-privacidad.md"
   write(dest, page, "");
 }
 

@@ -7,6 +7,8 @@ import { useData, useRoute } from "vitepress";
 import EventCards from "./EventCards.vue";
 import { getCode } from "./../../utils.js";
 const { theme, site, page } = useData();
+
+const config = ref(theme.value.config || {});
 const route = useRoute();
 
 // Languages from site config (e.g. ["Español:es", "Euskara:eu"]), falling back
@@ -185,7 +187,7 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
       <div class="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         <div class="flex items-center justify-between h-16">
           <a href="/" class="font-bold hover:text-accent" :class="s.logo">
-            {{ site.title }}
+            {{ config.info.title }}
           </a>
 
           <div class="flex items-center space-x-2" :class="s.controlsBg">
@@ -281,7 +283,7 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
           <!-- Logo -->
           <div class="flex items-center">
             <a href="/" class="font-bold hover:text-accent" :class="s.logo">
-              {{ site.title }}
+              {{ config.info.title }}
             </a>
           </div>
 

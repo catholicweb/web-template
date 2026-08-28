@@ -9,12 +9,12 @@ export async function fetchInstagram() {
   try {
     existing = (() => { try { return read(local, []); } catch { return []; } })();
     const config = read("./docs/public/config.json");
-    const socialArr = config.social || config.info?.social || [];
+    const socialArr = config.info?.social || [];
     const instagramStr = (socialArr || []).find((s) =>
       typeof s === "string" && s.toLowerCase().includes("instagram")
     );
     if (!instagramStr) {
-      console.log("No Instagram account configured in social; skipping instagram fetch.");
+      console.log("No Instagram account configured in social; skipping instagram fetch.", socialArr);
       return existing;
     }
     console.log("Fetching instagram...");
@@ -49,7 +49,7 @@ export async function fetchInstagram() {
         videoId: firstMedia.id || null,
         title: p.text || "Instagram",
         image: p.thumbnailUrl || p.imageUrl || firstMedia.thumbnailUrl || firstMedia.imageUrl || "",
-        url: p.linkUrl || p.source || "",
+        url: p.linkUrl+'embed/' || p.source +'embed/' || "",
         publishedAt: p.date || null,
         author: p.author || p.username || null,
         mediaType: p.mediaType || firstMedia.type || "IMAGE",

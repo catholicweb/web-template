@@ -2,11 +2,17 @@ import { describe, it, expect } from "vitest";
 import { getJSONLD, getEventFAQ } from "../../docs/.vitepress/seo.js";
 
 const config = {
-  title: "Parroquia de Test",
-  description: "desc",
+  title: "Parroquia de Test", // deprecated field
+  description: "desc", // deprecated field
   dev: { siteurl: "https://test.parroquia.app" },
-  social: [],
-  collaborators: [{ phone: "+34", email: "a@b.c" }],
+  social: [], // deprecated field
+  collaborators: [{ phone: "+34", email: "a@b.c" }], // deprecated field
+  info: {
+    title: "Parroquia de Test",
+    description: "desc",
+    social: [],
+    collaborators: [{ phone: "+34", email: "a@b.c" }]
+  }
 };
 
 describe("getJSONLD", () => {
@@ -43,14 +49,14 @@ describe("getJSONLD", () => {
   });
 
   it("emits a FAQPage node when fm.faq is present", () => {
-    const fm = { faq: [{ title: "Q1", text: "A1" }] };
+    const fm = { faq: [{ title: "Q1", text: "A1" }], info: {} };
     const head = getJSONLD(fm, config, "faq");
     const parsed = JSON.parse(head[0][2]);
     expect(parsed["@graph"].some((n) => n["@type"] === "FAQPage")).toBe(true);
   });
 
   it("escapes < > & to keep site data from breaking out of the script tag", () => {
-    const dangerous = { dev: { siteurl: "https://x.app" }, title: "<script>", social: [], collaborators: [] };
+    const dangerous = { dev: { siteurl: "https://x.app" }, info: { title: "<script>" } };
     const head = getJSONLD({}, dangerous, "contacto");
     expect(head[0][2]).toContain("\\u003cscript");
     expect(head[0][2]).not.toContain("<script>");

@@ -58,20 +58,20 @@ function getOrg(config, path) {
     return {
       "@type": "Organization",
       "@id": "ourOrganization",
-      name: config.title,
+      name: config.info?.title,
       url: baseUrl,
     };
   }
   return {
     "@type": "Organization",
     url: config.dev?.siteurl,
-    sameAs: config.social,
+    sameAs: config.info?.social,
     logo: config.dev?.siteurl + "/icon-512.png" + (versions["icon-512.png"] ? "?v=" + versions["icon-512.png"] : ""),
-    name: config.title,
-    description: config.description,
-    image: mediaUrl(baseUrl, config.image),
-    telephone: config.collaborators?.[0]?.phone,
-    email: config.collaborators?.[0]?.email,
+    name: config.info?.title,
+    description: config.info?.description,
+    image: mediaUrl(baseUrl, config.theme.image),
+    telephone: config.info?.collaborators?.[0]?.phone,
+    email: config.info?.collaborators?.[0]?.email,
     address: {
       "@type": "PostalAddress",
       //streetAddress: "Rue Improbable 99",
@@ -183,9 +183,9 @@ function getLocations(data, config, path) {
           longitude: longitude,
         },
         hasMap: [section.google, section.osm].filter(Boolean),
-        image: mediaUrl(baseUrl, section.image || data.image || config.image),
-        telephone: config.collaborators?.[0]?.phone,
-        email: config.collaborators?.[0]?.email,
+        image: mediaUrl(baseUrl, section.image || data.image || config.info?.image),
+        telephone: config.info?.collaborators?.[0]?.phone,
+        email: config.info?.collaborators?.[0]?.email,
         url: getID(baseUrl, path, section.name),
       });
     }

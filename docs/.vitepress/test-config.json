@@ -3,11 +3,8 @@
   "description": "Sitio web de prueba para vitest",
   "languages": ["Español:es", "Euskara:eu"],
   "social": ["https://example.com"],
-  "icon": "https://data.parroquia.app/test-icon.png",
-  "collaborators": [
-    { "phone": "+34 948 123 456", "email": "test@parroquia.example" }
-  ],
   "theme": {
+    "icon": "https://data.parroquia.app/test-icon.png",
     "bodyFont": "Open Sans",
     "headingFont": "Montserrat",
     "accentColor": "#1e3a8a",
