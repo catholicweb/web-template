@@ -465,7 +465,7 @@ export function getSectionClasses(tags = []) {
   if (tags.includes("fullbleed")) {
     classes.push("w-full", "px-0");
   } else if (tags.includes("twocols")) {
-    classes.push("w-full", "md:w-1/2", "flex-none", "align-top", "px-4", "mx-auto");
+    classes.push("w-full", "md:w-1/2", "flex-none", "align-top", "px-2", "mx-auto");
   } else {
     classes.push("block", "w-full");
   }
