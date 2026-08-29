@@ -47,8 +47,6 @@ const isAudio = (url) => {
   return url.toLowerCase().includes(".mp3");
 };
 
-console.log(props.block)
-
 function aspectRatio(item){
   return logo(item) == 'instagram-logo'? 'aspect-ratio: 9 / 16 !important;' : 'aspect-ratio: 16 / 9 !important;' 
 }

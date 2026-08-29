@@ -39,7 +39,7 @@ export async function generateNav(config) {
         link: `${base}#${slugify(s.title)}`,
       }));
 
-    const pageNav = items.length ? { text: data.title, items } : { text: data.title, link: base };
+    const pageNav = items.length ? { text: data.title, items, link: base } : { text: data.title, link: base };
     const groupKey = data.group;
 
     if (groupKey) {
