@@ -319,7 +319,7 @@ async function postComplete(fm) {
         })
         .map((v) => ({ ...v, src: v.url || `https://www.instagram.com/p/${v.videoId || ""}/embed/`, image: v.image || v.thumbnailUrl || "" }))
         .slice(0, 150);
-      (fm.sections[i].tags ??= []).push("horizontal", "medium");
+      (fm.sections[i].tags ??= []).push("mansonry");
     } else if (fm.sections[i]._block == "calendar") {
       // Calendar.vue renders a grouped table (group -> subkey -> rows). The
       // order can come from the new per-level single-select fields

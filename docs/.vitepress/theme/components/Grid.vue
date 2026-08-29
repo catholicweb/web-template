@@ -87,20 +87,30 @@ const getCardClass = (index) => {
 
 // 1. Curated pattern (prevents long streaks of tall/wide cards)
 const TILE_PATTERN = {
-  1: '[&>*>*]:!aspect-square',  // 1 = Square
-  2: '[&>*>*]:!aspect-[16/9]',  // 2 = Wide
-  3: '[&>*>*]:!aspect-[9/16]'   // 3 = Tall
+  1: '[&>*>*]:!aspect-square',   // 1 = Square
+  2: '[&>*>*]:!aspect-[16/9]',   // 2 = Wide
+  3: '[&>*>*]:!aspect-[9/16]',   // 3 = Tall
+  4: '[&>*>*]:!aspect-[4/3]',    // 4 = Mild wide
+  5: '[&>*>*]:!aspect-[3/4]'     // 5 = Mild tall
 };
 
-// A rhythmically balanced sequence of 20 items (1, 2, 3)
-const BALANCED_SEQUENCE = [ 1, 2, 3, 1, 3, 2, 1, 1, 3, 2, 3, 1, 2, 3, 1, 2, 2, 1, 3, 2];
+// A rhythmically balanced sequence of 20 items (1-5, each appearing exactly 4x)
+// Pattern per block: Wide, Tall, Wide, Tall, Square — never two "wide" or two
+// "tall" types adjacent, and the two wide/tall variants (2/4, 3/5) rotate
+// through each block so no exact value repeats back-to-back either.
+const BALANCED_SEQUENCE = [
+  2, 3, 4, 5, 1,
+  4, 5, 2, 3, 1,
+  2, 5, 4, 3, 1,
+  4, 3, 2, 5, 1
+];
 
 // 2. Random starting point generated ONCE per load
 const randomOffset = Math.floor(Math.random() * BALANCED_SEQUENCE.length);
 
 // 3. Pure lookup function
 const randomTileClass = (index) => {
-  const patternValue = BALANCED_SEQUENCE[(index) % 20];
+  const patternValue = BALANCED_SEQUENCE[(index + randomOffset) % 20];
   return TILE_PATTERN[patternValue];
 };
 

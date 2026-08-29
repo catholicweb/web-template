@@ -1,8 +1,8 @@
 <template>
   <Grid :block="props.block" v-slot="{ item, index }">
-    <LazyItem :key="item.src" :alwaysVisible="index < 5">
-      <div class="relative">
-        <div v-if="playingVideo === item.src" class="w-full h-full items-center rounded-lg overflow-hidden cursor-pointer" :class="aspectRatio(item)">
+    <LazyItem :key="item.src" :alwaysVisible="index < 5 || block.tags?.includes('masonry')">
+      <div class="relative" :style="playingVideo === item.src && block.tags?.includes('masonry')? aspectRatio(item) : ''">
+        <div v-if="playingVideo === item.src" class="w-full h-full items-center rounded-lg overflow-hidden cursor-pointer" :style="aspectRatio(item)">
           <div v-if="isAudio(item.src)" class="w-full text-center flex flex-col items-center justify-center h-full bg-black">
             <img :src="item.image" :alt="`Thumbnail for ${item.title}`" :fetchpriority="block.index >= 1 ? 'low' : 'high'" :loading="block.index >= 1 ? 'lazy' : 'eager'" @error.once="$event.target.crossOrigin = 'anonymous'; $event.target.src = item.image" class="absolute inset-0 w-full h-full object-cover rounded-lg opacity-20" />
             <h3 class="text-2xl font-bold text-white mb-4 w-full px-4">{{ item.title }}</h3>
@@ -15,10 +15,10 @@
           <iframe v-else :src="item.src" data-testid="embed-iframe" width="100%" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full rounded-lg overflow-hidden"></iframe>
         </div>
 
-        <div v-else @click="playingVideo = item.src" class="w-full h-full relative facade rounded-lg overflow-hidden cursor-pointer" :class="aspectRatio(item)">
+        <div v-else @click="playingVideo = item.src" class="w-full h-full relative facade rounded-lg overflow-hidden cursor-pointer" :style="aspectRatio(item)">
           <img :src="item.image" :alt="`Thumbnail for ${item.title}`" :fetchpriority="block.index >= 1 ? 'low' : 'high'" :loading="block.index >= 1 ? 'lazy' : 'eager'" @error.once="$event.target.crossOrigin = 'anonymous'; $event.target.src = item.image" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
 
-          <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 text-center to-transparent flex items-end">
+          <div v-if="hideText(item)" class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 text-center to-transparent flex items-end">
             <h3 class="text-lg font-bold text-white mb-2 w-full px-4">{{ item.title }}</h3>
           </div>
 
@@ -26,7 +26,7 @@
         </div>
       </div>
 
-      <div v-if="item.publishedAt && !block.filters?.length" class="pt-2 text-center w-full text-black">
+      <div v-if="item.publishedAt && !block.filters?.length && block.tags.includes('horizontal')" class="pt-2 text-center w-full text-black">
         {{ formatDate(item.publishedAt, $frontmatter.lang) }}
         <div class="w-[14px] h-[14px] mx-auto rounded-full bg-accent"></div>
         <div class="h-[4px] -mt-[8px] bg-accent -mx-[8px]"></div>
@@ -47,8 +47,14 @@ const isAudio = (url) => {
   return url.toLowerCase().includes(".mp3");
 };
 
+console.log(props.block)
+
 function aspectRatio(item){
-  return logo(item) == 'instagram-logo'? 'aspect-[9/16]' : 'aspect-[16/9]' 
+  return logo(item) == 'instagram-logo'? 'aspect-ratio: 9 / 16 !important;' : 'aspect-ratio: 16 / 9 !important;' 
+}
+
+function hideText(item){
+  return logo(item) !== 'instagram-logo'
 }
 
 function logo(item) {
