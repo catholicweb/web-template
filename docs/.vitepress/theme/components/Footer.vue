@@ -33,15 +33,20 @@
           <p class="mb-2" v-if="config.info.description">{{ config.info.description }}</p>
           <div v-if="showSocial" class="flex gap-4 items-center mx-auto justify-center">
             <template v-for="(href, index) in config.info.social">
+
               <a v-if="href.includes('youtube')" target="_blank" rel="noopener noreferrer" aria-label="Check our Youtube channel" :href="href" class="inline-block hover:text-red-500 transition-colors">
                 <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                 </svg>
               </a>
 
-              <a v-else-if="getEmail([href]" aria-label="Send us an email" :href="'mailto:'+getEmail([href]" class="inline-block hover:text-red-500 transition-colors">
-                <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M1.5 4.5A1.5 1.5 0 0 1 3 3h18a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 21 21H3a1.5 1.5 0 0 1-1.5-1.5v-15zM4.5 6l7.06 5.29a.75.75 0 0 0 .88 0L19.5 6H4.5zm15.75 1.34-7.09 5.32a2.25 2.25 0 0 1-2.32 0L3.75 7.34V18h16.5V7.34z" />
+              <a v-else-if="getEmail([href])" aria-label="Send us an email" :href="'mailto:'+getEmail([href])" class="inline-block hover:text-accent transition-colors">
+                <svg class="w-10 h-10" fill="currentColor" viewBox="52 42 88 66">
+                  <path d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/>
+                  <path d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/>
+                  <path d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/>
+                  <path d="M72 74V48l24 18 24-18v26L96 92"/>
+                  <path d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/>
                 </svg>
               </a>
 

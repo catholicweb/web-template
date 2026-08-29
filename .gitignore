@@ -1,6 +1,7 @@
 node_modules
 docs/**/*.md
 docs/public/*.json
+docs/public/*.png
 docs/.vitepress/theme/style.css
 docs/.vitepress/cache
 docs/.vitepress/dist
