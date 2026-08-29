@@ -159,10 +159,10 @@ export async function fetchCalendar() {
   const evSettings = config.calendar?.events ?? { list: [], urls: [] };
   const evTypes = config["event-types"]?.list ?? [];
 
-  // Map of lowercased type label -> defaults {title,image,description,...}.
+  // Map of lowercased type id -> defaults {title,image,description,...}.
   const defaultMap = {};
   for (const t of evTypes) {
-    const key = (t.label || "").toLowerCase().trim();
+    const key = (t.id || "").toLowerCase().trim();
     if (key) defaultMap[key] = t.defaults || {};
   }
 
