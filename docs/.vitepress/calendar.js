@@ -134,6 +134,14 @@ function intersectOptions(options, field) {
   return valid;
 }
 
+function findPlaceName(id, config) {
+  if (!id || !config?.info?.places) return id;
+  for (const place of config.info.places) {
+    if (place && place.id === id && place.name) return place.name;
+  }
+  return id;
+}
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === "string") return [value];
@@ -190,7 +198,7 @@ export async function fetchCalendar() {
       notes: toArray(e.notes || e.description || defaults_.description),
       language: e.language || null,
       //end: [],
-      locations: toArray(e.location),
+      locations: toArray(e.location).map(id => findPlaceName(id, config)),
       exceptions: toArray(e.except),
     });
   }
