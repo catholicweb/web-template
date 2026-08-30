@@ -66,8 +66,8 @@ describe("substitute", () => {
     ]);
   });
 
-  it("leaves unknown tokens untouched", () => {
-    expect(createFiles.substitute({ title: "{{missing}}" }, {}).title).toBe("{{missing}}");
+  it("clears unknown tokens", () => {
+    expect(createFiles.substitute({ title: "{{missing}}" }, {}).title).toBe("");
   });
 
   it("does not mutate the source template (deep clone)", () => {

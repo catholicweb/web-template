@@ -22,7 +22,7 @@ sections:
 
       - CIF: {{CIF_PARROQUIA}}
 
-      - Domicilio: {address}
+      - Domicilio: {{ADDRESS}}
 
       - Teléfono: {{TELEFONO}}
 
@@ -119,7 +119,7 @@ sections:
 
       **CIF:** {{CIF_PARROQUIA}}
 
-      **Dirección:** {address}
+      **Dirección:** {{ADDRESS}}
 
       **Teléfono:** {{TELEFONO}}
 
@@ -300,7 +300,7 @@ sections:
 
       - Email: {{EMAIL_CONTACTO}}
 
-      - Correo postal: {address}
+      - Correo postal: {{ADDRESS}}
 
 
       La solicitud deberá incluir:

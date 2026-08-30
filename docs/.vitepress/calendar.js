@@ -142,6 +142,15 @@ function findPlaceName(id, config) {
   return id;
 }
 
+function findPlace(id, config) {
+  if (!id || !config?.info?.places) return { name: id, id: id};
+  for (const place of config.info.places) {
+    if (place && place.id === id && place.name) return place;
+  }
+  return { name: id, id: id};
+}
+
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === "string") return [value];
@@ -199,6 +208,7 @@ export async function fetchCalendar() {
       language: e.language || null,
       //end: [],
       locations: toArray(e.location).map(id => findPlaceName(id, config)),
+      place: toArray(e.location).map(id => findPlace(id, config))[0],
       exceptions: toArray(e.except),
     });
   }

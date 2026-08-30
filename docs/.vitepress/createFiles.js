@@ -472,12 +472,11 @@ function addMeta(fm) {
 export function substitute(template, place) {
   const tags = Object.fromEntries((place.tags || []).map(item => [item.key, item.value]))
   const ctx = { ...place, image: place.images?.[0], ...tags };
-  // The editor authors placeholders as `{{name}}` (double braces); also accept
-  // the legacy single-brace `{name}` form. A whole-string token splices the raw
-  // value (arrays intact); inline tokens are string-substituted.
+  // The editor authors placeholders as `{{name}}` or `{name}` form.
+  // A whole-string token splices the raw value (arrays intact); inline tokens are string-substituted.
   const TOKEN = /\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\}/g;
   const WHOLE = /^\s*(?:\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\})\s*$/;
-  const replace = (s) => s.replace(TOKEN, (m, a, b) => (a || b) in ctx ? String(ctx[a || b]) : m);
+  const replace = (s) => s.replace(TOKEN, (m, a, b) => (a || b) in ctx ? String(ctx[a || b]) : '');
 
   const clone = structuredClone(template);
   const walk = (node) => {
@@ -502,7 +501,7 @@ export function substitute(template, place) {
       const out = {};
       for (const k of Object.keys(node)) {
         let val = node[k];
-        if (ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
+        if (['image','images','title'].includes(k) && ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
         out[k] = walk(val);
       }
       return out;
@@ -533,41 +532,34 @@ async function generateLegalPage() {
     return;
   }
 
-  // First temple (info.places[0]) is reverse-geocoded like the map blocks, so we
-  // can pull a street / town / province / postcode from real coordinates. When the
-  // temple has no `.geo` the address fields stay blank.
-  const place = config.info?.places?.[0] ?? config.places?.list?.[0];
-  const address = place?.geo
-    ? (await getAddress(...place.geo.split(",").map((s) => Number(s.trim())), place.name).catch(() => ({})))
-    : {};
+  const address = (config.info?.places?.find( p => !!p.address) || {} ).address || ''
 
-  // Contact data lives on collaborators as free-form social[] strings (or legacy
-  // phonenumber). Regex-pick the first phone and the first email across them.
-  const collaborators = config.info?.collaborators ?? config.site?.collaborators ?? [];
-  const contact = collaborators
-    .flatMap((c) => [...(c.social ?? []), c.phonenumber].filter(Boolean))
-    .filter(Boolean);
+  const collaborators = ( config.info?.collaborators ?? [])
+    .flatMap((c) => [...(c.social ?? []), c.phonenumber])
+    .filter(Boolean)
+
+  const contact = (config.info?.social ?? []).concat(collaborators)
+
+  console.log(contact)
   const findContact = (re) => contact.find((s) => re.test(s)) || "";
 
+
+  
+
   const ctx = {
-    NOMBRE_PARROQUIA: config.site?.title || config.info?.title || config.title || "",
-    DIRECCION_COMPLETA: address.street || "",
-    LOCALIDAD: address.city || "",
-    PROVINCIA: address.region || "",
-    CODIGO_POSTAL: address.zip || "",
-    DIOCESIS: address.region ? `Diócesis de ${address.region}` : "",
+    NOMBRE_PARROQUIA: config.info?.title || "",
+    ADDRESS: address,
+    DIOCESIS: `Diócesis de ${address?.split(',').toReversed()[0] || ''}`,
     TELEFONO: findContact(/^\+?[\d\s().-]{6,}$/),
     EMAIL_CONTACTO: findContact(/\S+@\S+\.\S+/),
-    // CIF isn't collected on the schema yet — emit blank and replace.
-    CIF_PARROQUIA: "",
-    // Hosting is ours (Cloudflare Pages, EU), not the parish's — a factory constant.
+    CIF_PARROQUIA: config.info.cif || '',
     UBICACION_SERVIDOR: "la Unión Europea (Cloudflare)",
     FECHA_ACTUALIZACION: new Date().toLocaleDateString("es-ES", {
       day: "numeric", month: "long", year: "numeric",
     }),
   };
 
-  // Substitute {{NAME}} / legacy {name} tokens in the legal text — same token regex
+  // Substitute {{NAME}} / {name} tokens in the legal text — same token regex
   // as substitute() above, but driven by the contact context (values may be empty
   // strings, so use an own-key check, not truthiness).
   const TOKEN = /\{\{\s*([A-Za-z]\w*)\s*\}\}|\{([A-Za-z]\w*)\}/g;
@@ -579,6 +571,7 @@ async function generateLegalPage() {
   const page = {
     title: "Aviso legal y política de privacidad",
     lang: esLang,
+    hideHero: true,
     sections: [{ ...section, type: "text", _block: "gallery", html: render(section.legal) }],
   };
   addMeta(page);
@@ -635,31 +628,18 @@ async function run() {
   calendar = await fetchCalendar();
   await generateIcons();
   videos = await fetchVideos();
-  instagram = await fetchInstagram();
+  //instagram = await fetchInstagram();
   await buildDictionary();
 
   // Pages are authored as data (config.pages.list) by the editor, not as .md
   // files — iterate that array instead of globbing docs/public/pages/*.md.
-  const pagesArr =
-    config.pages?.list ??
-    (Array.isArray(config.pages) ? config.pages : null) ??
-    config.list ??
-    [];
-  // Places (per-town data) live under info.places in the editor schema.
-  const places = config.info?.places ?? config.places?.list ?? [];
-  // The town template is a page in pages.list marked protected:"Plantilla
-  // pueblos" (its title is a {{name}} placeholder). If none is marked, fall back
-  // to any page whose title looks like a placeholder — but never one that's the
-  // event template (which also starts with a `{{` placeholder title).
+  const pagesArr = config.pages?.list ?? [];
+  const places = config.info?.places ?? [];
   const eventTemplate = pagesArr.find((p) => p.protected == "Plantilla eventos");
-  const townTemplate =
-    pagesArr.find((p) => p.protected == "Plantilla pueblos") ||
-    pagesArr.find((p) => p.protected == "Plantilla templos")
-  // "Crear una página nueva automaticamente para cada templo" checkbox.
+  const townTemplate = pagesArr.find((p) => p.protected == "Plantilla templos")
   const perPlace = config.pages?.pageperlocatoin ?? true;
+  const pagePerEvent = new Set(config.pages?.pageperevent ?? [])
 
-  // The index page is the one marked protected:"Portada" (or home/slug==index),
-  // resolved by the shared naming module.
   // Authored pages = the pages.list minus the two template pages (town + event),
   // which are only ever expanded per-place/per-event below, never emitted as a
   // literal {{...}} page.
@@ -667,33 +647,24 @@ async function run() {
     .filter((p) => p !== townTemplate && p !== eventTemplate)
     .map((p) => ({ ...p, slug: NAMING.resolveSlug(p) }));
 
-  // The legal/privacy page is generated solely by generateLegalPage() below (which
-  // fills its {{PLACEHOLDER}} tokens from config). Remove it from the page loop so
-  // the loop doesn't emit un-substituted stubs for every language.
-  const LEGAL_TITLE = "Aviso legal y política de privacidad";
-  pages = pages.filter((p) => p.title !== LEGAL_TITLE);
-
   // Home fallback: if none marked, the first hand-authored page becomes home.
   // Skip the injected 404 page so it is never promoted to index — slugify never
   // produces "404" from a title, but the injected page carries slug:"404" verbatim.
   if (pages.length && !pages.some((p) => p.slug == "index")) {
-    const firstReal = pages.findIndex((p) => p.slug !== "404");
+    let firstReal = pagesArr.findIndex((p) => p.protected == "Portada");
+    if (firstReal < 0) firstReal = pages.findIndex((p) => p.slug !== "404");
     if (firstReal >= 0) pages[firstReal] = { ...pages[firstReal], slug: "index", home: true };
   }
 
   // Auto-generate one page per place when the checkbox is on, a towntemplate is
   // authored, and an actual places list exists (skip otherwise).
   if (perPlace && townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
-    const taken = new Set(pages.map((p) => p.slug));
     for (const place of places) {
       if (!place || !place.name) continue;
-      const slug = slugify(place.name) || "lugar";
-      if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
-      taken.add(slug);
       pages.push({
         ...substitute(townTemplate, place),
         title: place.name,
-        slug,
+        slug: slugify(place.name),
         home: false,
         group: "templos",
       });
@@ -701,45 +672,27 @@ async function run() {
   }
 
   // "Plantilla eventos" — same idea, for events: a page in pages.list marked
-  // protected:"Plantilla eventos" whose sections carry `{{event.*}}` placeholders,
+  // protected:"Plantilla eventos" whose sections carry placeholders,
   // expanded once per selected event. Selection is driven by pages.pageperevent,
-  // a site-level list of event-type names/labels (the same editor pattern as
-  // the event-type `icon`): every event belonging to a listed type gets a
-  // dedicated page.
-  const evTypes = config["event-types"]?.list ?? [];
-  const pagePerEvent = new Set(
-    (config.pages?.pageperevent ?? []).map((s) => String(s).toLowerCase())
-  );
-  const pageTypes = new Set(
-    evTypes
-      .filter((t) =>
-        [t.name, t.label].filter(Boolean).some((f) =>
-          pagePerEvent.has(String(f).toLowerCase())
-        )
-      )
-      .flatMap((t) => [t.name, t.label].filter(Boolean).map((s) => String(s).toLowerCase()))
-  );
+  // every event belonging to a listed type gets a dedicated page.
   if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pagePerEvent.size) {
-    const taken = new Set(pages.map((p) => p.slug));
     for (const ev of calendar) {
       if (!ev || !pagePerEvent.has(ev.type)) continue; // only page-flagged event types
       // unique, e.g. /campamento-verano-2027-07-20/.
-      const slug = slugify([ev.title, ev.dates?.[0], ev.rrule?.join('-')].filter(Boolean).join(" ")) || "evento";
-      if (taken.has(slug)) continue; // light dedup — don't clobber an existing page
-      taken.add(slug);
+      const slug = slugify([ev.title, ev.dates?.[0], ev.rrule?.join('-')].filter(Boolean).join(" "));
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
+      const data = { ...ev.place, ...ev, description: ev.notes?.[0] }
       pages.push({
-        ...substitute(eventTemplate, { ...ev, description: ev.notes }),
+        ...substitute(eventTemplate, data),
         title: ev.title,
         slug,
         home: false,
         // Event URLs must keep their date-suffixed slug (e.g. /misa-2027-07-20/),
-        // so opt this page out of translated-title basenames — otherwise every
-        // "Misa" on a different date would collide on the same .md file.
         filenameMode: "original",
         group: "eventos",
       });
     }
+    
     // Re-write calendar.json with the link field added to page-producing events.
     write("./docs/public/calendar.json", calendar);
   }
@@ -781,14 +734,6 @@ async function run() {
       });
 
       await postComplete(translatedData);
-
-      // slug/home are pipeline-internal; drop them from the emitted frontmatter
-      // (the legacy pages never carried them). Sites opting into stable original
-      // slugs keep their frontmatter untouched.
-      if (translatedNames) {
-        delete translatedData.slug;
-        delete translatedData.home;
-      }
 
       const dest =
         "./docs/" +
