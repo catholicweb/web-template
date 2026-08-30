@@ -384,8 +384,8 @@ async function autocomplete(fm, pages) {
     } else if (fm.sections[i]._block == "gallery-feature") {
       fm.sections[i].type = "team-cards";
       (fm.sections[i].tags ??= []).push("small");
-    } else if (fm.sections[i].list) {
-      fm.sections[i].elements = fm.sections[i].list.map((i) => {
+    } else if (fm.sections[i].images) {
+      fm.sections[i].elements = fm.sections[i].images.map((i) => {
         return { title: "", description: "", image: i };
       });
       fm.sections[i].type = "gallery";
