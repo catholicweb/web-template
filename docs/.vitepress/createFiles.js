@@ -498,7 +498,11 @@ export function substitute(template, place) {
     }
     if (node && typeof node === "object") {
       const out = {};
-      for (const k of Object.keys(node)) out[k] = walk(node[k]);
+      for (const k of Object.keys(node)) {
+        let val = node[k];
+        if (ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
+        out[k] = walk(val);
+      }
       return out;
     }
     return node;
