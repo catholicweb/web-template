@@ -525,16 +525,18 @@ export async function getAddress(lat, lng, name, zoom = 17) {
       return extra;
     }
 
+    // Consolidated address field only (idea: address)
+    const parts = [
+      data.address?.road || data.address?.pedestrian,
+      data.address?.hamlet || data.address?.village || data.address?.town || data.address?.city,
+      data.address?.postcode,
+      data.address?.state,
+      data.address?.country,
+    ].filter(Boolean);
+    const addressStr = data.display_name || parts.join(", ");
     return {
       ...extra,
-      street: data.address?.road || data.address?.pedestrian,
-      city: data.address?.hamlet || data.address?.village || data.address?.town || data.address?.city,
-      zip: data.address?.postcode,
-      full: data.display_name,
-      region: data.address?.state,
-      country: data.address?.country,
-      country_code: data.address?.country_code,
-      name: data.address?.amenity,
+      address: addressStr,
     };
   } catch (error) {
     console.error("Lookup failed:", error);

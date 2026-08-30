@@ -22,11 +22,7 @@ sections:
 
       - CIF: {{CIF_PARROQUIA}}
 
-      - Domicilio: {{DIRECCION_COMPLETA}}
-
-      - Localidad: {{LOCALIDAD}} ({{PROVINCIA}})
-
-      - Código Postal: {{CODIGO_POSTAL}}
+      - Domicilio: {address}
 
       - Teléfono: {{TELEFONO}}
 
@@ -123,8 +119,7 @@ sections:
 
       **CIF:** {{CIF_PARROQUIA}}
 
-      **Dirección:** {{DIRECCION_COMPLETA}}, {{CODIGO_POSTAL}} {{LOCALIDAD}}
-      ({{PROVINCIA}})
+      **Dirección:** {address}
 
       **Teléfono:** {{TELEFONO}}
 
@@ -305,8 +300,7 @@ sections:
 
       - Email: {{EMAIL_CONTACTO}}
 
-      - Correo postal: {{DIRECCION_COMPLETA}}, {{CODIGO_POSTAL}} {{LOCALIDAD}}
-      ({{PROVINCIA}})
+      - Correo postal: {address}
 
 
       La solicitud deberá incluir:
