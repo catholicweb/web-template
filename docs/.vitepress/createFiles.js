@@ -500,8 +500,7 @@ export function substitute(template, place) {
       const out = {};
       for (const k of Object.keys(node)) {
         let val = node[k];
-        if (k === "image" && val === "") val = "{image}";
-        else if (k === "images" && Array.isArray(val) && val.length === 0) val = "{images}";
+        if (ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
         out[k] = walk(val);
       }
       return out;
