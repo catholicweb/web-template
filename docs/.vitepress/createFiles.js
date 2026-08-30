@@ -396,8 +396,10 @@ async function autocomplete(fm, pages) {
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "map") {
       const [latitude, longitude] = fm.sections[i].geo?.split(",").map((s) => Number(s.trim())) || [];
-      const extra = await getAddress(latitude, longitude, fm.sections[i].name);
-      fm.sections[i] = { ...extra, ...fm.sections[i] };
+      if (!fm.sections[i].address) {
+        const extra = await getAddress(latitude, longitude, fm.sections[i].name);
+        fm.sections[i] = { ...extra, ...fm.sections[i], address: extra.address || fm.sections[i].address };
+      }
     }
 
     // 47herri nav style: the home page shows every non-recurring event
