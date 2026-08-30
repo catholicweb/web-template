@@ -384,7 +384,7 @@ async function autocomplete(fm, pages) {
     } else if (fm.sections[i]._block == "gallery-feature") {
       fm.sections[i].type = "team-cards";
       (fm.sections[i].tags ??= []).push("small");
-    } else if (fm.sections[i].images) {
+    } else if (fm.sections[i].type == 'gallery' && fm.sections[i].images) {
       fm.sections[i].elements = fm.sections[i].images.map((i) => {
         return { title: "", description: "", image: i };
       });
@@ -501,7 +501,7 @@ export function substitute(template, place) {
       const out = {};
       for (const k of Object.keys(node)) {
         let val = node[k];
-        if (['image','images','title'].includes(k) && ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
+        if (['image','images','title','html','geo','address'].includes(k) && ctx[k] !== undefined && (val === "" || val === null || val === undefined || (Array.isArray(val) && val.length === 0))) val = "{" + k + "}";
         out[k] = walk(val);
       }
       return out;
@@ -681,7 +681,7 @@ async function run() {
       // unique, e.g. /campamento-verano-2027-07-20/.
       const slug = slugify([ev.title, ev.dates?.[0], ev.rrule?.join('-')].filter(Boolean).join(" "));
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
-      const data = { ...ev.place, ...ev, description: ev.notes?.[0] }
+      const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
       pages.push({
         ...substitute(eventTemplate, data),
         title: ev.title,
