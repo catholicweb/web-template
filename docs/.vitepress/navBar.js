@@ -29,6 +29,7 @@ export async function generateNav(config) {
     if (!data.lang) continue;
 
     const lang = data.lang;
+    if (data.home || f.includes('index')) continue
     const base = "/" + f.replace(/index\.md$/, "").replace(/\.md$/, "");
     const sections = data.sections ?? [];
 
@@ -51,7 +52,7 @@ export async function generateNav(config) {
   }
 
   const nav = {};
-  const groupLabels = { templos: "Templos", eventos: "Eventos" };
+  const groupLabels = { templos: "Templos", eventos: "Actividades" };
   for (const lang in flat) {
     nav[lang] = [...flat[lang]];
   }
