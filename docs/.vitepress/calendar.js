@@ -161,6 +161,10 @@ function parseDateToISO(dateStr) {
   return dateStr.split("/").toReversed().join("-");
 }
 
+function isEmptyOverride(v) {
+  return ( v === '' || (Array.isArray(v) && (v.length === 0 || (v.length === 1 && v[0] === ''))) );
+}
+
 export async function fetchCalendar() {
   // Events now live inside the site config (config.calendar.events), with
   // per-type defaults under config["event-types"].list — no separate events.json.
@@ -180,9 +184,14 @@ export async function fetchCalendar() {
   for (const evt of evSettings.list || []) {
     if (!evt || typeof evt !== "object") continue;
     const type = (evt.type || "").toLowerCase();
-    const defaults_ = defaultMap[type] || {};
+
     // Merge defaults with the explicit event fields (event wins).
-    const e = { ...defaults_, ...evt };
+    const defaults_ = defaultMap[type] || {};
+    // prefer default value than event fields set to empty
+    const filtered = Object.fromEntries(
+      Object.entries(evt).filter(([, v]) => !isEmptyOverride(v))
+    );
+    const e = { ...defaults_, ...filtered };
 
     // Filter out past events
     let dates = toArray(e.date).map((d) => parseDateToISO(d));
