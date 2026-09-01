@@ -96,6 +96,7 @@ async function setupNotifications() {
 
   // iOS requires standalone (Home Screen) + user gesture for push permissions
   if (isIOS() && !isStandalone()) return;
+  console.log("[FCM] guards passed — apiKey:", !!__FIREBASE_CONFIG__?.apiKey, "topic:", __FCM_TOPIC__ ? "yes" : "no", "endpoint:", __FCM_TOKEN_ENDPOINT__ ? "yes" : "no", "sw:", "serviceWorker" in navigator, "push:", "PushManager" in window);
 
   if (notificationsSetupInProgress) return; // already registering, don't race it
   notificationsSetupInProgress = true;
