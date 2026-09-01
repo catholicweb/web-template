@@ -19,7 +19,7 @@ const filteredItems = computed(() => {
 	const needle = selectedFilter.value === 0 ? props.block.filters : [props.block.filters?.[selectedFilter.value]];
 	return (props.block.elements || []).filter((item) => {
 		const haystack = JSON.stringify(item).toLowerCase();
-		const matchesfilter = !props.block.filters || searchQuery.value || needle?.some((word) => haystack.includes(word?.toLowerCase()));
+		const matchesfilter = !props.block?.filters?.length || searchQuery.value || needle?.some((word) => haystack.includes(word?.toLowerCase()));
 		const matchesSearch = !searchQuery.value || haystack.includes(searchQuery.value.toLowerCase());
 		return matchesfilter && matchesSearch;
 	});
@@ -110,6 +110,7 @@ const randomOffset = Math.floor(Math.random() * BALANCED_SEQUENCE.length);
 
 // 3. Pure lookup function
 const randomTileClass = (index) => {
+	if (props.block?.tags?.includes('free-masonry')) return ''
   const patternValue = BALANCED_SEQUENCE[(index + randomOffset) % 20];
   return TILE_PATTERN[patternValue];
 };
@@ -202,6 +203,7 @@ function vtr(key, lang) {
 			</div>
 		</div>
 	</template>
+
 	<template v-else>
 		<div :class="grid(block)">
 			<template v-for="(item, index) in filteredItems">

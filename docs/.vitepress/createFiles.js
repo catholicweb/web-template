@@ -249,10 +249,6 @@ async function postComplete(fm) {
       fm.sections[i]._block = "gallery";
     }
     if (fm.sections[i]._block == "legal") {
-      // The legal block stores its rich content in `.legal`, NOT `.html`. We
-      // render it here fresh so the project summary will translate the contact
-      // data while this legal boilerplate stays as authored (see the TODO about
-      // interpolating {{placeholders}} instead of hardcoding the text).
       fm.sections[i].html = render(fm.sections[i].legal, i);
       fm.sections[i].type = "text";
       fm.sections[i]._block = "gallery";
@@ -321,11 +317,6 @@ async function postComplete(fm) {
         .slice(0, 150);
       (fm.sections[i].tags ??= []).push("mansonry");
     } else if (fm.sections[i]._block == "calendar") {
-      // Calendar.vue renders a grouped table (group -> subkey -> rows). The
-      // order can come from the new per-level single-select fields
-      // (orderTabla, orderFila, orderColumna, orderSubfila, orderNotas) or, for
-      // backward compatibility, from the legacy `order` array. assembleOrder()
-      // normalizes both into the flat array that groupEvents() expects.
       const order = assembleOrder(fm.sections[i]);
       fm.sections[i].events = groupEvents(fm.sections[i].events, order);
     } else if (fm.sections[i]._block == "gospel") {
@@ -393,6 +384,10 @@ async function autocomplete(fm, pages) {
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
       fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].filter));
+      if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
+    } else if (fm.sections[i]._block == "eventCards") {
+      fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].eventsToShow?.join('|') || '' ));
+      (fm.sections[i].tags ??= []).push("visualCards","masonry","free-masonry");
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "map") {
       const [latitude, longitude] = fm.sections[i].geo?.split(",").map((s) => Number(s.trim())) || [];

@@ -380,7 +380,7 @@ const s = computed(() => NAV_STYLES[navStyle.value] || NAV_STYLES.default);
     </template>
 
     <!-- 47herri: event cards below the nav (takes hero slot) -->
-    <EventCards v-if="navStyle == '47herri' && !$frontmatter.hideHero && !page.isNotFound" :block="{ events: $frontmatter.events }" class="w-full" />
+    <EventCards v-if="navStyle == '47herri' && !$frontmatter.hideHero && !page.isNotFound" :block="{ events: $frontmatter.events, tags: ['carousel'], query: false }" class="w-full" />
   </div>
 
   <!-- Hero Component (shown for all styles except 47herri, which uses EventCards instead) -->

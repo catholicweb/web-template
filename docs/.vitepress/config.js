@@ -29,7 +29,7 @@ export default defineConfig(async () => {
       ["link", { rel: "manifest", href: "/manifest.webmanifest" }],
       ["link", { rel: "apple-touch-icon", href: `/apple-touch-icon.png${v("apple-touch-icon.png")}` }],
       // iOS / PWA installability
-      ["meta", { name: "apple-mobile-web-app-capable", content: "yes" }],
+      ["meta", { name: "mobile-web-app-capable", content: "yes" }],
       ["meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" }],
       ["meta", { name: "theme-color", content: config.theme?.accentColor || "#ffffff" }],
       ["meta", { name: "color-scheme", content: "light" }],

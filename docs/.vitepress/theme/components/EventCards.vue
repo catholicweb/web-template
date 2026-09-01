@@ -18,26 +18,11 @@ function eventHref(event) {
 </script>
 
 <template>
-  <div class="relative z-10 py-10 font-medium">
+  <!-- Default data-focused card -->
+  <div v-if="!props.block.tags?.includes('visualCards')" class="relative z-10 py-10 font-medium">
     <div class="container mx-auto px-4 min-h-30">
-      <Grid :block="{ ...props.block, elements: block.events, query: false, tags: ['carousel'] }" v-slot="{ item: event, index }">
-        <!-- Visual cards: large image, title under, meta only if present -->
-        <a v-if="props.block.tags?.includes('visualCards')" :href="eventHref(event)" class="bg-black/50 backdrop-blur-xl p-0 rounded-xl text-white overflow-hidden block flex flex-col no-underline transition hover:opacity-90">
-          <Image v-if="event.images?.[0]" :src="event.images[0]" :index="index" class="w-full h-64 md:h-80 object-cover" />
-          <div class="p-6 flex flex-col gap-3">
-            <h2 class="text-2xl md:text-3xl font-bold leading-tight" :id="slugify(event.name || event.title)">
-              {{ event.name || event.title || formatDate(event.type, $frontmatter.lang) }}
-            </h2>
-            <div v-if="event.locations?.length || event.dates?.length || event.byday?.length || event.byweek?.length || event.times?.length" class="flex flex-wrap gap-3 text-xs md:text-sm opacity-90">
-              <span v-if="event.locations?.length" class="location-mark">{{ event.locations.join(", ") }}</span>
-              <span v-if="[...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).length" class="calendar-mark">{{ [...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).map((i) => formatDate(i, $frontmatter.lang)).join(", ") }}</span>
-              <span v-if="event.times?.length" class="time-mark">{{ event.times.join(", ") }}</span>
-            </div>
-          </div>
-        </a>
-
-        <!-- Default data-focused card -->
-        <div v-else class="bg-black/50 backdrop-blur-xl p-6 rounded-xl text-white overflow-hidden block">
+      <Grid :block="{ ...props.block, elements: block.events, query: props.block.tags?.includes('visualCards') }" v-slot="{ item: event, index }">  
+        <div class="bg-black/50 backdrop-blur-xl p-6 rounded-xl text-white overflow-hidden block">
           <h2 class="text-3xl font-bold mb-4 leading-tight" :id="slugify(event.name || event.title)">
             {{ event.name || event.title || formatDate(event.type, $frontmatter.lang) }}
           </h2>
@@ -45,8 +30,8 @@ function eventHref(event) {
           <Image v-if="event.images?.[0]" :src="event.images[0]" :index="index" class="float-right w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-accent object-cover ml-4 mb-2" />
 
           <div class="space-y-2 text-sm">
-            <p class="location-mark">{{ event.locations.join(", ") }}</p>
-            <p class="calendar-mark">
+            <p class="location-mark" v-if="event.locations.join()" >{{ event.locations.join(", ") }}</p>
+            <p class="calendar-mark" v-if="[...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).join()">
               {{
                 [...formatWeekdays(event.byday), ...event.byweek, ...event.dates]
                   .filter(Boolean)
@@ -54,7 +39,7 @@ function eventHref(event) {
                   .join(", ")
               }}
             </p>
-            <p class="time-mark">{{ event.times.join(", ") }}</p>
+            <p class="time-mark" v-if="event.times.join()">{{ event.times.join(", ") }}</p>
           </div>
 
           <p v-if="event.notes" class="mt-4 italic clear-none">
@@ -71,6 +56,34 @@ function eventHref(event) {
         </div>
       </Grid>
     </div>
+  </div>
+
+
+
+  <div v-else class="container mx-auto px-4 min-h-30">
+      <Grid :block="{ ...props.block, elements: block.events, query: props.block.tags?.includes('visualCards') }" v-slot="{ item: event, index }">
+
+  <!-- Visual cards: large image, title under, meta only if present -->
+        <div v-if="props.block.tags?.includes('visualCards')">
+        <a :href="eventHref(event)" class="bg-[#2d3436] rounded-xl text-white overflow-hidden block flex flex-col no-underline transition hover:opacity-90">
+          
+            <div>
+              <Image v-if="event.images?.[0]" :src="event.images[0]" :alt="'Group image for ' + event.title" :index="index" class="w-full h-64 md:h-80 object-cover" />
+            </div>
+            <div class="p-6 flex flex-col gap-3">
+              <h2 class="text-xl md:text-2xl font-bold leading-tight" :id="slugify(event.name || event.title)">
+                {{ event.name || event.title || formatDate(event.type, $frontmatter.lang) }}
+              </h2>
+              <div v-if="event.locations?.length || event.dates?.length || event.byday?.length || event.byweek?.length || event.times?.length" class="flex flex-wrap gap-3 text-xs md:text-sm opacity-90">
+                <span v-if="event.locations?.length && event.locations[0] != ''" class="location-mark">{{ event.locations.join(", ") }}</span>
+                <span v-if="[...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).length" class="calendar-mark">{{ [...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).map((i) => formatDate(i, $frontmatter.lang)).join(", ") }}</span>
+                <span v-if="event.times?.length" class="time-mark">{{ event.times.join(", ") }}</span>
+              </div>
+            </div>
+          
+        </a>
+        </div>
+      </Grid>
   </div>
 </template>
 
