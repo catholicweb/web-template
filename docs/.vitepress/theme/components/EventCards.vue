@@ -21,7 +21,23 @@ function eventHref(event) {
   <div class="relative z-10 py-10 font-medium">
     <div class="container mx-auto px-4 min-h-30">
       <Grid :block="{ ...props.block, elements: block.events, query: false, tags: ['carousel'] }" v-slot="{ item: event, index }">
-        <div class="bg-black/50 backdrop-blur-xl p-6 rounded-xl text-white overflow-hidden block">
+        <!-- Visual cards: large image, title under, meta only if present -->
+        <a v-if="props.block.tags?.includes('visualCards')" :href="eventHref(event)" class="bg-black/50 backdrop-blur-xl p-0 rounded-xl text-white overflow-hidden block flex flex-col no-underline transition hover:opacity-90">
+          <Image v-if="event.images?.[0]" :src="event.images[0]" :index="index" class="w-full h-64 md:h-80 object-cover" />
+          <div class="p-6 flex flex-col gap-3">
+            <h2 class="text-2xl md:text-3xl font-bold leading-tight" :id="slugify(event.name || event.title)">
+              {{ event.name || event.title || formatDate(event.type, $frontmatter.lang) }}
+            </h2>
+            <div v-if="event.locations?.length || event.dates?.length || event.byday?.length || event.byweek?.length || event.times?.length" class="flex flex-wrap gap-3 text-xs md:text-sm opacity-90">
+              <span v-if="event.locations?.length" class="location-mark">{{ event.locations.join(", ") }}</span>
+              <span v-if="[...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).length" class="calendar-mark">{{ [...formatWeekdays(event.byday), ...event.byweek, ...event.dates].filter(Boolean).map((i) => formatDate(i, $frontmatter.lang)).join(", ") }}</span>
+              <span v-if="event.times?.length" class="time-mark">{{ event.times.join(", ") }}</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Default data-focused card -->
+        <div v-else class="bg-black/50 backdrop-blur-xl p-6 rounded-xl text-white overflow-hidden block">
           <h2 class="text-3xl font-bold mb-4 leading-tight" :id="slugify(event.name || event.title)">
             {{ event.name || event.title || formatDate(event.type, $frontmatter.lang) }}
           </h2>
