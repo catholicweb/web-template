@@ -59,15 +59,11 @@ function eventHref(event) {
   </div>
 
 
-
-  <div v-else class="container mx-auto px-4 min-h-30">
-      <Grid :block="{ ...props.block, elements: block.events, query: props.block.tags?.includes('visualCards') }" v-slot="{ item: event, index }">
-
   <!-- Visual cards: large image, title under, meta only if present -->
-        <div v-if="props.block.tags?.includes('visualCards')">
+  <div v-else class="mx-auto px-0">
+      <Grid :block="{ ...props.block, elements: block.events, query: props.block.tags?.includes('visualCards') }" v-slot="{ item: event, index }">  
         <a :href="eventHref(event)" class="bg-[#2d3436] rounded-xl text-white overflow-hidden block flex flex-col no-underline transition hover:opacity-90">
-          
-            <div>
+            <div class="relative">
               <Image v-if="event.images?.[0]" :src="event.images[0]" :alt="'Group image for ' + event.title" :index="index" class="w-full h-64 md:h-80 object-cover" />
             </div>
             <div class="p-6 flex flex-col gap-3">
@@ -80,9 +76,7 @@ function eventHref(event) {
                 <span v-if="event.times?.length" class="time-mark">{{ event.times.join(", ") }}</span>
               </div>
             </div>
-          
         </a>
-        </div>
       </Grid>
   </div>
 </template>
