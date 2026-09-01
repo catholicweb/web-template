@@ -32,6 +32,25 @@ const { theme } = useData();
 const state = ref({ showInstallButton: false, showUpdateBanner: false, showBell: false });
 let deferredPrompt;
 
+// Prevents setupNotifications() from running twice at once (e.g. mount-init
+// racing with a manual bell click), which is what leaves a stale
+// messaging.swRegistration reference around and triggers the Firebase
+// pushManager crash.
+let notificationsSetupInProgress = false;
+
+// Swallow the known, unfixed Firebase Messaging SDK bug where an internal
+// listener reads `.pushManager` off an undefined `swRegistration` after a
+// service worker update or permission reset. This is not our bug — see
+// https://github.com/firebase/firebase-js-sdk/issues/9213 — this just
+// stops it from surfacing as an uncaught error in the page.
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (e) => {
+    if (e.reason && /pushManager/.test(String(e.reason.message || e.reason))) {
+      e.preventDefault();
+    }
+  });
+}
+
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
 const { updateServiceWorker } = useRegisterSW({
   onNeedRefresh() {
@@ -77,6 +96,9 @@ async function setupNotifications() {
   // iOS requires standalone (Home Screen) + user gesture for push permissions
   if (isIOS() && !isStandalone()) return;
 
+  if (notificationsSetupInProgress) return; // already registering, don't race it
+  notificationsSetupInProgress = true;
+
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return;
@@ -114,11 +136,16 @@ async function setupNotifications() {
     // uses the FCM HTTP API with a server key — the browser cannot
     // subscribe tokens to topics itself (web SDK limitation). See
     // firebase/firebase-js-sdk#5289.
-    await fetch(__FCM_TOKEN_ENDPOINT__, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, site: __FCM_TOPIC__ }),
-    });
+    // Avoid hitting the endpoint on every load when the token hasn't changed.
+    const cachedToken = typeof window !== "undefined" ? localStorage.getItem("fcm_token") : null;
+    if (cachedToken !== token) {
+      await fetch(__FCM_TOKEN_ENDPOINT__, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, site: __FCM_TOPIC__ }),
+      });
+      if (typeof window !== "undefined") localStorage.setItem("fcm_token", token);
+    }
 
     console.log(`FCM token registered for topic: ${__FCM_TOPIC__}`);
 
@@ -140,6 +167,8 @@ async function setupNotifications() {
     });
   } catch (err) {
     console.error("FCM setup error:", err);
+  } finally {
+    notificationsSetupInProgress = false;
   }
 }
 
@@ -180,9 +209,18 @@ onMounted(() => {
       deferredPrompt = null;
     });
 
-    // Bell-triggered notifications (not automatic on mount)
-    if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
-      state.value.showBell = true;
+    if (typeof Notification !== "undefined") {
+      if (Notification.permission === "granted") {
+        // RETURNING VISITOR FIX: permission was already granted in a past
+        // session, so the bell is hidden and setupNotifications() would
+        // otherwise never run again — meaning the FCM token never refreshes
+        // and onMessage() (foreground notifications) never gets registered.
+        // Re-run it silently on every load when permission is already granted.
+        setupNotifications();
+      } else {
+        // Bell-triggered notifications for users who haven't granted yet
+        state.value.showBell = true;
+      }
     }
   }
 });

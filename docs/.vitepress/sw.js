@@ -23,6 +23,16 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
+// Swallow the known, unfixed Firebase Messaging SDK bug: an internal
+// listener sometimes reads `.pushManager` off an undefined registration
+// reference after this worker takes over via clientsClaim()/skipWaiting().
+// See https://github.com/firebase/firebase-js-sdk/issues/9213 — not our bug,
+// this just stops it from surfacing as an uncaught rejection in the SW.
+self.addEventListener("unhandledrejection", (event) => {
+  const msg = String(event.reason?.message || event.reason || "");
+  if (msg.includes("pushManager")) event.preventDefault();
+});
+
 // NetworkFirst for page navigations (5 s timeout, then serve from cache)
 registerRoute(
   new NavigationRoute(
