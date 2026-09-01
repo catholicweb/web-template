@@ -64,11 +64,11 @@ export default defineConfig(async () => {
       define: {
         __DATA_BASE__: JSON.stringify(DATA_BASE),
         __FIREBASE_CONFIG__: JSON.stringify({
-          apiKey: process.env.FCM_API_KEY,
-          projectId: process.env.FCM_PROJECT_ID,
-          appId: process.env.FCM_APP_ID,
-          messagingSenderId: process.env.FCM_MESSAGING_SENDER_ID,
-          vapidKey: process.env.FCM_VAPID_KEY,
+          apiKey: "AIzaSyB-9L1B9tIRCh5o56gwIfBtTfLUqy8N_ko",
+          projectId: "parroquia-app-472de",
+          appId: "1:491549452980:web:dcc9552d8898ffea7505e1",
+          messagingSenderId: "491549452980",
+          vapidKey: "BOcuxWAzE5H5CTFDouJrXuR0ukMidIVSJ75uPXxyJ0fJ6U1nxeIeZsOrMXxoD1xE59XMPetaFvbzaSErTYa33u4",
         }),
         __FCM_TOPIC__: JSON.stringify(process.env.SITE_SLUG || ""),
         __FCM_TOKEN_ENDPOINT__: JSON.stringify("https://api.parroquia.app/api/fcm/token"),

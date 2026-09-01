@@ -47,9 +47,11 @@ if (typeof __FIREBASE_CONFIG__ !== "undefined" && __FIREBASE_CONFIG__?.apiKey) {
   initializeApp(__FIREBASE_CONFIG__);
   const messaging = getMessaging();
   onBackgroundMessage(messaging, async (payload) => {
-    const notification = payload.notification || {};
+    // Let browser natively handle standard FCM notifications (notification payload)
+    if (payload.notification) return;
+
     const data = payload.data || {};
-    const title = notification.title || data.title || "Nueva notificación";
+    const title = data.title || "Nueva notificación";
 
     let iconUrl = "/icon-192.png";
     try {
@@ -64,8 +66,8 @@ if (typeof __FIREBASE_CONFIG__ !== "undefined" && __FIREBASE_CONFIG__?.apiKey) {
     }
 
     const options = {
-      body: notification.body || data.body || "",
-      icon: notification.image || iconUrl,
+      body: data.body || "",
+      icon: iconUrl,
       badge: iconUrl,
       data: { url: data.url || "/" },
     };

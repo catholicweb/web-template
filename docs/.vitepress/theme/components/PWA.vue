@@ -6,7 +6,11 @@
       <button @click="state.showUpdateBanner = false" class="px-3 py-1 border border-white rounded cursor-pointer">Cerrar</button>
     </div>
 
-    <button v-show="state.showInstallButton" @click="handleInstall" class="fixed bottom-6 right-6 bg-white border border-neutral-300 rounded-full p-3 shadow hover:bg-neutral-100 active:scale-95 cursor-pointer z-[9998]" title="Instalar app">
+    <button v-show="state.showBell" @click="askNotifications" class="fixed bottom-20 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Recibir notificaciones" aria-label="Activar notificaciones">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    </button>
+
+    <button v-show="state.showInstallButton" @click="handleInstall" class="fixed bottom-6 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Instalar app">
       <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
         <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2h14v2H5v-2z" />
       </svg>
@@ -20,12 +24,12 @@ import { useData } from "vitepress";
 import { useRegisterSW } from "virtual:pwa-register/vue";
 import versions from "../../../public/icon-versions.json";
 const v = (f) => versions[f] ? `?v=${versions[f]}` : "";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const { theme } = useData();
 // Default to false so it doesn't flicker on already-installed apps
-const state = ref({ showInstallButton: false, showUpdateBanner: false });
+const state = ref({ showInstallButton: false, showUpdateBanner: false, showBell: false });
 let deferredPrompt;
 
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
@@ -60,7 +64,7 @@ const waitForSwReady = () =>
     new Promise((_, __) => setTimeout(__, 5000)),
   ]);
 
-// ─── FCM notification setup (for ALL visitors, not just installed users) ───
+// ─── FCM notification setup ───
 async function setupNotifications() {
   if (typeof __FIREBASE_CONFIG__ === "undefined" || !__FIREBASE_CONFIG__?.apiKey) {
     return; // FCM not configured (canary build / unconfigured site)
@@ -70,14 +74,30 @@ async function setupNotifications() {
 
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
+  // iOS requires standalone (Home Screen) + user gesture for push permissions
+  if (isIOS() && !isStandalone()) return;
+
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return;
 
-    const app = initializeApp(__FIREBASE_CONFIG__);
+    let app;
+    try {
+      app = getApp();
+    } catch {
+      app = initializeApp(__FIREBASE_CONFIG__);
+    }
     const messaging = getMessaging(app);
-    const swRegistration = await waitForSwReady();
-    if (!swRegistration) return; // dev mode or SW not ready
+    const swRegistration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error("SW ready timeout")), 5000)),
+    ]);
+    if (!swRegistration) return; // SW not ready
+
+    if (!__FIREBASE_CONFIG__.vapidKey) {
+      console.warn("FCM vapidKey missing; skipping getToken");
+      return;
+    }
 
     const token = await getToken(messaging, {
       vapidKey: __FIREBASE_CONFIG__.vapidKey,
@@ -108,15 +128,32 @@ async function setupNotifications() {
       const notification = payload.notification || {};
       const data = payload.data || {};
       const title = notification.title || data.title || "Nueva notificación";
-      new Notification(title, {
-        body: notification.body || data.body || "",
+      const body = notification.body || data.body || "";
+      const url = data.url || "/";
+      // Use SW registration so clicks trigger notificationclick / clients.openWindow
+      swRegistration.showNotification(title, {
+        body,
         icon: `/icon-192.png${v("icon-192.png")}`,
         badge: `/icon-192.png${v("icon-192.png")}`,
-        data: { url: data.url || "/" },
+        data: { url },
       });
     });
   } catch (err) {
-    console.error("FCM setup failed:", err);
+    console.error("FCM setup error:", err);
+  }
+}
+
+async function askNotifications() {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      state.value.showBell = false;
+      await setupNotifications();
+    } else {
+      state.value.showBell = true;
+    }
+  } catch {
+    state.value.showBell = true;
   }
 }
 
@@ -132,6 +169,13 @@ onMounted(() => {
       }
     });
 
+    // --- FALLBACK: show install button if event never fires ---
+    setTimeout(() => {
+      if (!isStandalone() && !state.value.showInstallButton) {
+        state.value.showInstallButton = true;
+      }
+    }, 2000);
+
     // --- LOGIC FOR IOS ---
     // Since iOS doesn't fire beforeinstallprompt, we manually check
     if (isIOS() && !isStandalone()) {
@@ -143,8 +187,10 @@ onMounted(() => {
       deferredPrompt = null;
     });
 
-    // Set up FCM notifications for ALL visitors (not just installed users)
-    setupNotifications();
+    // Bell-triggered notifications (not automatic on mount)
+    if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      state.value.showBell = true;
+    }
   }
 });
 
