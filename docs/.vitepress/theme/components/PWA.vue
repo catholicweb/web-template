@@ -85,6 +85,7 @@ const waitForSwReady = () =>
 
 // ─── FCM notification setup ───
 async function setupNotifications() {
+  console.log("[FCM] setupNotifications ENTER");
   if (typeof __FIREBASE_CONFIG__ === "undefined" || !__FIREBASE_CONFIG__?.apiKey) {
     return; // FCM not configured (canary build / unconfigured site)
   }
@@ -184,6 +185,7 @@ async function askNotifications() {
   try {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
+      console.log("[FCM] askNotifications -> granted -> setup");
       state.value.showBell = false;
       await setupNotifications();
     } else {
@@ -224,6 +226,7 @@ onMounted(() => {
         // otherwise never run again — meaning the FCM token never refreshes
         // and onMessage() (foreground notifications) never gets registered.
         // Re-run it silently on every load when permission is already granted.
+        console.log("[FCM] onMounted -> calling setupNotifications (granted)");
         setupNotifications();
       } else {
         // Bell-triggered notifications for users who haven't granted yet
