@@ -11,7 +11,7 @@
     </button>
 
     <button v-show="state.showInstallButton" @click="handleInstall" class="fixed bottom-6 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Instalar app">
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
         <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2h14v2H5v-2z" />
       </svg>
     </button>
@@ -168,13 +168,6 @@ onMounted(() => {
         state.value.showInstallButton = true;
       }
     });
-
-    // --- FALLBACK: show install button if event never fires ---
-    setTimeout(() => {
-      if (!isStandalone() && !state.value.showInstallButton) {
-        state.value.showInstallButton = true;
-      }
-    }, 2000);
 
     // --- LOGIC FOR IOS ---
     // Since iOS doesn't fire beforeinstallprompt, we manually check
