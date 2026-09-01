@@ -100,7 +100,9 @@ async function setupNotifications() {
   notificationsSetupInProgress = true;
 
   try {
+    console.log("[FCM] setup start");
     const permission = await Notification.requestPermission();
+    console.log("[FCM] permission:", permission);
     if (permission !== "granted") return;
 
     let app;
@@ -114,6 +116,7 @@ async function setupNotifications() {
       navigator.serviceWorker.ready,
       new Promise((_, rej) => setTimeout(() => rej(new Error("SW ready timeout")), 5000)),
     ]);
+    console.log("[FCM] swRegistration ready");
     if (!swRegistration) return; // SW not ready
 
     if (!__FIREBASE_CONFIG__.vapidKey) {
@@ -125,6 +128,7 @@ async function setupNotifications() {
       vapidKey: __FIREBASE_CONFIG__.vapidKey,
       serviceWorkerRegistration: swRegistration,
     });
+    console.log("[FCM] token:", token ? token.slice(0, 8) + "..." : null);
 
     if (!token) {
       console.warn("No FCM token received");
@@ -138,13 +142,16 @@ async function setupNotifications() {
     // firebase/firebase-js-sdk#5289.
     // Avoid hitting the endpoint on every load when the token hasn't changed.
     const cachedToken = typeof window !== "undefined" ? localStorage.getItem("fcm_token") : null;
+    console.log("[FCM] compare cached vs token — cached:", cachedToken ? "yes" : "no", "same?", cachedToken === token);
     if (cachedToken !== token) {
+      console.log("[FCM] posting to endpoint");
       await fetch(__FCM_TOKEN_ENDPOINT__, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, site: __FCM_TOPIC__ }),
       });
       if (typeof window !== "undefined") localStorage.setItem("fcm_token", token);
+      console.log("[FCM] endpoint posted + saved");
     }
 
     console.log(`FCM token registered for topic: ${__FCM_TOPIC__}`);
@@ -169,6 +176,7 @@ async function setupNotifications() {
     console.error("FCM setup error:", err);
   } finally {
     notificationsSetupInProgress = false;
+    console.log("[FCM] finished (inProgress reset)");
   }
 }
 
