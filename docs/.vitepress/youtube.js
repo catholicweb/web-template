@@ -160,7 +160,7 @@ export async function fetchVideos(channelUrl) {
     // pages through NEW YouTube videos on top of the previously published list.
 
     console.log("Fetching videos...");
-    const youtubeStr = (config.social || []).find((s) =>
+    const youtubeStr = (config.info.social || []).find((s) =>
       s.toLowerCase().includes("youtube")
     );
     // Sites without a YouTube channel in their social config skip video

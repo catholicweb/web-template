@@ -385,7 +385,7 @@ async function autocomplete(fm, pages) {
       fm.sections[i].type = "team-cards";
       (fm.sections[i].tags ??= []).push("small");
     } else if (fm.sections[i].type == 'gallery' && fm.sections[i].images) {
-      fm.sections[i].elements = fm.sections[i].images.map((i) => {
+      fm.sections[i].elements = fm.sections[i].images.filter(Boolean).map((i) => {
         return { title: "", description: "", image: i };
       });
       fm.sections[i].type = "gallery";

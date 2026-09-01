@@ -1,5 +1,4 @@
 <script setup>
-import { data } from "./../../blocks.data.js";
 import { formatDate, slugify, grid } from "./../../utils.js";
 import { useData } from "vitepress";
 const props = defineProps({ block: { type: Object, required: true } });

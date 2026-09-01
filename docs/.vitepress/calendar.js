@@ -193,23 +193,29 @@ export async function fetchCalendar() {
     );
     const e = { ...defaults_, ...filtered };
 
-    // Filter out past events
-    let dates = toArray(e.date).map((d) => parseDateToISO(d));
+    // Filter out past events (events with no date, and periodic events are unfiltered by design)
+    let dates = toArray(e.date).map((d) => parseDateToISO(d)).filter(Boolean);
     if (dates.length) {
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Our "date" value includes no time (so it is 00.00 by default) while "now" has the current time by default
       dates = dates.filter((date) => new Date(date) >= now);
+      // if we had dates, but we no longer have any => all dates were in the past :)
+      if (!dates?.length ){
+        // If it is not recurring skip event
+        if(!e.rrule?.length) continue
+        if(e.rrule?.length == 1 && ['never',''].includes(e.rrule[0]) ) continue;
+      }
     }
-    if (!dates?.length && !e.rrule?.length) {
-      continue;
-    }
+
+    // Push events
     events.push({
       type: type,
+      typeName: defaultMap[type]?.name,
       title: e.title || e.summary || "",
-      times: toArray(e.times).join("||").replaceAll(".", ":").split("||"),
+      times: toArray(e.times).join("||").replaceAll(".", ":").split("||").filter(Boolean),
       dates: dates,
       //rrule: toArray(e.rrule).map((r) => r.toUpperCase()),
-      images: toArray(e.images).concat( toArray(e.image) ),
+      images: toArray(e.images),
       byday: intersectOptions(toArray(e.rrule), "BYDAY"),
       byweek: intersectOptions(toArray(e.rrule), "BYWEEK"),
       //freq: intersectOptions(toArray(e.rrule), "FREQ"),
