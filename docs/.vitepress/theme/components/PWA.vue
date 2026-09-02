@@ -1,12 +1,12 @@
 <template>
   <div>
-    <div v-if="state.showUpdateBanner" class="fixed top-0 left-0 right-0 z-[9999] bg-blue-600 text-white p-4 flex gap-3 justify-center items-center shadow">
+    <div v-if="state.showUpdateBanner" class="fixed top-0 left-0 right-0 z-[9999] bg-accent text-white p-4 flex gap-3 justify-center items-center shadow">
       <span>Nueva versión disponible</span>
-      <button @click="reloadPage" class="px-3 py-1 bg-white text-blue-600 font-semibold rounded cursor-pointer">Refrescar</button>
+      <button @click="reloadPage" class="px-3 py-1 bg-white text-accent font-semibold rounded cursor-pointer">Refrescar</button>
       <button @click="state.showUpdateBanner = false" class="px-3 py-1 border border-white rounded cursor-pointer">Cerrar</button>
     </div>
 
-    <button v-show="state.showBell" @click="askNotifications" class="fixed bottom-20 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Recibir notificaciones" aria-label="Activar notificaciones">
+    <button v-show="state.showBell" @click="askNotifications" :class="state.showInstallButton? 'bottom-20' : 'bottom-6'" class="fixed bottom-20 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Recibir notificaciones" aria-label="Activar notificaciones">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
     </button>
 
