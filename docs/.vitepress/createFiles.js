@@ -623,7 +623,7 @@ async function run() {
   calendar = await fetchCalendar();
   await generateIcons();
   videos = await fetchVideos();
-  //instagram = await fetchInstagram();
+  instagram = await fetchInstagram();
   await buildDictionary();
 
   // Pages are authored as data (config.pages.list) by the editor, not as .md
