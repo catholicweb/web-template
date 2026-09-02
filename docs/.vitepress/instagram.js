@@ -1,7 +1,32 @@
 import { read, write } from "./node_utils.js";
 
-const EMBED_ID = "01a0444ac55070008a78874abb06cce6e56e";
-const URL = `https://www.jotform.com/website-widgets/embed/${EMBED_ID}`;
+const EMBED_MAP = {
+  delejunavarra: "01a0444ac55070008a78874abb06cce6e56e",
+  corazondejesuspamplona: "01a05e48afa870008753a1a454b503b8d21a",
+};
+
+function parseInstagramHandle(urlStr) {
+  if (!urlStr) return null;
+  try {
+    const url = new URL(urlStr);
+    const host = url.hostname.toLowerCase();
+    if (!host.includes("instagram")) return null;
+    const path = url.pathname || "";
+    const segments = path.split("/").filter((s) => s.length > 0);
+    return segments[0] || null;
+  } catch {
+    // fallback for non-absolute URLs: split on '/' and find segment after instagram.com
+    const match = urlStr.match(/instagram\.com\/([^/?#]+)/i);
+    return match ? match[1] : null;
+  }
+}
+
+function getEmbedId(socialUrl) {
+  const handle = parseInstagramHandle(socialUrl);
+  if (handle && EMBED_MAP[handle]) return EMBED_MAP[handle];
+  // Silent fallback to legacy embed id for unmapped accounts
+  return "01a0444ac55070008a78874abb06cce6e56e";
+}
 
 export async function fetchInstagram() {
   const local = "./docs/public/instagram.json";
@@ -17,7 +42,9 @@ export async function fetchInstagram() {
       console.log("No Instagram account configured in social; skipping instagram fetch.", socialArr);
       return existing;
     }
-    console.log("Fetching instagram...");
+    const embedId = getEmbedId(instagramStr);
+    const URL = `https://www.jotform.com/website-widgets/embed/${embedId}`;
+    console.log("Fetching instagram (handle=" + (parseInstagramHandle(instagramStr) || "?") + ", embed=" + embedId + ")...");
     const res = await fetch(URL, { cache: "no-cache" });
     if (!res.ok) throw new Error("instagram fetch status " + res.status);
     const html = await res.text();
