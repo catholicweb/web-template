@@ -6,7 +6,7 @@
       <button @click="state.showUpdateBanner = false" class="px-3 py-1 border border-white rounded cursor-pointer">Cerrar</button>
     </div>
 
-    <button v-show="state.showBell" @click="askNotifications" :class="state.showInstallButton? 'bottom-20' : 'bottom-6'" class="fixed bottom-20 right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Recibir notificaciones" aria-label="Activar notificaciones">
+    <button v-show="state.showBell" @click="askNotifications" :class="state.showInstallButton? 'bottom-20' : 'bottom-6'" class="fixed right-6 bg-accent text-white rounded-full p-3 shadow hover:brightness-110 active:scale-95 cursor-pointer z-[9998]" title="Recibir notificaciones" aria-label="Activar notificaciones">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
     </button>
 
