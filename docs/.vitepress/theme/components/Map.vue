@@ -138,7 +138,7 @@ function renderMarkers(lang) {
 
 <style>
 .leaflet-pane .leaflet-marker-pane img {
-  filter: hue-rotate(calc(var(--accent-angle) - 204deg));
+  filter: hue-rotate(calc(var(--accent-hue) - 204deg));
 }
 
 .leaflet-pane .leaflet-marker-pane img.special {

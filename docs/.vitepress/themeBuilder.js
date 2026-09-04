@@ -209,12 +209,14 @@ function buildGoogleFontsImport(titleFont, bodyFont) {
 }
 
 function buildAccentRamp() {
-  return Object.entries(ACCENT_SHADE_CURVE)
+  const shades = Object.entries(ACCENT_SHADE_CURVE)
     .map(
       ([shade, { l, c }]) =>
         `  --color-accent-${shade}: oklch(${+(l * 100).toFixed(2)}% ${c} var(--accent-hue));`
     )
     .join("\n");
+  // Bare --color-accent (used by Tailwind v4 for text-accent / border-accent / bg-accent)
+  return shades + "\n  --color-accent: oklch(64% 0.16 var(--accent-hue));";
 }
 
 function clamp01(n, min, max) {
@@ -323,7 +325,63 @@ ${HOVER_EFFECT_TARGET
  * @param {string} [theme.siteIcon]        URL
  * @returns {string} full style.css contents
  */
-export function generateThemeCSS(rawTheme) {
+const DEFAULT_THEME = {
+  "accentHue": 350,
+  "fontPair": "Playfair Display|Source Sans 3",
+  "typeScale": "large",
+  "radius": 0.25,
+  "spacingDensity": 1,
+  "motionIntensity": 2,
+  "imageTreatment": "natural",
+  "headerFooterStyle": "solid-bar-light|straight",
+  "surfaceStyle": "soft"
+};
+
+function sanitizeFontPair(str) {
+  if (typeof str !== 'string') return DEFAULT_THEME.fontPair;
+  // Only allow letters, digits, spaces, hyphens, and the compound separator |
+  if (/[^a-zA-Z0-9 \-\|]/.test(str)) return DEFAULT_THEME.fontPair;
+  return str;
+}
+
+function sanitizeNumber(val, def, min, max) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return def;
+  if (n < min || n > max) return def;
+  return n;
+}
+
+function sanitize(obj) {
+  const out = {};
+  // Only allow keys that belong to the theme schema
+  const allowed = Object.keys(DEFAULT_THEME).concat([
+    'typeScale','siteImage','siteIcon','vibe'
+  ]);
+  for (const k of allowed) {
+    if (k in obj) out[k] = obj[k];
+  }
+  // Core sanitizations
+  out.fontPair = sanitizeFontPair(out.fontPair ?? DEFAULT_THEME.fontPair);
+  out.accentHue = sanitizeNumber(out.accentHue, DEFAULT_THEME.accentHue, 0, 360);
+  out.radius = sanitizeNumber(out.radius, DEFAULT_THEME.radius, 0, 1.5);
+  out.spacingDensity = sanitizeNumber(out.spacingDensity, DEFAULT_THEME.spacingDensity, 0.8, 1.4);
+  out.motionIntensity = sanitizeNumber(out.motionIntensity, DEFAULT_THEME.motionIntensity, 0, 10);
+  // Compound tokens
+  if (typeof out.headerFooterStyle === 'string' && /[^a-zA-Z0-9 \-\|]/.test(out.headerFooterStyle)) {
+    out.headerFooterStyle = DEFAULT_THEME.headerFooterStyle;
+  }
+  if (typeof out.surfaceStyle === 'string' && /[^a-zA-Z0-9 \-\|]/.test(out.surfaceStyle)) {
+    out.surfaceStyle = DEFAULT_THEME.surfaceStyle;
+  }
+  if (typeof out.imageTreatment === 'string' && /[^a-zA-Z0-9 \-]/.test(out.imageTreatment)) {
+    out.imageTreatment = DEFAULT_THEME.imageTreatment;
+  }
+  return out;
+}
+
+export function generateThemeCSS(rawTheme = {}) {
+  // Ensure we never break on null/undefined input
+  if (!rawTheme || typeof rawTheme !== 'object') rawTheme = {};
 
   const defaults = JSON.parse(rawTheme.vibe ?? '{}');
 
@@ -332,11 +390,11 @@ export function generateThemeCSS(rawTheme) {
     Object.entries(rawTheme).filter(([_, val]) => val ?? false)
   );
 
-  const theme = { ...defaults, ...userOverrides };
+  // Merge with hard defaults first so missing fields never crash
+  const merged = { ...DEFAULT_THEME, ...defaults, ...userOverrides };
+  const theme = sanitize(merged);
 
-  console.log('Building theme with: ',theme)
-
-
+  console.log('Building theme with: ', theme)
 
   const [titleFontRaw, bodyFontRaw] = theme.fontPair.split("|");
   const titleFont = titleFontRaw.trim();

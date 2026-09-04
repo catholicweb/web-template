@@ -35,6 +35,8 @@ import components from "./components";
 import { slugify, getSectionClasses } from "./../utils.js";
 import { useData } from "vitepress";
 import NotFound from "./components/NotFound.vue";
+import { onMounted } from "vue";
+import { generateThemeCSS } from "../themeBuilder.js";
 
 const { page } = useData();
 
@@ -47,4 +49,33 @@ function getBlockComponent(block = "gallery") {
   const name = block.split("-")[0].replace(/(^\w)/g, (s) => s.toUpperCase());
   return components[name] || components["Gallery"];
 }
+
+const isDev = import.meta.env?.DEV ?? false;
+
+onMounted(() => {
+  if (typeof window === 'undefined') return;
+  const handler = (event) => {
+    // Security: editor origin always allowed; localhost only in dev mode
+    const isLocalhost = event.origin.includes("localhost");
+    if (event.origin !== "https://editor.parroquia.app" && !(isDev && isLocalhost)) return;
+    if (!event.data || !event.data.theme) return;
+    try {
+      const css = generateThemeCSS(event.data.theme);
+      // Replace existing theme/style.css link with generated inline style
+      const existing = document.querySelector('link[href*="style.css"]');
+      if (existing) existing.remove();
+      let style = document.getElementById('theme-preview');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'theme-preview';
+        document.head.appendChild(style);
+      }
+      style.textContent = css;
+    } catch (e) {
+      // Fail silently so a bad message doesn't break the site
+      console.error('Theme preview message error:', e);
+    }
+  };
+  window.addEventListener('message', handler);
+});
 </script>
