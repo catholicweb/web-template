@@ -50,8 +50,8 @@ function getBlockComponent(block = "gallery") {
   return components[name] || components["Gallery"];
 }
 
-const isDev = import.meta.env?.DEV ?? false;
 
+const isDev = import.meta.env?.DEV ?? false;
 onMounted(() => {
   if (typeof window === 'undefined') return;
   const handler = (event) => {

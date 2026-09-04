@@ -201,6 +201,11 @@ function quoteFont(fontName) {
   return `'${fontName.trim()}'`;
 }
 
+function camelCase(str) {
+  if (!str) return "";
+  return str.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
+}
+
 function buildGoogleFontsImport(titleFont, bodyFont) {
   const families = [...new Set([titleFont, bodyFont])].map(
     (f) => `family=${encodeURIComponent(f.trim()).replace(/%20/g, "+")}:wght@400;500;600;700`
@@ -334,47 +339,26 @@ const DEFAULT_THEME = {
   "motionIntensity": 2,
   "imageTreatment": "natural",
   "headerFooterStyle": "solid-bar-light|straight",
-  "surfaceStyle": "soft"
+  "surfaceStyle": "soft",
+  "typeScale": 1,
+  "siteImage": '',
+  "siteIcon": '',
+  "vibe": {}
 };
-
-function sanitizeFontPair(str) {
-  if (typeof str !== 'string') return DEFAULT_THEME.fontPair;
-  // Only allow letters, digits, spaces, hyphens, and the compound separator |
-  if (/[^a-zA-Z0-9 \-\|]/.test(str)) return DEFAULT_THEME.fontPair;
-  return str;
-}
-
-function sanitizeNumber(val, def, min, max) {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return def;
-  if (n < min || n > max) return def;
-  return n;
-}
 
 function sanitize(obj) {
   const out = {};
-  // Only allow keys that belong to the theme schema
-  const allowed = Object.keys(DEFAULT_THEME).concat([
-    'typeScale','siteImage','siteIcon','vibe'
-  ]);
-  for (const k of allowed) {
-    if (k in obj) out[k] = obj[k];
-  }
-  // Core sanitizations
-  out.fontPair = sanitizeFontPair(out.fontPair ?? DEFAULT_THEME.fontPair);
-  out.accentHue = sanitizeNumber(out.accentHue, DEFAULT_THEME.accentHue, 0, 360);
-  out.radius = sanitizeNumber(out.radius, DEFAULT_THEME.radius, 0, 1.5);
-  out.spacingDensity = sanitizeNumber(out.spacingDensity, DEFAULT_THEME.spacingDensity, 0.8, 1.4);
-  out.motionIntensity = sanitizeNumber(out.motionIntensity, DEFAULT_THEME.motionIntensity, 0, 10);
-  // Compound tokens
-  if (typeof out.headerFooterStyle === 'string' && /[^a-zA-Z0-9 \-\|]/.test(out.headerFooterStyle)) {
-    out.headerFooterStyle = DEFAULT_THEME.headerFooterStyle;
-  }
-  if (typeof out.surfaceStyle === 'string' && /[^a-zA-Z0-9 \-\|]/.test(out.surfaceStyle)) {
-    out.surfaceStyle = DEFAULT_THEME.surfaceStyle;
-  }
-  if (typeof out.imageTreatment === 'string' && /[^a-zA-Z0-9 \-]/.test(out.imageTreatment)) {
-    out.imageTreatment = DEFAULT_THEME.imageTreatment;
+  for (const k of Object.keys(DEFAULT_THEME)) {
+    if (k in obj){
+      if (typeof DEFAULT_THEME[k] === 'number') {
+        const num = Number(obj[k]);
+        out[k] = Number.isNaN(num) ? DEFAULT_THEME[k] : num;
+      } else if (typeof obj[k] === 'string') {
+        out[k] = /[^a-zA-Z0-9 \-\|]/.test(obj[k])? DEFAULT_THEME[k] : obj[k]
+      } else {
+        out[k] = DEFAULT_THEME[k]
+      }
+    } 
   }
   return out;
 }
@@ -394,6 +378,9 @@ export function generateThemeCSS(rawTheme = {}) {
   const merged = { ...DEFAULT_THEME, ...defaults, ...userOverrides };
   const theme = sanitize(merged);
 
+  
+  console.log('Building userOverrides with: ', userOverrides)
+  console.log('Building defaults with: ', defaults)
   console.log('Building theme with: ', theme)
 
   const [titleFontRaw, bodyFontRaw] = theme.fontPair.split("|");
@@ -499,16 +486,16 @@ ${buildAccentRamp()}
   h3, .h3 { font-family: var(--font-title); font-size: clamp(1.25rem, calc(1.1rem + 0.8vw * var(--type-scale)), calc(1.75rem * var(--type-scale))); line-height: 1.2; }
 
   /* --- Buttons --- */
-  .btn {
+  button {
     border-radius: var(--button-radius);
     padding: calc(var(--spacing) * 3) calc(var(--spacing) * 6);
     font-family: var(--font-body);
     font-weight: 600;
     transition: transform 150ms ease, box-shadow 150ms ease;
   }
-  .btn[data-fill="solid"], .btn { background-color: var(--color-accent-600); color: var(--color-accent-50); }
-  .btn[data-fill="outline"] { background-color: transparent; color: var(--color-accent-700); box-shadow: inset 0 0 0 1.5px var(--color-accent-600); }
-  .btn:hover { transform: translateY(-1px); }
+  button[data-fill="solid"], .btn { background-color: var(--color-accent-600); color: var(--color-accent-50); }
+  button[data-fill="outline"] { background-color: transparent; color: var(--color-accent-700); box-shadow: inset 0 0 0 1.5px var(--color-accent-600); }
+  button:hover { transform: translateY(-1px); }
 
   /* --- Section dividers. "wave" ships as an SVG mask asset per divider component,
      this only covers the two pure-CSS shapes. --- */
@@ -516,7 +503,7 @@ ${buildAccentRamp()}
   .section-divider[data-shape="straight"] { clip-path: none; }
 
   /* --- Images --- */
-  img[data-treated] {
+  img {
     filter: var(--image-filter);
     border-radius: var(--radius-md);
   }

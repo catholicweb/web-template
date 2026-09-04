@@ -50,7 +50,8 @@ export function toArray(x) {
 }
 
 export async function getFontCSS(theme) {
-  const fonts = [theme.headingFont, theme.bodyFont];
+  const pair = theme.fontPair ?? "Playfair Display|Source Sans 3";
+  const fonts = pair.split("|").map(s => s.trim()).filter(Boolean);
   let preloads = [];
 
   for (const fontName of fonts) {
