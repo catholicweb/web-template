@@ -50,7 +50,6 @@ export function toArray(x) {
 }
 
 export async function getFontCSS(theme) {
-  console.log(theme)
   const pair = theme.fontPair ?? "Basque Smile|Source Sans 3";
   const fonts = pair.split("|").map(s => s.trim()).filter(Boolean);
   let preloads = [];
@@ -75,7 +74,7 @@ export async function printCSS() {
 
   const theme = config.theme ?? {};
 
-  const css = generateThemeCSS(theme);
+  const css = generateThemeCSS(theme, true); // true to skipFonts (we inject them on the head)
 
   const baseDir = path.resolve("");
 
