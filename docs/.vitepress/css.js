@@ -50,7 +50,8 @@ export function toArray(x) {
 }
 
 export async function getFontCSS(theme) {
-  const pair = theme.fontPair ?? "Playfair Display|Source Sans 3";
+  console.log(theme)
+  const pair = theme.fontPair ?? "Basque Smile|Source Sans 3";
   const fonts = pair.split("|").map(s => s.trim()).filter(Boolean);
   let preloads = [];
 
@@ -69,22 +70,6 @@ export async function getFontCSS(theme) {
 
   return { preloads };
 }
-
-export const getHue = (hex) => {
-  try {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
-    const max = Math.max(r, g, b),
-      min = Math.min(r, g, b),
-      d = max - min;
-    if (d === 0) return 0;
-    let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    return h * 60;
-  } catch (e) {
-    return 0;
-  }
-};
 
 export async function printCSS() {
 

@@ -115,46 +115,9 @@ function getMotionMagnitude(level) {
   };
 }
 
-// Semantic target groups scroll effects apply to. Scoped to `main` so
-// nav/header chrome never animates; every selector excludes
-// [data-no-animate] as a per-element opt-out for component templates.
-const SCROLL_EFFECT_TARGETS = {
-  heading: "main :is(h1, h2, h3):not([data-no-animate])",
-  text: "main :is(p, li):not([data-no-animate])",
-  media: "main :is(img, video):not([data-no-animate])",
-  quote: "main blockquote:not([data-no-animate])",
-};
 
-// Stepped: which target groups get a scroll effect, and which @keyframes
-// kind, at each intensity level. Levels not listed inherit the previous
-// (lower) tier — see resolveTier(). Ordered low -> high.
-const SCROLL_EFFECT_TIERS = [
-  { level: 0, targets: {} }, // nothing animates
-  { level: 1, targets: { heading: "fade" } },
-  { level: 3, targets: { heading: "fade-up", quote: "fade" } },
-  { level: 5, targets: { heading: "fade-up", text: "fade-up", quote: "fade" } },
-  {
-    level: 7,
-    targets: { heading: "blur-in", text: "fade-up", media: "scale-in", quote: "fade" },
-  },
-  {
-    level: 9,
-    targets: { heading: "blur-in", text: "fade-up", media: "scale-in", quote: "slide-in" },
-  },
-];
 
-// Stepped: hover effect by intensity level. Top tier combines two effects
-// for a more dramatic result.
-const HOVER_EFFECT_TIERS = [
-  { level: 0, css: null },
-  { level: 1, css: "transform: translateY(-4px); box-shadow: var(--shadow-lg);" }, // lift
-  { level: 4, css: "box-shadow: 0 0 0 3px var(--color-accent-200);" }, // glow
-  { level: 7, css: "transform: scale(1.03);" }, // zoom
-  {
-    level: 9,
-    css: "transform: scale(1.03); box-shadow: 0 0 0 3px var(--color-accent-200);", // zoom + glow
-  },
-];
+
 
 // Given a level and an ordered [{level, ...}] tier table, return the entry
 // for the highest tier <= level (tiers must be sorted ascending by level).
@@ -162,30 +125,13 @@ function resolveTier(level, tiers) {
   return tiers.reduce((acc, tier) => (tier.level <= level ? tier : acc), tiers[0]);
 }
 
-const HOVER_EFFECT_TARGET = ".card, img[data-treated], a.hover-effect";
 
-// (no button-shape lookup: --button-radius derives directly from the radius
-// scale below — see generateThemeCSS)
 
 const IMAGE_TREATMENT_FILTERS = {
   natural: "none",
   grayscale: "grayscale(1)",
   "warm-filter": "sepia(0.25) saturate(1.15) contrast(1.02)",
-  // Real duotone normally needs an SVG feColorMatrix filter, which this CSS-only
-  // file can't ship (no <svg> to reference). Instead: grayscale strips color,
-  // sepia+saturate manufacture a strong single hue, then hue-rotate spins that
-  // hue to match the site's actual accent color. Fully dynamic — retinting the
-  // accent hue retints every treated image too, no regeneration needed. This
-  // replaces an earlier version of this file where "duotone-accent" silently
-  // fell back to plain grayscale — that was a bug, not a design choice.
-  "duotone-accent":
-    "grayscale(1) sepia(1) saturate(4) hue-rotate(calc((var(--accent-hue) - 30) * 1deg)) contrast(1.05)",
-};
-
-const TYPE_SCALE_MULTIPLIERS = {
-  compact: 0.9,
-  default: 1,
-  large: 1.15,
+  "duotone-accent": "grayscale(1) sepia(1) saturate(4) hue-rotate(calc((var(--accent-hue) - 30) * 1deg)) contrast(1.05)",
 };
 
 // ---------------------------------------------------------------------------
@@ -229,7 +175,7 @@ function buildAccentRamp() {
     )
     .join("\n");
   // Bare --color-accent (used by Tailwind v4 for text-accent / border-accent / bg-accent)
-  return shades + "\n  --color-accent: oklch(64% 0.16 var(--accent-hue));";
+  return shades + "\n  --color-accent: oklch(64% 0.2 var(--accent-hue));";
 }
 
 function clamp01(n, min, max) {
@@ -248,21 +194,44 @@ function clamp01(n, min, max) {
  * @param {number} level 0-10 motion intensity
  */
 function buildScrollEffectCSS(level) {
+
+const keyframes = `@keyframes fx-blur-in { from { opacity: 0.25; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+  @keyframes fx-fade-up { from { opacity: 0.25; transform: translateY(var(--motion-distance)); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fx-scale-in { from { opacity: 0.25; transform: scale(var(--motion-scale)); } to { opacity: 1; transform: scale(1); } }
+  @keyframes fx-fade-in { from { opacity: 0.25; } to { opacity: 1; } }`
+
+// Semantic target groups scroll effects apply to. Scoped to `main` so
+// nav/header chrome never animates; every selector excludes
+// [data-no-animate] as a per-element opt-out for component templates.
+const SCROLL_EFFECT_TARGETS = {
+  heading: "main :is(h1, h2, h3):not([data-no-animate])",
+  text: "main :is(p, li):not([data-no-animate])",
+  media: "main :is(img, video):not([data-no-animate])",
+  quote: "main blockquote:not([data-no-animate])",
+};
+
+// Stepped: which target groups get a scroll effect, and which @keyframes
+// kind, at each intensity level. Levels not listed inherit the previous
+// (lower) tier — see resolveTier(). Ordered low -> high.
+const SCROLL_EFFECT_TIERS = [
+  { level: 0, targets: {} }, // nothing animates
+  { level: 1, targets: { heading: "fade-in" } },
+  { level: 3, targets: { heading: "fade-up", quote: "fade-in" } },
+  { level: 5, targets: { heading: "fade-up", text: "fade-up", quote: "fade-in" } },
+  {
+    level: 7,
+    targets: { heading: "blur-in", text: "fade-up", media: "scale-in", quote: "fade-in" },
+  },
+  {
+    level: 9,
+    targets: { heading: "blur-in", text: "fade-up", media: "scale-in", quote: "slide-in" },
+  },
+];
+
+
   const targets = resolveTier(level, SCROLL_EFFECT_TIERS).targets;
   const entries = Object.entries(targets);
   if (entries.length === 0) return "";
-
-  const kinds = [...new Set(entries.map(([, kind]) => kind))];
-
-  const KEYFRAMES = {
-    fade: `@keyframes fx-fade { from { opacity: 0; } to { opacity: 1; } }`,
-    "fade-up": `@keyframes fx-fade-up { from { opacity: 0; transform: translateY(var(--motion-distance)); } to { opacity: 1; transform: translateY(0); } }`,
-    "scale-in": `@keyframes fx-scale-in { from { opacity: 0; transform: scale(var(--motion-scale)); } to { opacity: 1; transform: scale(1); } }`,
-    "blur-in": `@keyframes fx-blur-in { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }`,
-    "slide-in": `@keyframes fx-slide-in { from { opacity: 0; transform: translateX(calc(var(--motion-distance) * -2)); } to { opacity: 1; transform: translateX(0); } }`,
-  };
-
-  const keyframeBlock = kinds.map((k) => KEYFRAMES[k]).join("\n  ");
 
   const rules = entries
     .map(([target, kind]) => {
@@ -276,32 +245,24 @@ function buildScrollEffectCSS(level) {
     })
     .join("\n\n");
 
-  const animatedSelectors = entries.map(([target]) => SCROLL_EFFECT_TARGETS[target]);
-
-  return `
-/* Scroll-driven reveal effects — pure CSS, feature-detected, no JS.
-   Unsupported browsers execute nothing in this block and render normal,
-   fully-visible, static content: that's the fallback, by design.
-   Intensity level: ${level}/10 */
-@supports (animation-timeline: view()) {
-  ${keyframeBlock}
-
-${rules}
-
-  /* Respect reduced-motion even where animation-timeline IS supported */
-  @media (prefers-reduced-motion: reduce) {
-    ${animatedSelectors.join(",\n    ")} {
-      animation: none;
-    }
-  }
-}
-`;
+  return `${keyframes}\n\n${rules}`
 }
 
 /**
  * @param {number} level 0-10 motion intensity
  */
 function buildHoverEffectCSS(level) {
+
+  const HOVER_EFFECT_TARGET = ".card, img[data-treated], a.hover-effect";
+
+  // Stepped: hover effect by intensity level.
+  const HOVER_EFFECT_TIERS = [
+    { level: 0, css: null },
+    { level: 1, css: "transform: translateY(-4px); box-shadow: var(--shadow-lg);" }, // lift
+    { level: 4, css: "box-shadow: 0 0 0 3px var(--color-accent-200);" }, // glow
+    { level: 7, css: "transform: scale(1.03);" }, // zoom
+    { level: 9, css: "transform: scale(1.03); box-shadow: 0 0 0 3px var(--color-accent-200);" },
+  ];
   const declarations = resolveTier(level, HOVER_EFFECT_TIERS).css;
   if (!declarations) return "";
 
@@ -318,164 +279,184 @@ ${HOVER_EFFECT_TARGET
 `;
 }
 
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
 
-/**
- * @param {object} theme - selection object matching aesthetic-presets.json field values
- * @param {number} theme.accentHue         0-360
- * @param {string} theme.fontPair          "Title Font|Body Font"
- * @param {string} theme.typeScale         "compact" | "default" | "large" — usually vibe-set, not user-facing
- * @param {string} theme.headerFooterStyle "layoutId|dividerShape", e.g. "hero-split|wave"
- * @param {number} theme.radius            rem, e.g. 0-1.5
- * @param {number} theme.spacingDensity    multiplier, e.g. 0.8-1.4
- * @param {string} theme.surfaceStyle      "flat" | "soft" | "bold" — drives shadow depth AND button fill together
- * @param {number} theme.motionIntensity   0-10. Single dial driving animation magnitude, which
- *                                          elements get a scroll-reveal effect, and the hover effect.
- * @param {string} theme.imageTreatment    see IMAGE_TREATMENT_FILTERS keys
- * @param {string} [theme.siteImage]       URL
- * @param {string} [theme.siteIcon]        URL
- * @returns {string} full style.css contents
- */
+
+
 const DEFAULT_THEME = {
   "accentHue": 350,
   "fontPair": "Playfair Display|Source Sans 3",
-  "typeScale": "large",
-  "radius": 0.25,
-  "spacingDensity": 1,
-  "motionIntensity": 2,
+  "typeScale": 1, // typeScale multiplier
+  "radius": 1,    // radius multiplier
+  "spacingDensity": 1,  // spacing density multiplier
+  "motionIntensity": 0,
   "imageTreatment": "natural",
   "headerFooterStyle": "solid-bar-light|straight",
-  "surfaceStyle": "soft",
-  "typeScale": 1,
-  "siteImage": '',
-  "siteIcon": '',
-  "vibe": {}
+  "surfaceStyle": "flat"
 };
 
 function sanitize(obj) {
   const out = {};
   for (const k of Object.keys(DEFAULT_THEME)) {
+    out[k] = DEFAULT_THEME[k]
     if (k in obj){
-      if (typeof DEFAULT_THEME[k] === 'number') {
-        const num = Number(obj[k]);
-        out[k] = Number.isNaN(num) ? DEFAULT_THEME[k] : num;
-      } else if (typeof obj[k] === 'string') {
-        out[k] = /[^a-zA-Z0-9 \-\|]/.test(obj[k])? DEFAULT_THEME[k] : obj[k]
-      } else {
-        out[k] = DEFAULT_THEME[k]
+      if (typeof DEFAULT_THEME[k] === 'number' && typeof obj[k] === 'number') {
+        if(Number.isFinite(obj[k])) out[k] = Number(obj[k]);
+      } else if (typeof DEFAULT_THEME[k] === 'string' && typeof obj[k] === 'string') {
+        if (!/[^a-zA-Z0-9 \-\|]/.test(obj[k])) out[k] = String(obj[k])
       }
-    } 
+    }
   }
   return out;
 }
 
+export const getHue = (hex) => {
+  try {
+    hex = hex.replace('#','')
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b),
+      min = Math.min(r, g, b),
+      d = max - min;
+    if (d === 0) return 0;
+    let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60).toFixed(3);
+  } catch (e) {
+    return 0;
+  }
+};
+
+
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {object} rawTheme - selection object matching aesthetic-presets field values
+ * @returns {string} full style.css contents
+ */
 export function generateThemeCSS(rawTheme = {}) {
   // Ensure we never break on null/undefined input
   if (!rawTheme || typeof rawTheme !== 'object') rawTheme = {};
 
-  const defaults = JSON.parse(rawTheme.vibe ?? '{}');
+  const defaults = {} //TODO JSON.parse(rawTheme.vibe ?? '{}');
+
+  const legacy = {
+    fontPair: (rawTheme.headingFont && rawTheme.bodyFont)? rawTheme.headingFont+'|'+rawTheme.bodyFont : null,
+    accentHue: rawTheme.accentColor? getHue(rawTheme.accentColor) : null
+  }
 
   // Filter out explicit null or undefined entries from user settings
   const userOverrides = Object.fromEntries(
-    Object.entries(rawTheme).filter(([_, val]) => val ?? false)
+    Object.entries(rawTheme).filter(([_, val]) => ( val !== undefined && val !== null) ) 
   );
 
   // Merge with hard defaults first so missing fields never crash
-  const merged = { ...DEFAULT_THEME, ...defaults, ...userOverrides };
+  const merged = { ...legacy, ...defaults, ...userOverrides };
+  merged.motionIntensity = 0 // TODO
+  merged.imageTreatment = 'natural'
+  merged.surfaceStyle = 'flat'
+  merged.typeScale = 1
+
   const theme = sanitize(merged);
 
-  
-  console.log('Building userOverrides with: ', userOverrides)
-  console.log('Building defaults with: ', defaults)
   console.log('Building theme with: ', theme)
 
   const [titleFontRaw, bodyFontRaw] = theme.fontPair.split("|");
   const titleFont = titleFontRaw.trim();
   const bodyFont = bodyFontRaw.trim();
-  const typeScale = TYPE_SCALE_MULTIPLIERS[theme.typeScale] ?? 1;
-
   const [layoutId, dividerShape] = theme.headerFooterStyle.split("|");
-
-  const radius = clamp01(theme.radius ?? 0.5, 0, 1.5);
-  const spacingDensity = clamp01(theme.spacingDensity ?? 1, 0.8, 1.4);
   const surface = SURFACE_PRESETS[theme.surfaceStyle] ?? SURFACE_PRESETS.soft;
-  const motionLevel = Math.round(clamp01(theme.motionIntensity ?? 5, 0, 10));
-  const motion = getMotionMagnitude(motionLevel);
-  const imageFilter =
-    IMAGE_TREATMENT_FILTERS[theme.imageTreatment] ?? IMAGE_TREATMENT_FILTERS.natural;
-  const scrollEffectCSS = buildScrollEffectCSS(motionLevel);
-  const hoverEffectCSS = buildHoverEffectCSS(motionLevel);
+  const motion = getMotionMagnitude(theme.motionIntensity);
+  const imageFilter = IMAGE_TREATMENT_FILTERS[theme.imageTreatment] ?? IMAGE_TREATMENT_FILTERS.natural;
+  const hoverEffectCSS = buildHoverEffectCSS(theme.motionIntensity);
+  const scrollEffectCSS = buildScrollEffectCSS(theme.motionIntensity);
 
   return `/* AUTOGENERATED, DO NOT EDIT MANUALLY, SEE css.js */
 ${buildGoogleFontsImport(titleFont, bodyFont)}
-${buildLocalFontFace(titleFont, bodyFont)}
 @import "tailwindcss";
+${buildLocalFontFace(titleFont, bodyFont)}
 @plugin "@tailwindcss/typography";
 
-@theme {
-  /* === Fonts === */
-  --font-title: ${quoteFont(titleFont)}, ${getFontFallback(titleFont)};
-  --font-body: ${quoteFont(bodyFont)}, ${getFontFallback(bodyFont)};
-
-  /* === Accent ramp (hue-driven, see :root for the actual hue) === */
-${buildAccentRamp()}
-
-  /* === Radius scale (base = ${radius}rem) === */
-  --radius-sm: ${(radius * 0.5).toFixed(3)}rem;
-  --radius-md: ${radius.toFixed(3)}rem;
-  --radius-lg: ${(radius * 1.5).toFixed(3)}rem;
-  --radius-xl: ${(radius * 2.5).toFixed(3)}rem;
-  --radius-full: 9999px;
-
-  /* === Spacing scale — Tailwind v4 derives all p-* /m-* /gap-* utilities from this === */
-  --spacing: ${(0.25 * spacingDensity).toFixed(4)}rem;
-
-  /* === Shadows (part of surfaceStyle: "${theme.surfaceStyle}") === */
-  --shadow-sm: ${surface.shadow.sm};
-  --shadow-md: ${surface.shadow.md};
-  --shadow-lg: ${surface.shadow.lg};
-}
 
 /* ===========================================================================
-   Non-token custom properties: consumed by component markup / page JS, not
-   turned into Tailwind utilities. Power users can override any of these
-   directly without regenerating this file.
+   1. RUNTIME CUSTOM PROPERTIES (:root)
+   These are dynamic CSS Custom Properties that can be set or overridden via JS 
+   setProperties() in real-time without re-compiling Tailwind.
    =========================================================================== */
 :root {
-  /* Accent hue — change this alone to retint the whole ramp above */
+  /* === Colors === */
   --accent-hue: ${theme.accentHue};
+  --accent-hue-alt: ${theme.accentHue + 180};
 
-  /* Type scale multiplier, used by heading utilities below */
-  --type-scale: ${typeScale};
+  /* === Fonts === */
+  --font-title-val: ${quoteFont(titleFont)}, ${getFontFallback(titleFont)};
+  --font-body-val: ${quoteFont(bodyFont)}, ${getFontFallback(bodyFont)};
 
-  /* Motion (read by the scroll-effect / hover-effect rules below). Level ${motionLevel}/10. */
+
+  /* === Radius Scale === */
+  --base-radius: ${(0.25 * theme.radius).toFixed(4)}rem;
+  --radius-sm-val: calc(var(--base-radius) * 0.5);
+  --radius-md-val: var(--base-radius);
+  --radius-lg-val: calc(var(--base-radius) * 1.5);
+  --radius-xl-val: calc(var(--base-radius) * 2.5);
+  --radius-full-val: 9999px;
+
+  /* === Spacing Scale === */
+  --spacing-val: ${(0.25 * theme.spacingDensity).toFixed(4)}rem;
+
+  /* === Shadows === */
+  --shadow-sm-val: ${surface.shadow.sm};
+  --shadow-md-val: ${surface.shadow.md};
+  --shadow-lg-val: ${surface.shadow.lg};
+
+  /* === Type Scale & Motion === */
+  --type-scale: ${theme.typeScale};
   --motion-duration: ${motion.duration};
   --motion-distance: ${motion.distance};
   --motion-scale: ${motion.scale};
-  --motion-enabled: ${motionLevel > 0 ? 1 : 0};
+  --motion-enabled: ${theme.motionIntensity > 0 ? 1 : 0};
 
-  /* Button radius: derives from --radius-lg (see @theme above), NOT a separate
-     shape choice. At low radius values this renders square-ish; at high values
-     border-radius naturally exceeds half the button's height and CSS clips it
-     to a perfect pill on its own — no shape enum needed. Power users can still
-     override just this one var (e.g. force square buttons on an otherwise
-     round site) without touching the global radius scale. */
-  --button-radius: var(--radius-lg);
+  /* === UI Mechanics === */
+  --button-radius: var(--radius-lg-val);
   --button-fill: ${surface.fill};
 
-  /* Layout + divider, split from the single "${theme.headerFooterStyle}" token —
-     component partials branch on these */
+  /* === Layout & Divider Metadata === */
   --header-footer-style: "${layoutId}";
   --section-divider: "${dividerShape}";
 
-  /* Media */
-  --site-image: url("${theme.siteImage ?? ""}");
-  --site-icon: url("${theme.siteIcon ?? ""}");
-
-  /* Image treatment */
+  /* === Media & Filters === */
   --image-filter: ${imageFilter};
+}
+
+/* ===========================================================================
+   2. TAILWIND v4 GENERATOR DIRECTIVES (@theme)
+   Maps Tailwind v4 utility tokens to the live :root variables above.
+   =========================================================================== */
+@theme {
+  /* Fonts */
+  --font-title: var(--font-title-val);
+  --font-heading: var(--font-title-val);
+  --font-body: var(--font-body-val);
+
+  /* Accent Ramp (reads dynamic --accent-hue from :root) */
+  ${buildAccentRamp()}
+
+  /* Radius Utility Classes (e.g. .rounded-lg reads --radius-lg-val) */
+  --radius-sm: var(--radius-sm-val);
+  --radius-md: var(--radius-md-val);
+  --radius-lg: var(--radius-lg-val);
+  --radius-xl: var(--radius-xl-val);
+  --radius-full: var(--radius-full-val);
+
+  /* Spacing Utility Classes (derives all p-*, m-*, gap-*) */
+  --spacing: var(--spacing-val);
+
+  /* Shadow Utility Classes */
+  --shadow-sm: var(--shadow-sm-val);
+  --shadow-md: var(--shadow-md-val);
+  --shadow-lg: var(--shadow-lg-val);
 }
 
 /* Respect user motion preference regardless of the configured intensity */
@@ -490,34 +471,48 @@ ${buildAccentRamp()}
 
 @layer components {
   /* --- Headings, scaled by --type-scale via clamp() --- */
-  h1, .h1 { font-family: var(--font-title); font-size: clamp(2rem, calc(1.6rem + 2vw * var(--type-scale)), calc(3.5rem * var(--type-scale))); line-height: 1.1; }
-  h2, .h2 { font-family: var(--font-title); font-size: clamp(1.5rem, calc(1.2rem + 1.4vw * var(--type-scale)), calc(2.5rem * var(--type-scale))); line-height: 1.15; }
-  h3, .h3 { font-family: var(--font-title); font-size: clamp(1.25rem, calc(1.1rem + 0.8vw * var(--type-scale)), calc(1.75rem * var(--type-scale))); line-height: 1.2; }
+  h1 { font-family: var(--font-title); font-size: clamp(2rem, calc(1.6rem + 2vw * var(--type-scale)), calc(3.5rem * var(--type-scale))); line-height: 1.1; }
+  h2 { font-family: var(--font-title); font-size: clamp(1.5rem, calc(1.2rem + 1.4vw * var(--type-scale)), calc(2.5rem * var(--type-scale))); line-height: 1.15; }
+  h3 { font-family: var(--font-title); font-size: clamp(1.25rem, calc(1.1rem + 0.8vw * var(--type-scale)), calc(1.75rem * var(--type-scale))); line-height: 1.2; }
 
-  /* --- Buttons --- */
-  button {
+  /* --- Buttons --- * /
+  main button {
     border-radius: var(--button-radius);
     padding: calc(var(--spacing) * 3) calc(var(--spacing) * 6);
     font-family: var(--font-body);
     font-weight: 600;
     transition: transform 150ms ease, box-shadow 150ms ease;
   }
-  button[data-fill="solid"], .btn { background-color: var(--color-accent-600); color: var(--color-accent-50); }
-  button[data-fill="outline"] { background-color: transparent; color: var(--color-accent-700); box-shadow: inset 0 0 0 1.5px var(--color-accent-600); }
-  button:hover { transform: translateY(-1px); }
+  main button[data-fill="solid"], main button { background-color: var(--color-accent-600); color: var(--color-accent-50); }
+  main button[data-fill="outline"] { background-color: transparent; color: var(--color-accent-700); box-shadow: inset 0 0 0 1.5px var(--color-accent-600); }
+  main button:hover { transform: translateY(-1px); }
 
   /* --- Section dividers. "wave" ships as an SVG mask asset per divider component,
-     this only covers the two pure-CSS shapes. --- */
+     this only covers the two pure-CSS shapes. --- * /
   .section-divider[data-shape="angle"] { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 3vw)); }
   .section-divider[data-shape="straight"] { clip-path: none; }
 
-  /* --- Images --- */
-  img {
+  /* --- Images --- * /
+  main img {
     filter: var(--image-filter);
-    border-radius: var(--radius-md);
+  }*/
+}
+
+
+/* Scroll-driven reveal effects — pure CSS, feature-detected, no JS.
+   Unsupported browsers execute nothing in this block and render normal,
+   fully-visible, static content: that's the fallback, by design.
+   Intensity level: ${theme.motionIntensity}/10 */
+
+@supports (animation-timeline: view()) {
+  /* Only assign animations if the user has NOT requested reduced motion */
+  @media (prefers-reduced-motion: no-preference) {
+    ${scrollEffectCSS}
   }
 }
-${scrollEffectCSS}${hoverEffectCSS}`;
+
+
+  ${hoverEffectCSS}`;
 }
 
 export default generateThemeCSS;

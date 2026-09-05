@@ -137,12 +137,14 @@ function renderMarkers(lang) {
 </script>
 
 <style>
+
+/* marker default hue is 204deg, so we just apply a hue rotation */
 .leaflet-pane .leaflet-marker-pane img {
-  filter: hue-rotate(calc(var(--accent-hue) - 204deg));
+  filter: hue-rotate(calc(var(--accent-hue) * 1deg - 204deg));
 }
 
 .leaflet-pane .leaflet-marker-pane img.special {
-  filter: hue-rotate(calc(var(--primary-angle) - 204deg));
+  filter: hue-rotate(calc(var(--accent-hue-alt) * 1deg - 204deg));
 }
 
 .leaflet-popup-content-wrapper {
