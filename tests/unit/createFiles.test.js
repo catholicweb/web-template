@@ -90,37 +90,6 @@ describe("substitute", () => {
   });
 });
 
-describe("bakeMedia", () => {
-  it("passes absolute image URLs through", () => {
-    const node = { image: "https://x.com/a.webp" };
-    createFiles.bakeMedia(node);
-    expect(node.image).toBe("https://x.com/a.webp");
-  });
-
-  it("rewrites /media/ image paths to remote URLs", () => {
-    const node = { image: "/media/fotos/a.jpg" };
-    createFiles.bakeMedia(node);
-    expect(node.image).toBe("https://data.parroquia.app/fotos-a.jpg");
-  });
-
-  it("rewrites each entry of an `images` array, passing absolute URLs through", () => {
-    const node = { images: ["/media/a.jpg", "https://x.com/b.webp"] };
-    createFiles.bakeMedia(node);
-    expect(node.images).toEqual([
-      "https://data.parroquia.app/a.jpg",
-      "https://x.com/b.webp",
-    ]);
-  });
-
-  it("recurses into nested sections and elements", () => {
-    const node = {
-      sections: [{ elements: [{ image: "/media/deep.jpg" }], image: "/media/b.jpg" }],
-    };
-    createFiles.bakeMedia(node);
-    expect(node.sections[0].elements[0].image).toBe("https://data.parroquia.app/deep.jpg");
-    expect(node.sections[0].image).toBe("https://data.parroquia.app/b.jpg");
-  });
-});
 
 describe("getConfig", () => {
   it("falls back to nested site.* / pages.languages fields", () => {

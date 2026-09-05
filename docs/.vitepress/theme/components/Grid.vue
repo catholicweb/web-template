@@ -16,6 +16,7 @@ const props = defineProps({ block: { type: Object, required: true } });
 const searchQuery = ref("");
 const selectedFilter = ref(0);
 const filteredItems = computed(() => {
+	activeIndex.value = 0 // make sure we reset active index when searching
 	const needle = selectedFilter.value === 0 ? props.block.filters : [props.block.filters?.[selectedFilter.value]];
 	return (props.block.elements || []).filter((item) => {
 		const haystack = JSON.stringify(item).toLowerCase();
@@ -168,23 +169,22 @@ function vtr(key, lang) {
 	<template v-else-if="block?.tags?.includes('3d')">
 		<!-- 3D Carousel Container -->
 		<div class="flex flex-col items-center justify-center px-4 overflow-hidden">
-			<div class="perspective-1000 relative w-full max-w-4xl h-[400px] flex items-center justify-center">
+			<div class="perspective-1000 relative w-full max-w-4xl h-[400px] flex items-center justify-center my-20">
 				<!-- Cards -->
 				<div class="relative w-full" @touchstart.passive="onStart" @touchend.passive="onEnd" @mousedown.passive="onStart" @mouseup.passive="onEnd">
-					<div v-for="(item, index) in filteredItems" :key="index" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 transition-all duration-700 ease-out cursor-pointer" :class="getCardClass(index)" @click="activeIndex = index">
+					<div v-for="(item, index) in filteredItems" :key="index" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out cursor-pointer" :class="getCardClass(index)" @click="activeIndex = index" style="width: 16rem;">
 						<slot :item="item" :index="index" :activeIndex="activeIndex"></slot>
 					</div>
 				</div>
-			</div>
-			<div>
-				<!-- Navigation Arrows -->
-				<button v-if="filteredItems.length > 1" @click="prevItem" :disabled="activeIndex === 0" aria-label="Previous item" :class="['absolute left-4 top-1/2 -translate-y-1/2 z-25 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']">
+
+				<button v-if="filteredItems.length > 1" @click="prevItem" :disabled="activeIndex === 0" aria-label="Previous item" :class="['absolute left-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']">
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 						<polyline points="15 18 9 12 15 6" />
 					</svg>
 				</button>
 
-				<button v-if="filteredItems.length > 1" @click="nextItem" aria-label="Next item" :disabled="activeIndex === filteredItems.length - 1" :class="['absolute right-4 top-1/2 -translate-y-1/2 z-25 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === filteredItems.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']">
+				<button v-if="filteredItems.length > 1" @click="nextItem" aria-label="Next item" :disabled="activeIndex === filteredItems.length - 1" :class="['absolute right-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === filteredItems.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']"
+				>
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 						<polyline points="9 18 15 12 9 6" />
 					</svg>
