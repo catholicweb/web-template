@@ -396,7 +396,7 @@ ${buildLocalFontFace(titleFont, bodyFont)}
 
 
   /* === Radius Scale === */
-  --base-radius: ${(0.25 * theme.radius).toFixed(4)}rem;
+  --base-radius: ${(0.25 * theme.radius * theme.radius).toFixed(4)}rem;
   --radius-sm-val: calc(var(--base-radius) * 0.5);
   --radius-md-val: var(--base-radius);
   --radius-lg-val: calc(var(--base-radius) * 1.5);
