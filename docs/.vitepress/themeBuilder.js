@@ -349,7 +349,7 @@ export function generateThemeCSS(rawTheme = {}) {
 
   // Filter out explicit null or undefined entries from user settings
   const userOverrides = Object.fromEntries(
-    Object.entries(rawTheme).filter(([_, val]) => ( val !== undefined && val !== null) ) 
+    Object.entries(rawTheme).filter(([_, val]) => ( val !== undefined && val !== null && val !== '') ) 
   );
 
   // Merge with hard defaults first so missing fields never crash
