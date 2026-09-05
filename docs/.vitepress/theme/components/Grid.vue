@@ -8,7 +8,7 @@
 	+ different grid sizes (using flex)
 */
 
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { grid } from "./../../utils.js";
 const props = defineProps({ block: { type: Object, required: true } });
 
@@ -16,7 +16,6 @@ const props = defineProps({ block: { type: Object, required: true } });
 const searchQuery = ref("");
 const selectedFilter = ref(0);
 const filteredItems = computed(() => {
-	activeIndex.value = 0 // make sure we reset active index when searching
 	const needle = selectedFilter.value === 0 ? props.block.filters : [props.block.filters?.[selectedFilter.value]];
 	return (props.block.elements || []).filter((item) => {
 		const haystack = JSON.stringify(item).toLowerCase();
@@ -32,6 +31,12 @@ const filteredItems = computed(() => {
 // Clamp explicitly instead.
 const initialIndex = filteredItems.value.findIndex((item) => item.name === props.block.name);
 const activeIndex = ref(initialIndex < 0 ? 0 : initialIndex);
+watch(filteredItems, (newList) => {
+	const maxIndex = Math.max(0, newList.length - 1);
+	if (activeIndex.value > maxIndex) {
+		activeIndex.value = maxIndex;
+	}
+});
 
 let startX = 0;
 const onStart = (e) => {
@@ -177,13 +182,13 @@ function vtr(key, lang) {
 					</div>
 				</div>
 
-				<button v-if="filteredItems.length > 1" @click="prevItem" :disabled="activeIndex === 0" aria-label="Previous item" :class="['absolute left-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']">
+				<button v-if="filteredItems.length > 1" @click="prevItem" :disabled="activeIndex === 0" aria-label="Previous item" :class="['absolute left-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden sm:flex', activeIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']">
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 						<polyline points="15 18 9 12 15 6" />
 					</svg>
 				</button>
 
-				<button v-if="filteredItems.length > 1" @click="nextItem" aria-label="Next item" :disabled="activeIndex === filteredItems.length - 1" :class="['absolute right-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden md:flex', activeIndex === filteredItems.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']"
+				<button v-if="filteredItems.length > 1" @click="nextItem" aria-label="Next item" :disabled="activeIndex === filteredItems.length - 1" :class="['absolute right-4 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center transition-all duration-200 hover:bg-black/50 hover:scale-110 cursor-pointer hidden sm:flex', activeIndex === filteredItems.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100']"
 				>
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 						<polyline points="9 18 15 12 9 6" />
