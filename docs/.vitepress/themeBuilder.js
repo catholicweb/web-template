@@ -163,7 +163,7 @@ function buildLocalFontFace(titleFont, bodyFont) {
   const fonts = [...new Set([titleFont, bodyFont])].filter(Boolean);
   return fonts.map((name) => {
     const file = camelCase(name) + ".woff2";
-    return `@font-face { font-family: '${name}'; font-style: normal; font-weight: 400; font-display: swap; src: url(/${file}) format('woff2'); }`;
+    return `@font-face { font-family: '${name}'; font-style: normal; font-weight: 400; font-display: swap; src: url(/assets/${file}) format('woff2'); }`;
   }).join("\n");
 }
 

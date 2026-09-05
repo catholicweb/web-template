@@ -33,7 +33,7 @@ export async function getAudio(lang) {
     return {
       title: `${shortenBibleName(b.book_name)} ${b.chapter_start}`,
       src: b.path,
-      image: "/fcbh-logo-square-512.png",
+      image: "/assets/fcbh-logo-square-512.png",
     };
   });
 

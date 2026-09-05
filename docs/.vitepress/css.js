@@ -57,7 +57,7 @@ export async function getFontCSS(theme) {
 
   for (const fontName of fonts) {
     const fileName = `${camelCase(fontName)}.woff2`;
-    const fontPath = `./docs/public/${fileName}`;
+    const fontPath = `./docs/public/assets/${fileName}`;
 
     if (!fs.existsSync(fontPath)) {
       // Corrected the URL construction
@@ -65,7 +65,7 @@ export async function getFontCSS(theme) {
       await downloadAndSubset(googleUrl, fontPath);
     }
 
-    preloads.push(["link", { rel: "preload", href: `/${fileName}`, as: "font", type: "font/woff2", crossorigin: "" }]);
+    preloads.push(["link", { rel: "preload", href: `/assets/${fileName}`, as: "font", type: "font/woff2", crossorigin: "" }]);
   }
 
   return { preloads };
