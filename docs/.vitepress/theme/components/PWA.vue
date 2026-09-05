@@ -228,7 +228,7 @@ onMounted(() => {
         // and onMessage() (foreground notifications) never gets registered.
         // Re-run it silently on every load when permission is already granted.
         console.log("[FCM] onMounted -> calling setupNotifications (granted)");
-        setupNotifications();
+        setTimeout( setupNotifications, 5000) // delay it 5s, just to make sure it does not block anything
       } else {
         // Bell-triggered notifications for users who haven't granted yet
         state.value.showBell = true;
