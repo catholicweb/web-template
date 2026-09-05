@@ -15,8 +15,6 @@ const languages = config.languages ?? config.pages?.languages ?? [];
 const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}`;
 
 export default defineConfig(async () => {
-  const versions = read("./docs/public/icon-versions.json", {});
-  const v = (file) => (versions[file] ? `?v=${versions[file]}` : "");
   const { preloads } = await getFontCSS(config.theme ?? {});
   return {
     head: [
@@ -25,9 +23,9 @@ export default defineConfig(async () => {
       ...preloads,
       // Manifest and icons
       ["link", { rel: "icon", href: "/favicon.ico", type: "image/x-icon" }],
-      ["link", { rel: "icon", href: `/favicon.png${v("favicon.png")}`, type: "image/png" }],
+      ["link", { rel: "icon", href: `/favicon.png`, type: "image/png" }],
       ["link", { rel: "manifest", href: "/manifest.webmanifest" }],
-      ["link", { rel: "apple-touch-icon", href: `/apple-touch-icon.png${v("apple-touch-icon.png")}` }],
+      ["link", { rel: "apple-touch-icon", href: `/apple-touch-icon.png` }],
       // iOS / PWA installability
       ["meta", { name: "mobile-web-app-capable", content: "yes" }],
       ["meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" }],
@@ -88,17 +86,17 @@ export default defineConfig(async () => {
             background_color: config.theme?.accentColor || "#ffffff",
             theme_color: config.theme?.accentColor || "#ffffff",
             icons: [
-              { src: `/icon-192.png${v("icon-192.png")}`, sizes: "192x192", type: "image/png" },
-              { src: `/icon-512.png${v("icon-512.png")}`, sizes: "512x512", type: "image/png" },
-              { src: `/apple-touch-icon.png${v("apple-touch-icon.png")}`, sizes: "180x180", type: "image/png" },
+              { src: `/icon-192.png`, sizes: "192x192", type: "image/png" },
+              { src: `/icon-512.png`, sizes: "512x512", type: "image/png" },
+              { src: `/apple-touch-icon.png`, sizes: "180x180", type: "image/png" },
             ],
           },
           // Show update banner (PWA.vue uses useRegisterSW to detect the needRefresh signal)
-          registerType: "prompt",
+          registerType: "autoUpdate",
           devOptions: { enabled: false },
           injectManifest: {
             // Precache built JS/CSS/HTML and common static assets
-            globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,woff}"],
+            globPatterns: ["**/*.{js,css,png,svg,ico,woff2,woff}","404.html"],
           },
         }),
       ],
