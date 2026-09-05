@@ -240,6 +240,7 @@ function render(text, index = 1) {
 async function postComplete(fm) {
   if (!fm.sections) return;
   // Resolve every media image to its remote URL up front.
+  bakeMedia(fm);
   addMeta(fm);
   for (var i = 0; i < fm.sections.length; i++) {
     if (typeof fm.sections[i].html === "string") {
@@ -421,6 +422,26 @@ function imageURL(url) {
   return resolveMedia(url);
 }
 
+// Rewrite every image/media field in a page's data to its remote URL, so
+// runtime components simply render an absolute URL. Applies under keys
+// `image` / `images` anywhere in the tree (sections, elements, events, page).
+export function bakeMedia(node) {
+  if (Array.isArray(node)) {
+    for (const item of node) bakeMedia(item);
+    return node;
+  }
+  if (node && typeof node === "object") {
+    for (const k of Object.keys(node)) {
+      if (k === "image" || k === "images") {
+        if (Array.isArray(node[k])) node[k] = node[k].map((i) => (typeof i === "string" ? resolveMedia(i) : i));
+        else if (typeof node[k] === "string") node[k] = resolveMedia(node[k]);
+      } else {
+        bakeMedia(node[k]);
+      }
+    }
+  }
+  return node;
+}
 
 function addMeta(fm) {
   fm.head ??= [];
