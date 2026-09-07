@@ -34,6 +34,18 @@ function isPexelsUrl(src) {
   return url.hostname === "images.pexels.com";
 }
 
+// --- Detección de Wikimedia / Commons --------------------------------------
+
+function isWikimediaUrl(src) {
+  if (typeof src !== "string" || src.length === 0) return false;
+  try {
+    const url = new URL(src);
+    return url.hostname === "upload.wikimedia.org" || url.hostname === "commons.wikimedia.org";
+  } catch {
+    return false;
+  }
+}
+
 // --- Atribución --------------------------------------------------------------
 
 // Convenio de atribución de Pexels (contrato con docs/.vitepress/theme/lib/pexels.js
@@ -51,11 +63,32 @@ const UTM_PARAMS = "utm_source=parroquia.app&utm_medium=referral";
 //   - Unsplash:  name "Unsplash", url a `https://unsplash.com/photos/<id>`.
 //   - Pexels:    name del fotógrafo, url a su página en pexels.com.
 export function imageCredit(src) {
+  const wikimedia = wikimediaCredit(src);
+  if (wikimedia) return wikimedia;
   const pexels = pexelsCredit(src);
   if (pexels) return pexels;
   const unsplash = unsplashCredit(src);
   if (unsplash) return unsplash;
   return null;
+}
+
+function wikimediaCredit(src) {
+  if (!isWikimediaUrl(src)) return null;
+  try {
+    const url = new URL(src);
+    const name = url.searchParams.get("photographer") || "Wikimedia Commons";
+    const path = url.pathname;
+    // Extract filename from /wikipedia/commons/.../File.jpg
+    const parts = path.split("/");
+    const fileRaw = parts.pop() || "";
+    // Thumb URLs contain 250px-Filename.jpg; strip width prefix for File page
+    const file = fileRaw.replace(/^\d+px-/, '') || fileRaw;
+    if (!file) return null;
+    const filePage = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file)}`;
+    return { name, url: filePage };
+  } catch {
+    return null;
+  }
 }
 
 function pexelsCredit(src) {
@@ -107,6 +140,33 @@ function withUnsplashParams(url, width) {
 // y se sobrescribe `w`. Se eliminan `dpr` y `h`: las URLs de `large2x` traen
 // `dpr=2&h=650`, que duplicarían o recortarían el ancho pedido y distorsionarían
 // el aspect ratio.
+function withWikimediaThumb(url, width) {
+  // Not all sizes are allowed, so we pick the nearest ones
+  const ALLOWED_WIDTHS = [20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840];
+  const nearest = (target) => ALLOWED_WIDTHS.reduce((prev, curr) => Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev);
+  const u = new URL(url);
+  const p = u.pathname.split("/");
+  // If already a thumb URL (/thumb/...), extract base filename and hash dirs
+  const thumbIdx = p.indexOf("thumb");
+  if (thumbIdx !== -1 && p.length >= thumbIdx + 3) {
+    const afterThumb = p.slice(thumbIdx + 1); // [hash1, hash2, baseFile, 250px-File.jpg]
+    const hash1 = afterThumb[0];
+    const hash2 = afterThumb[1];
+    const baseFile = afterThumb[2];
+    return `https://upload.wikimedia.org/wikipedia/commons/thumb/${hash1}/${hash2}/${baseFile}/${nearest(width)}px-${baseFile}`;
+  }
+  // Full file URL: /wikipedia/commons/a/ab/File.jpg
+  const idx = p.indexOf("commons");
+  if (idx === -1 || p.length < idx + 3) {
+    return url;
+  }
+  const after = p.slice(idx + 1); // e.g. ["a","ab","File.jpg"]
+  const hash1 = after[0];
+  const hash2 = after[1];
+  const filename = after[after.length - 1];
+  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${hash1}/${hash2}/${filename}/${nearest(width)}px-${filename}`;
+}
+
 function withPexelsParams(url, width) {
   const u = new URL(url);
   u.searchParams.set("w", String(width));
@@ -118,6 +178,9 @@ function withPexelsParams(url, width) {
 // Construye el srcset responsive de una imagen de Unsplash o Pexels;
 // null si el src no es de ninguna de las dos CDN.
 export function buildImageSrcset(src, widths = DEFAULT_WIDTHS) {
+  if (isWikimediaUrl(src)) {
+    return widths.map((w) => `${withWikimediaThumb(src, w)} ${w}w`).join(", ");
+  }
   if (isUnsplashUrl(src)) {
     return widths.map((w) => `${withUnsplashParams(src, w)} ${w}w`).join(", ");
   }
