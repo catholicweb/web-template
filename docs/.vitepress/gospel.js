@@ -94,7 +94,7 @@ export const getBibleReadings = async (options = {}) => {
   const dateStr = formatDate(date);
   // Base URL for images stored in Supabase
   const imageFolderUrl = `https://mawaorwmhgyeqbvnewfy.supabase.co/storage/v1/object/public/reading-images/${dateStr}`;
-  const assetsPath = "https://47herri.eus/bible";
+  const assetsPath = "https://data.parroquia.app/parroquia/bible";
 
   try {
     const awsUrl = `https://gxvchjojub.execute-api.eu-west-1.amazonaws.com/production/getmissafreecontent?lang=es&day=${dateStr}`;

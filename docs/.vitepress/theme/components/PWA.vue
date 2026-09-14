@@ -54,10 +54,12 @@ if (typeof window !== "undefined") {
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
 const { updateServiceWorker } = useRegisterSW({
   onNeedRefresh() {
-    // Only auto-reload when the site opts in via theme.pwa.autoReload; the
-    // manual "new version available" banner is intentionally unused.
-    if (theme.value.pwa?.autoReload) {
+    // Auto-reload by default so installed PWAs refresh when the site updates;
+    // only disable via theme.pwa.autoReload = false.
+    if (theme.value.pwa?.autoReload !== false) {
       updateServiceWorker(true);
+    } else {
+      state.value.showUpdateBanner = true;
     }
   },
 });
@@ -80,11 +82,11 @@ const isStandalone = () => {
 const waitForSwReady = () =>
   Promise.race([
     navigator.serviceWorker.ready,
-    new Promise((_, __) => setTimeout(__, 5000)),
+    new Promise((resolve) => setTimeout(() => resolve(null), 5000)),
   ]);
 
 // ─── FCM notification setup ───
-async function setupNotifications() {
+async function setupNotifications(alreadyGranted = false) {
   console.log("[FCM] setupNotifications ENTER");
   if (typeof __FIREBASE_CONFIG__ === "undefined" || !__FIREBASE_CONFIG__?.apiKey) {
     return; // FCM not configured (canary build / unconfigured site)
@@ -103,9 +105,13 @@ async function setupNotifications() {
 
   try {
     console.log("[FCM] setup start");
-    const permission = await Notification.requestPermission();
+    const permission = alreadyGranted ? "granted" : await Notification.requestPermission();
     console.log("[FCM] permission:", permission);
-    if (permission !== "granted") return;
+    if (permission !== "granted") {
+      state.value.showBell = true;
+      return;
+    }
+    state.value.showBell = false;
 
     let app;
     try {
@@ -114,10 +120,7 @@ async function setupNotifications() {
       app = initializeApp(__FIREBASE_CONFIG__);
     }
     const messaging = getMessaging(app);
-    const swRegistration = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise((_, rej) => setTimeout(() => rej(new Error("SW ready timeout")), 5000)),
-    ]);
+    const swRegistration = await waitForSwReady();
     console.log("[FCM] swRegistration ready");
     if (!swRegistration) return; // SW not ready
 
@@ -183,18 +186,7 @@ async function setupNotifications() {
 }
 
 async function askNotifications() {
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      console.log("[FCM] askNotifications -> granted -> setup");
-      state.value.showBell = false;
-      await setupNotifications();
-    } else {
-      state.value.showBell = true;
-    }
-  } catch {
-    state.value.showBell = true;
-  }
+  await setupNotifications(false);
 }
 
 onMounted(() => {
@@ -228,8 +220,8 @@ onMounted(() => {
         // and onMessage() (foreground notifications) never gets registered.
         // Re-run it silently on every load when permission is already granted.
         console.log("[FCM] onMounted -> calling setupNotifications (granted)");
-        setTimeout( setupNotifications, 5000) // delay it 5s, just to make sure it does not block anything
-      } else {
+        setTimeout(() => setupNotifications(true), 5000) // delay it 5s, just to make sure it does not block anything
+      } else if (Notification.permission !== "denied") {
         // Bell-triggered notifications for users who haven't granted yet
         state.value.showBell = true;
       }
