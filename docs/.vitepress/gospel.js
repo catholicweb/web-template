@@ -24,6 +24,11 @@ export async function getAudio(lang) {
     es: "https://live.bible.is/api/bibles/filesets/SPNDHHN2DA",
     en: "https://live.bible.is/api/bibles/filesets/ENGNIVP2DV",
   };
+  const logos = {
+    eu: "/assets/fcbh-logo-square-512-eu.png",
+    es: "/assets/fcbh-logo-square-512-es.png",
+    en: "/assets/fcbh-logo-square-512.png",
+  }
   const code = lang.split(":").toReversed()[0];
 
   const res = await fetch(bibles[code] || bibles.eu);
@@ -33,7 +38,7 @@ export async function getAudio(lang) {
     return {
       title: `${shortenBibleName(b.book_name)} ${b.chapter_start}`,
       src: b.path,
-      image: "/assets/fcbh-logo-square-512.png",
+      image: logos[code] || logos.en,
     };
   });
 

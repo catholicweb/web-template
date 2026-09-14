@@ -28,7 +28,8 @@ export default {
             // JSON.stringify collapses to null and breaks the progress bar).
             section.progress = section.goal ? Math.round((section.raised / section.goal) * 100) : 0;
             fundraisings.push(section);
-          } else if (section._block === "map" && !data.group != 'eventos') {
+          } else if (section._block === "map" && data.group == 'templos') {
+            // TODO: this should read from config, otherwise not generating a page per temple would leave the map empty.
             maps.push({
               lang: data.lang,
               geo: section.geo,

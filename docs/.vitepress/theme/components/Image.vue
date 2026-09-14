@@ -4,7 +4,7 @@ import ImageCredit from "./ImageCredit.vue";
 import { buildImageSrcset } from "./credits.js";
 
 const props = defineProps({
-  src: { type: String, required: true },
+  src: { type: String, required: true, default: ''},
   alt: { type: String, default: "" },
   index: { type: Number, default: 0 },
   progressive: { type: Boolean, default: false },
