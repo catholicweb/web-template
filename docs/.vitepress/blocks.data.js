@@ -36,6 +36,7 @@ export default {
               image: section.image || data.image,
               title: section.city || data.title,
               name: section.name,
+              tags: [...(section.tags ?? []), ...(data.tags ?? [])],
               url: "/" + file.replace(/index\.md$/, "").replace(/\.md$/, ""),
             });
           }

@@ -169,9 +169,9 @@ async function generateIcons() {
     }
     if (!iconBuffer) {
       // Fallback: accent tile + site initial so manifest URLs never 404
-      const accent = CFG.theme?.accentColor || CFG.theme?.accentPrimary || "#cfa14d";
+      const accentHue = CFG.theme?.accentHue ?? 200;
       const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="${accent}"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="oklch(64% 0.2 ${accentHue})"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
       iconBuffer = Buffer.from(svg);
       console.log("⚠️ No remote icon; using fallback accent tile for PWA icons.");
     }
@@ -322,7 +322,6 @@ async function postComplete(fm) {
     } else if (fm.sections[i]._block == "calendar") {
       const order = assembleOrder(fm.sections[i]);
       fm.sections[i].events = groupEvents(fm.sections[i].events, order);
-      if (!fm.sections[i].events.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
