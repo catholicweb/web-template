@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "firebase": "^10.13.0",
+    "open-graph-scraper": "^6.12.0",
     "prettier": "^3.6.2",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^2.1.9",

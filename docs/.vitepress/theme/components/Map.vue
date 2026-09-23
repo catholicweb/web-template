@@ -105,9 +105,11 @@ function renderMarkers(lang) {
         wazeUrl = `intent://waze.com/ul?ll=${m.geo}&navigate=yes#Intent;package=com.waze;scheme=https;S.browser_fallback_url=${fallback};end;`;
       }
 
+      const title = m.title == m.name? `${m.name}` : `${m.name} (${m.title})`
+
       const html = `
     <h3 class="text-center m-0 text-lg font-bold text-accent">
-      ${m.name} (${m.title})
+      ${title}
     </h3>
     <div class="relative overflow-hidden">
       <a href="${m.url}" class="block">

@@ -129,7 +129,7 @@
 
     <!-- 9. Team Members/People Cards -->
     <div v-if="block.type === 'team-cards'" :class="grid(block)">
-      <a v-for="(item, i) in block.elements" :key="i" :href="item.link">
+      <a v-for="(item, i) in block.elements" :key="i" :href="item.link || item.src">
         <div class="relative mb-4 inline-block">
           <Image :index="block.index" :src="item.image" :alt="'team-cards ' + item.title" class="w-40 h-40 rounded-full object-cover border-4 border-accent shadow-lg group-hover:scale-105 transition-transform" />
         </div>

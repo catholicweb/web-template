@@ -1,5 +1,5 @@
 import { read, write, path } from "./node_utils.js";
-import { slugify, applyComplexFilter, groupEvents, getAddress, assembleOrder } from "./utils.js";
+import { slugify, applyComplexFilter, groupEvents, getAddress, assembleOrder, oklchToHex } from "./utils.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { fetchInstagram } from "./instagram.js";
@@ -171,9 +171,10 @@ async function generateIcons() {
       // Fallback: accent tile + site initial so manifest URLs never 404
       const accentHue = CFG.theme?.accentHue ?? 200;
       const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="oklch(64% 0.2 ${accentHue})"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
+      const fillColor = oklchToHex(0.64, 0.2, accentHue);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="${fillColor}"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
       iconBuffer = Buffer.from(svg);
-      console.log("⚠️ No remote icon; using fallback accent tile for PWA icons.");
+      console.log("⚠️ No remote icon; using fallback accent tile for PWA icons. ", accentHue, svg);
     }
     const versions = {};
     function hashFile(p) {
@@ -373,7 +374,7 @@ async function autocomplete(fm, pages) {
     }
     if (fm.sections[i]._block == "links") {
       fm.sections[i]._block = "gallery-feature";
-      fm.sections[i].type = fm.sections[i].type || "team-cards";
+      fm.sections[i].type = "team-cards"; // fm.sections[i].type || 
       (fm.sections[i].tags ??= []).push("small");
     } else if (fm.sections[i]._block == "gallery-feature") {
       fm.sections[i].type = "team-cards";
