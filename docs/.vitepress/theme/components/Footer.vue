@@ -161,7 +161,7 @@ const config = ref(theme.value.config || {});
 const navStyle = ref(theme.value?.config?.theme?.navStyle);
 const footerStyle = ref(theme.value?.config?.theme?.footerStyle || "auto");
 
-const footerClass = ref(navStyle.value == '47herri' ? '[&_*]:text-white bg-[#222831] pt-4' : 'bg-gray-100')
+const footerClass = computed( navStyle.value == '47herri' || (Array.isArray(navStyle.value) && navStyle.value.includes('dark') )? '[&_*]:text-white bg-[#222831] pt-4' : 'bg-gray-100')
 
 // Data presence checks
 const showContact = computed(() => config.value.info.collaborators?.some((c) => c.phonenumber || c.email));

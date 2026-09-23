@@ -404,7 +404,7 @@ async function autocomplete(fm, pages) {
     // 47herri nav style: the home page shows every non-recurring event
     // ("byday:empty"), while non-home pages show only events matching the page
     // title. This replaces fm.events for the whole page.
-    if (THEME.navStyle == "47herri") {
+    if (THEME.navStyle == "47herri" || ( Array.isArray(THEME.navStyle) && THEME.navStyle.includes('showEvents') ) ) {
       let filter = fm.home ? "byday:empty" : fm.title;
       fm.events = calendar.filter((obj) => applyComplexFilter(obj, filter));
       fm.faq = getEventFAQ(fm.events, fm.lang);
