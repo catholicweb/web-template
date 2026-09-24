@@ -7,12 +7,21 @@ import { getJSONLD } from "./seo.js";
 import { generateNav, locales } from "./navBar.js";
 import { getFontCSS } from "./css.js";
 
+
+import { oklchToHex } from "./utils.js";
+
+
 const config = read("./docs/public/config.json");
 const DATA = (process.env.PARROQUIA_DATA || "https://data.parroquia.app").replace(/\/$/, "");
 // Languages may live at config.pages.languages (editor schema) or top-level (legacy/flat).
 const languages = config.languages ?? config.pages?.languages ?? [];
 // Trusted per-site data base — set by SITE_SLUG / config._media.base in fetch.js.
 const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}`;
+// Same formula as the CSS: --color-accent: oklch(64% 0.2 var(--accent-hue))
+const hue = Number(config.theme?.accentHue);
+const ACCENT = Number.isFinite(hue)
+  ? oklchToHex(0.64, 0.2, hue)
+  : config.theme?.accentColor || "#ffffff"; // legacy fallback
 
 export default defineConfig(async () => {
   const { preloads } = await getFontCSS(config.theme ?? {});
@@ -29,7 +38,7 @@ export default defineConfig(async () => {
       // iOS / PWA installability
       ["meta", { name: "mobile-web-app-capable", content: "yes" }],
       ["meta", { name: "apple-mobile-web-app-status-bar-style", content: "default" }],
-      ["meta", { name: "theme-color", content: config.theme?.accentColor || "#ffffff" }],
+      ["meta", { name: "theme-color", content: ACCENT }],
       ["meta", { name: "color-scheme", content: "light" }],
       ["meta", { name: "viewport", content: "width=device-width, initial-scale=1" }],
     ],
@@ -79,11 +88,12 @@ export default defineConfig(async () => {
             description: config.info.description || "",
             start_url: "/",
             display: "standalone",
-            background_color: config.theme?.accentColor || "#ffffff",
-            theme_color: config.theme?.accentColor || "#ffffff",
+            background_color: ACCENT,
+            theme_color: ACCENT,
             icons: [
               { src: `/icon-192.png`, sizes: "192x192", type: "image/png" },
               { src: `/icon-512.png`, sizes: "512x512", type: "image/png" },
+              { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
               { src: `/apple-touch-icon.png`, sizes: "180x180", type: "image/png" },
             ],
           },

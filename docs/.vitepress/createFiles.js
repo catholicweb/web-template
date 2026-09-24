@@ -172,7 +172,11 @@ async function generateIcons() {
       const accentHue = CFG.theme?.accentHue ?? 200;
       const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
       const fillColor = oklchToHex(0.64, 0.2, accentHue);
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="${fillColor}"/><text x="96" y="125" font-family="sans-serif" font-size="110" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
+      (CFG.theme ?? {}).fillColor = fillColor
+      const size = 192;
+      const fontSize = 110;
+      const y = Math.round(size / 2 + (fontSize * 0.72) / 2); // 136
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="${fillColor}"/><text x="${size / 2}" y="${y}" font-family="sans-serif" font-size="${fontSize}" font-weight="bold" fill="#fff" text-anchor="middle">${initial}</text></svg>`;
       iconBuffer = Buffer.from(svg);
       console.log("⚠️ No remote icon; using fallback accent tile for PWA icons. ", accentHue, svg);
     }
@@ -219,6 +223,30 @@ async function generateIcons() {
     } catch (err) {
       console.error(`⚠️ Error generando favicon:`, err.message);
     }
+
+    // generate the maskable icon
+    try{
+      let ACCENT = CFG.theme?.fillColor
+      if (!ACCENT) {
+        const { dominant } = await sharp(iconBuffer).stats();
+        const toHex = ({ r, g, b }) => "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+        ACCENT = toHex(dominant)
+      }
+      const size = 512;
+      const inner = Math.round(size * 0.58); // logo stays inside the safe zone
+
+      const logo = await sharp("docs/public/icon-512.png") // your square logo, ideally with transparent background
+        .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .toBuffer();
+
+      await sharp({ create: { width: size, height: size, channels: 4, background: ACCENT } })
+        .composite([{ input: logo, gravity: "center" }])
+        .png()
+        .toFile("docs/public/icon-maskable-512.png");
+    } catch (err) {
+      console.error(`⚠️ Error generando icon-maskable-512:`, err.message);
+    }
+
 
     // Write icon versions for query-param cache busting
     try {
