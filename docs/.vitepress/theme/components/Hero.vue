@@ -1,5 +1,5 @@
 <template>
-  <div class="hero relative flex items-center justify-center min-h-[50vh] mb-2 text-white font-extrabold [text-shadow:_0_0_8px_rgba(0,0,0,1)]" :class="alignmentClass">
+  <div class="hero relative flex items-center min-h-[50vh] mb-2 text-white font-extrabold [text-shadow:_0_0_8px_rgba(0,0,0,1)]" :class="alignmentClass">
     <!-- Imagen -->
     <Image :index="block.index" :src="block.image" alt="" class="absolute inset-0 size-full object-cover" />
     <!-- Overlay -->
@@ -26,21 +26,19 @@
 <script setup>
 import { computed } from "vue";
 import Image from "./Image.vue";
-import { resolveNavTokens } from "./../../utils.js";
 
 const props = defineProps({
   block: {
     type: Object,
     required: true,
   },
-  navStyle: {
-    type: Array,
-    default: () => [],
+  tokens: {
+    type: Object,
+    default: () => {},
   },
 });
 
 const alignmentClass = computed(() => {
-  const t = resolveNavTokens(props.navStyle);
-  return t.titleAlignment === "left" ? "text-left" : "text-center";
+  return props.tokens?.align === "left" ? "text-left" : "justify-center";
 });
 </script>
