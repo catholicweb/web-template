@@ -9,6 +9,7 @@ const props = defineProps({
   index: { type: Number, default: 0 },
   progressive: { type: Boolean, default: false },
   class: { type: String, default: "" },
+  style: { type: String, default: "" },
 });
 
 // Media srcs are baked to absolute remote URLs, e.g.
@@ -26,6 +27,6 @@ const isResponsive = computed(() => srcset.value != null);
      `absolute inset-0`), y envolverlo rompería esos layouts. ImageCredit
      se autoposiciona y no pinta nada salvo que el src sea de Unsplash/Pexels. -->
 <template>
-  <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
+  <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" :style="style" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
   <ImageCredit :src="src" />
 </template>

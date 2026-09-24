@@ -1,5 +1,5 @@
 <template>
-  <div class="hero relative flex items-center min-h-[50vh] mb-2 text-white font-extrabold [text-shadow:_0_0_8px_rgba(0,0,0,1)]" :class="alignmentClass">
+  <div class="hero relative flex items-center min-h-[50vh] mb-2 text-white font-extrabold [text-shadow:_0_0_8px_rgba(0,0,0,1)]" :class="alignmentClass" style="padding-top: var(--nav-offset)">
     <!-- Imagen -->
     <Image :index="block.index" :src="block.image" alt="" class="absolute inset-0 size-full object-cover" />
     <!-- Overlay -->
