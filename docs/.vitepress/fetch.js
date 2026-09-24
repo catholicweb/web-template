@@ -77,10 +77,10 @@ function slugToTitle(slug) {
     .join(' ');
 }
 
-export function normalizeConfig(raw) {
+export function normalizeConfig(raw, slug) {
   const s = raw.site ?? {};
   const pages = raw.pages ?? {};
-  return {
+  const cfg = {
     ...raw,
     title: raw.title || s.title || raw.info?.title,
     description: raw.description || s.description || raw.info?.description,
@@ -98,6 +98,12 @@ export function normalizeConfig(raw) {
       base: `${DATA}/${raw._media?.slug ?? ""}`,
     },
   };
+  // Normalize dev.siteurl via siteOrigin (forces https://, returns valid origin)
+  const d = cfg.dev;
+  if (d && d.siteurl) {
+    d.siteurl = siteOrigin(cfg, slug);
+  }
+  return cfg;
 }
 
 /**
@@ -122,7 +128,7 @@ export async function fetchConfig(slug) {
     raw.theme = raw.theme || {};
     raw.theme.image = 'https://images.unsplash.com/photo-1546374232-3ec12be8caa6?ixlib=rb-4.1.0&w=1600&q=80&fit=crop&auto=format&photographer=DDP';
   }
-  const config = normalizeConfig({ ...raw, _media: { ...(raw._media || {}), slug } });
+  const config = normalizeConfig({ ...raw, _media: { ...(raw._media || {}), slug } }, slug);
   config._media.base = `${DATA}/${slug}`;
   await fsp.mkdir(LOCAL_ROOT, { recursive: true });
   await fsp.writeFile(path.join(LOCAL_ROOT, "config.json"), JSON.stringify(config, null, 2));
@@ -143,10 +149,12 @@ export async function fetchConfig(slug) {
  */
 export function siteOrigin(config, slug) {
   let origin = `https://${slug}.parroquia.app`;
-  return origin // restrict so far
   let siteurl = config?.dev?.siteurl;
-  if (siteurl && !/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
-  if (siteurl) return new URL(siteurl).origin;
+  if (siteurl) {
+    siteurl = siteurl.replace(/^http:\/\//i, "https://");
+    if (!/^https?:\/\//i.test(siteurl)) siteurl = "https://" + siteurl;
+    return new URL(siteurl).origin;
+  }
   return origin;
 }
 

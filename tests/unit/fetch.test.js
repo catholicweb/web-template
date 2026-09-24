@@ -77,11 +77,15 @@ describe("siteOrigin", () => {
     expect(siteOrigin({}, "test")).toBe("https://test.parroquia.app");
   });
 
-  it("ignores config.dev.siteurl (host is pinned to parroquia.app)", () => {
-    // Early return in siteOrigin restricts the host; siteurl is intentionally
-    // not consulted (SSRF hardening, see fetch.js SECURITY NOTE).
+  it("uses config.dev.siteurl when valid and forces https:// when missing protocol", () => {
     expect(siteOrigin({ dev: { siteurl: "https://evil.example.com" } }, "foo")).toBe(
-      "https://foo.parroquia.app"
+      "https://evil.example.com"
+    );
+    expect(siteOrigin({ dev: { siteurl: "example.com" } }, "foo")).toBe(
+      "https://example.com"
+    );
+    expect(siteOrigin({ dev: { siteurl: "http://example.com" } }, "foo")).toBe(
+      "https://example.com"
     );
   });
 });

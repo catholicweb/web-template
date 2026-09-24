@@ -52,10 +52,6 @@ export default defineConfig(async () => {
         .replace(/\.html$/, "")
         .replace(/index$/, "");
       const head = getJSONLD(pageData.frontmatter, config, path);
-      const buttonStyle = config.theme?.buttonStyle || "solid";
-      if (buttonStyle !== "solid") {
-        head.push(["script", {}, `document.documentElement.setAttribute("data-theme-button","${buttonStyle}")`]);
-      }
       return head;
     },
     vite: {
@@ -96,7 +92,7 @@ export default defineConfig(async () => {
           devOptions: { enabled: false },
           injectManifest: {
             // Precache built JS/CSS/HTML and common static assets
-            globPatterns: ["**/*.{js,css,png,svg,ico,woff2,woff}","404.html"],
+            globPatterns: ["**/*.{js,css,png,svg,ico,woff2,woff}","**/404.html"],
           },
         }),
       ],
