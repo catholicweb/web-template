@@ -19,7 +19,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useData } from "vitepress";
 import { useRegisterSW } from "virtual:pwa-register/vue";
 import versions from "../../../public/icon-versions.json";
@@ -43,12 +43,12 @@ let notificationsSetupInProgress = false;
 // service worker update or permission reset. This is not our bug — see
 // https://github.com/firebase/firebase-js-sdk/issues/9213 — this just
 // stops it from surfacing as an uncaught error in the page.
-if (typeof window !== "undefined") {
-  window.addEventListener("unhandledrejection", (e) => {
-    if (e.reason && /pushManager/.test(String(e.reason.message || e.reason))) {
-      e.preventDefault();
-    }
-  });
+// Defined here (not attached) so onMounted/onUnmounted can add and remove
+// the exact same reference instead of leaking a new listener per mount.
+function handleUnhandledRejection(e) {
+  if (e.reason && /pushManager/.test(String(e.reason.message || e.reason))) {
+    e.preventDefault();
+  }
 }
 
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
@@ -189,17 +189,34 @@ async function askNotifications() {
   await setupNotifications(false);
 }
 
+// Named (rather than inline/anonymous) so onUnmounted can remove the exact
+// same reference — inline arrow functions can't be un-registered.
+function handleBeforeInstallPrompt(e) {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show button only if not already installed
+  if (!isStandalone()) {
+    state.value.showInstallButton = true;
+  }
+}
+
+function handleAppInstalled() {
+  state.value.showInstallButton = false;
+  deferredPrompt = null;
+}
+
+// Tracks the "returning visitor" setupNotifications() timer so it can be
+// cancelled if the component unmounts before the 5s delay elapses.
+let notifyTimeoutId = null;
+
 onMounted(() => {
+  if (typeof window !== "undefined") {
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+  }
+
   if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     // --- LOGIC FOR ANDROID / CHROME / DESKTOP ---
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      // Show button only if not already installed
-      if (!isStandalone()) {
-        state.value.showInstallButton = true;
-      }
-    });
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     // --- LOGIC FOR IOS ---
     // Since iOS doesn't fire beforeinstallprompt, we manually check
@@ -207,10 +224,7 @@ onMounted(() => {
       state.value.showInstallButton = true;
     }
 
-    window.addEventListener("appinstalled", () => {
-      state.value.showInstallButton = false;
-      deferredPrompt = null;
-    });
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     if (typeof Notification !== "undefined") {
       if (Notification.permission === "granted") {
@@ -220,12 +234,24 @@ onMounted(() => {
         // and onMessage() (foreground notifications) never gets registered.
         // Re-run it silently on every load when permission is already granted.
         console.log("[FCM] onMounted -> calling setupNotifications (granted)");
-        setTimeout(() => setupNotifications(true), 5000) // delay it 5s, just to make sure it does not block anything
+        notifyTimeoutId = setTimeout(() => setupNotifications(true), 5000); // delay it 5s, just to make sure it does not block anything
       } else if (Notification.permission !== "denied") {
         // Bell-triggered notifications for users who haven't granted yet
         state.value.showBell = true;
       }
     }
+  }
+});
+
+onUnmounted(() => {
+  if (typeof window !== "undefined") {
+    window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.removeEventListener("appinstalled", handleAppInstalled);
+  }
+  if (notifyTimeoutId) {
+    clearTimeout(notifyTimeoutId);
+    notifyTimeoutId = null;
   }
 });
 

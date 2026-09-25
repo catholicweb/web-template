@@ -27,8 +27,7 @@ export default defineConfig(async () => {
   const { preloads } = await getFontCSS(config.theme ?? {});
   return {
     head: [
-      // Load google fonts
-      ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "anonymous" }],
+      // css preloads (fonts)
       ...preloads,
       // Manifest and icons
       ["link", { rel: "icon", href: "/favicon.ico", type: "image/x-icon" }],
@@ -98,8 +97,9 @@ export default defineConfig(async () => {
             ],
           },
           // Show update banner (PWA.vue uses useRegisterSW to detect the needRefresh signal)
-          registerType: "autoUpdate",
+          registerType: "prompt",
           devOptions: { enabled: false },
+          injectRegister: false,
           injectManifest: {
             // Precache built JS/CSS/HTML and common static assets
             globPatterns: ["**/*.{js,css,png,svg,ico,woff2,woff}","**/404.html"],

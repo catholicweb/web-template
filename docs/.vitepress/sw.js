@@ -125,7 +125,12 @@ registerRoute(
 // injectManifest globPatterns so it lands in the precache.
 setCatchHandler(async ({ request }) => {
   if (request.destination === "document") {
-    return matchPrecache("/404.html");
+    // matchPrecache() resolves to undefined if "/404.html" isn't actually
+    // in the precache manifest (e.g. a base-path mismatch at build time).
+    // Returning undefined from a fetch handler surfaces as a broken
+    // navigation instead of a clean error, so fall back explicitly.
+    const offlineShell = await matchPrecache("/404.html");
+    return offlineShell || Response.error();
   }
   return Response.error();
 });
