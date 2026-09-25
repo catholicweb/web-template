@@ -233,7 +233,7 @@ async function generateIcons() {
         ACCENT = toHex(dominant)
       }
       const size = 512;
-      const inner = Math.round(size * 0.58); // logo stays inside the safe zone
+      const inner = Math.round(size * 0.50); // logo stays inside the safe zone
 
       const logo = await sharp("docs/public/icon-512.png") // your square logo, ideally with transparent background
         .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
