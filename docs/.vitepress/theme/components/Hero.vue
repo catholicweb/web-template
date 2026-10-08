@@ -7,7 +7,7 @@
 
     <!-- Content -->
     <div class="relative z-10 px-4">
-      <h1 v-if="block.title" class="mb-5 text-5xl">
+      <h1 v-if="block.title" class="mb-5 text-3xl">
         {{ block.title }}
       </h1>
       <p v-if="block.description" class="mb-5">

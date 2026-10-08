@@ -365,13 +365,19 @@ const rootAttrs = computed(() => {
   .nav-root[data-align="center"] .nav-controls { order: 3; justify-self: end; }
 }
 
+@media (max-width: 1023.98px) {
+  .nav-root[data-overlay][data-open][data-surface="glass"] .nav-bar::before {
+    background: var(--nav-solid);
+  }
+}
+
 /* menus */
 .nav-panel { background: var(--nav-menu-bg); color: var(--nav-menu-fg); }
 .nav-panel a:hover { background: var(--nav-menu-hover); }
 .nav-hoverable:hover { background: var(--nav-hover); }
 .nav-mobile { border-top: 1px solid var(--nav-border); }
-.nav-root[data-display] .nav-panel { font-size: 1.5rem; }
-.nav-root[data-display] .nav-mobile { text-align: center; font-size: 1.25rem; }
+.nav-root[data-display] .nav-logo-box { font-size: 1.5rem; }
+.nav-root[data-display] .nav-logo-box { text-align: center; font-size: 1.25rem; }
 
 /* stage */
 .nav-stage { color: var(--nav-fg); }
