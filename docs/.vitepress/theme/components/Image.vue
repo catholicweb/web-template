@@ -20,6 +20,10 @@ const props = defineProps({
 const DEFAULT_SIZES = "(min-width: 1024px) 50vw, 100vw";
 const srcset = computed(() => buildImageSrcset(props.src));
 const isResponsive = computed(() => srcset.value != null);
+
+const CORS_HOSTS = ['https://data.parroquia.app', "https://i.ytimg.com", "https://images.unsplash.com", "https://images.pexels.com"];
+const useCors = computed(() => CORS_HOSTS.some((h) => props.src.startsWith(h + "/")));
+
 </script>
 
 <!-- El crédito va como hermano (fragmento), nunca envolviendo el <img>: los
@@ -27,6 +31,6 @@ const isResponsive = computed(() => srcset.value != null);
      `absolute inset-0`), y envolverlo rompería esos layouts. ImageCredit
      se autoposiciona y no pinta nada salvo que el src sea de Unsplash/Pexels. -->
 <template>
-  <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" :style="style" crossorigin="anonymous" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
+  <img :src="src" :srcset="srcset || undefined" :sizes="isResponsive ? DEFAULT_SIZES : undefined" :alt="alt" :class="class" :style="style" :crossorigin="useCors ? 'anonymous' : undefined" :fetchpriority="index >= 1 ? 'low' : 'high'" :loading="index >= 1 ? 'lazy' : 'eager'" />
   <ImageCredit :src="src" />
 </template>

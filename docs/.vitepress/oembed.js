@@ -1,5 +1,4 @@
 // oembed-ultra.js
-import { Parser } from "htmlparser2";
 import { read } from "./node_utils.js";
 import ogs from "open-graph-scraper";
 
@@ -18,10 +17,11 @@ function cleanTitle(str) {
   return str.split("|")[0].trim();
 }
 
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "User-Agent": UA,
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
 };
@@ -78,7 +78,7 @@ export async function getPreview(url) {
       type: "link",
       src: url,
       title: "",
-      image: "",
+      image: googleFavicon(url),
       aspect: round(16 / 9),
     };
   }
@@ -91,92 +91,71 @@ async function getOEmbed(url) {
   const known = KNOWN_PROVIDERS.find((p) => p.re.test(host));
   if (known) {
     const params = new URLSearchParams({ url, format: "json" });
+    // Vimeo sizes its thumbnail to the requested width (default is tiny)
+    if (/vimeo\.com$/.test(host)) params.set("width", "1280");
     const oembedUrl = `${known.api}?${params.toString()}`;
     return fetchOembed(oembedUrl);
   }
 
-  return openGraphScraper(url)
+  return openGraphScraper(url);
+}
 
+/* ── IMAGE DISCOVERY ───────────────────────────────────────────────────────── */
+
+const asArray = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+
+// Google's favicon service: always returns something, up to 256px
+function googleFavicon(targetUrl) {
+  try {
+    const { hostname } = new URL(targetUrl);
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=256`;
+  } catch {
+    return "";
+  }
+}
+
+// First social/preview image the site itself declares, in order of trust:
+// og:image → twitter:image → JSON-LD → other metadata. No network, no scoring.
+function pickSocialImage(result, targetUrl) {
+  const nodes = asArray(result.jsonLD).flatMap((n) => asArray(n?.["@graph"] ?? n));
+  const candidates = [
+    ...asArray(result.ogImage),
+    result.ogImageSecureUrl,
+    ...asArray(result.twitterImage),
+    result.twitterImageSrc,
+    ...nodes.flatMap((n) => [...asArray(n?.image), ...asArray(n?.primaryImageOfPage), ...asArray(n?.thumbnailUrl)]),
+    result.schemaImage,
+    result.dcImage,
+    result.dcImageSrc,
+    result.articleImage,
+    ...asArray(result.alImage),
+  ];
+
+  for (const c of candidates) {
+    const raw = typeof c === "string" ? c : c?.url;
+    if (typeof raw !== "string" || !raw.trim() || raw.startsWith("data:")) continue;
+    try {
+      const url = new URL(raw.trim(), targetUrl).href;
+      if (/^https?:/.test(url)) return url;
+    } catch {}
+  }
+  return "";
 }
 
 export async function openGraphScraper(targetUrl) {
-  const options = {
-    url: targetUrl,
-    fetchOptions: {
-      headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-    },
-  };
-
   try {
-    const { result } = await ogs(options);
+    const { result } = await ogs({
+      url: targetUrl,
+      fetchOptions: { headers: { "user-agent": UA } },
+    });
 
-// 1. Collect and normalize all candidate URLs into full absolute paths
-const rawCandidates = [
-  result.ogImage?.[0]?.url,
-  result.ogImage?.url,
-  result.ogImageSecureUrl,
-  result.twitterImage?.[0]?.url,
-  result.twitterImage?.url,
-  result.twitterImageSrc,
-  result.schemaImage,
-  result.jsonLD?.[0]?.image?.url,
-  result.jsonLD?.[0]?.image,
-  result.jsonLD?.[0]?.primaryImageOfPage?.url,
-  result.dcImage,
-  result.dcImageSrc,
-  result.articleImage,
-  result.alImage?.url,
-  result.favicon,
-];
-
-const candidates = [...new Set(
-  rawCandidates
-    .filter((url) => typeof url === "string" && url.trim().length > 0)
-    .map((url) => {
-      try {
-        return new URL(url, targetUrl).href;
-      } catch (e) {
-        return url;
-      }
-    })
-)];
-
-// 2. Simple scoring algorithm
-function scoreImage(url) {
-  const lower = url.toLowerCase();
-
-  // Tier 1: Low quality / generic placeholders (Lowest priority)
-  if ( lower.includes("gravatar") || lower.includes("avatar") || lower.includes("150x150") || lower.includes("logo") ) {
-    return 1;
-  }
-
-  // Tier 2: Icons & SVGs
-  if (lower.includes(".ico") || lower.includes(".svg") || lower.includes("favicon")) {
-    return 2;
-  }
-
-  // Tier 3: Preferred image formats (JPG, PNG, WEBP)
-  if (/\.(png|jpe?g|webp)(\?.*)?$/i.test(lower)) {
-    return 4;
-  }
-
-  // Tier 4: Standard URLs without explicit image extensions
-  return 3;
-}
-
-// 3. Sort candidates descending by score (highest score first)
-candidates.sort((a, b) => scoreImage(b) - scoreImage(a));
-
-const image = candidates[0] || "";
     const title = result.ogTitle || result.twitterTitle || result.ogSiteName || "";
 
     return {
       type: "link",
       src: result.ogUrl || targetUrl,
       title: cleanTitle(title),
-      image,
+      image: pickSocialImage(result, targetUrl) || googleFavicon(targetUrl),
       aspect: 1.78,
     };
   } catch (error) {
@@ -185,7 +164,7 @@ const image = candidates[0] || "";
       type: "link",
       src: targetUrl,
       title: "",
-      image: "",
+      image: googleFavicon(targetUrl),
       aspect: 1.78,
     };
   }
