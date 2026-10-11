@@ -1,10 +1,24 @@
 import ICAL from "ical.js";
-import { read, write } from "./node_utils.js";
+import { read, write, fs, path } from "./node_utils.js";
 import { formatWeekdays } from "./utils.js";
+import { buildICS } from "./ics.js";
 
-function exportCalendar(events) {
-  // TODO: export also as ICS
+function exportCalendar(events, config = {}) {
   write("./docs/public/calendar.json", events);
+
+  // Same events as calendar.json, as an iCalendar file (importable in Google Calendar)
+  try {
+    const ics = buildICS(events, {
+      calendarName: config.info?.title ?? config.title ?? config.site?.title ?? "",
+      siteUrl: config.dev?.siteurl ?? config.site?.siteurl ?? "",
+    });
+    const file = "./docs/public/calendar.ics";
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, ics, "utf8");
+    console.log(`→ ${file}`);
+  } catch (e) {
+    console.error("Unable to export calendar.ics", e); // never break the build over the ICS
+  }
 }
 
 function getEventAttachments(vevent) {
@@ -287,7 +301,7 @@ export async function fetchCalendar() {
     return (a[key]?.[0]?.padStart(3, "0") || def).localeCompare(b[key]?.[0]?.padStart(3, "0") || def);
   }
   const sorted = events.toSorted((a, b) => comp(a, b, "dates") || comp(a, b, "times") || comp(a, b, "byweek") || comp(a, b, "byday") || comp(a, b, "title"));
-  exportCalendar(sorted);
+  exportCalendar(sorted, config);
   console.log("Events parsed ", sorted?.length);
   return sorted;
 }
