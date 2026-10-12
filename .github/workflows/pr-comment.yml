@@ -1,0 +1,59 @@
+# Copy to .github/workflows/pr-comment.yml
+#
+# Runs on the default branch after "PR report" finishes. It never checks out or
+# runs PR code: it only downloads the report artifact (markdown + PNGs), pushes
+# the images to an orphan `pr-previews` branch and posts/updates ONE PR comment.
+# Note: workflow_run workflows only trigger once this file is on main.
+name: PR report comment
+
+on:
+  workflow_run:
+    workflows: ["PR report"]
+    types: [completed]
+
+permissions:
+  contents: write        # push images to the pr-previews branch
+  pull-requests: write   # comment
+  actions: read          # download the artifact of the triggering run
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: pr-report
+          path: report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish images and comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          PR=$(cat report/pr.txt)
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "bad PR number"; exit 1; }
+          DIR="pr-$PR/$RUN_ID"
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads "$URL" pr-previews >/dev/null 2>&1; then
+            git clone --depth 1 --branch pr-previews "$URL" previews
+          else
+            git init -b pr-previews previews
+            git -C previews remote add origin "$URL"
+          fi
+          rm -rf "previews/pr-$PR"          # keep only the latest run per PR
+          mkdir -p "previews/$DIR/img"
+          cp -r report/img/. "previews/$DIR/img/" 2>/dev/null || true
+          git -C previews add -A
+          git -C previews commit -m "PR #$PR report (run $RUN_ID)" --allow-empty
+          git -C previews push origin pr-previews
+
+          sed -i "s#{{IMG_BASE}}#https://raw.githubusercontent.com/${REPO}/pr-previews/${DIR}/img#g" report/report.md
+          gh pr comment "$PR" -R "$REPO" --body-file report/report.md --edit-last --create-if-none

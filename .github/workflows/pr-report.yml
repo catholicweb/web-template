@@ -1,0 +1,86 @@
+# Copy to .github/workflows/pr-report.yml
+#
+# Builds the PR's BASE and HEAD against the same freshly-fetched `test` slug
+# config, diffs the generated .md / .json files, screenshots both with
+# Playwright and uploads a report. Informational: it never fails on differences.
+# Runs with a read-only token and no secrets (it executes PR code); the comment
+# is posted by pr-comment.yml.
+name: PR report
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-report-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          path: head
+          persist-credentials: false
+
+      - name: Checkout base
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: head/package-lock.json
+
+      # One fetch, shared by both builds, so config/data changes never show as diffs.
+      - name: Fetch test slug fixture
+        env:
+          PARROQUIA_LOCAL_ROOT: ${{ github.workspace }}/fixture
+        run: node head/docs/.vitepress/fetch.js test
+
+      - name: Install report tooling
+        working-directory: head/scripts/ci
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Build base
+        run: node head/scripts/ci/build-variant.mjs base out/base fixture
+
+      - name: Build head
+        run: node head/scripts/ci/build-variant.mjs head out/head fixture
+
+      - name: Compare
+        run: node head/scripts/ci/compare.mjs out/base out/head report
+
+      - name: Save PR number
+        run: echo "${{ github.event.pull_request.number }}" > report/pr.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: pr-report
+          path: report
+          retention-days: 7
