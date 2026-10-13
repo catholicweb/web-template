@@ -40,10 +40,14 @@ export function resolvePageMode(type, pageperevent = []) {
   return legacy.has(typeKey(type)) ? "event" : "none";
 }
 
-// Slug of a per-event page. Kept identical to the pre-pageMode behaviour so
-// existing event URLs do not change.
+// Slug of a per-event page: title + first date + recurrence. Events built by
+// calendar-core carry `byweek`/`byday` instead of an ICS-style `rrule`, so those
+// are used when `rrule` is missing; without them, recurring events with the same
+// title (and no dates) would all share one slug and overwrite each other.
 export function eventPageSlug(ev) {
-  return slugify([ev.title, ev.dates?.[0], ev.rrule?.join("-")].filter(Boolean).join(" "));
+  const rrule = asArray(ev.rrule);
+  const recurrence = rrule.length ? rrule : [...asArray(ev.byweek), ...asArray(ev.byday)];
+  return slugify([ev.title, ev.dates?.[0], recurrence.join("-")].filter(Boolean).join(" "));
 }
 
 function findPlace(config, id) {
