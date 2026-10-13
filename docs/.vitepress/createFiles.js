@@ -8,6 +8,7 @@ import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { fetchCalendar } from "./calendar.js";
+import { planEventPages } from "./eventPages.js";
 import crypto from "crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -372,7 +373,6 @@ async function run() {
   const eventTemplate = pagesArr.find((p) => p.protected == "Plantilla eventos");
   const townTemplate = pagesArr.find((p) => p.protected == "Plantilla templos")
   const perPlace = config.pages?.pageperlocatoin ?? true;
-  const pagePerEvent = new Set(config.pages?.pageperevent ?? [])
 
   // Authored pages = the pages.list minus the two template pages (town + event),
   // which are only ever expanded per-place/per-event below, never emitted as a
@@ -406,14 +406,34 @@ async function run() {
   }
 
   // "Plantilla eventos" — same idea, for events: a page in pages.list marked
-  // protected:"Plantilla eventos" whose sections carry placeholders,
-  // expanded once per selected event. Selection is driven by pages.pageperevent,
-  // every event belonging to a listed type gets a dedicated page.
-  if (eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length && pagePerEvent.size) {
-    for (const ev of calendar) {
-      if (!ev || !pagePerEvent.has(ev.type)) continue; // only page-flagged event types
+  // protected:"Plantilla eventos" whose sections carry placeholders, expanded once
+  // per generated page. What gets a page is decided per event-type by its
+  // `pageMode` (see eventPages.js): "type" = one page for the type, "event" = one
+  // page per event of the type, "none" = no page. Types without a pageMode that
+  // are listed in the legacy pages.pageperevent array resolve to "event".
+  // Without a usable template nothing is generated, so the plan stays empty and
+  // eventCards never links to a page that does not exist.
+  const hasEventTemplate = !!(eventTemplate && Array.isArray(eventTemplate.sections) && eventTemplate.sections.length);
+  const eventPlan = hasEventTemplate
+    ? planEventPages({ config, calendar, takenSlugs: new Set(pages.map((p) => p.slug)) })
+    : planEventPages({ config: {}, calendar: [] });
+  ctx.eventPages = eventPlan; // eventCards (pageBuilder.autocomplete) reads the same plan
+  if (hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length)) {
+    for (const { type, key, title, slug, data } of eventPlan.typePages) {
+      for (const ev of calendar) if (ev?.type === key) ev.link = "/" + slug + "/"; // surface for event cards / calendar
+      pages.push({
+        ...substitute(eventTemplate, data),
+        title,
+        slug,
+        home: false,
+        // Keep the type slug stable across languages (event cards link to /<slug>/).
+        filenameMode: "original",
+        group: "eventos",
+      });
+    }
+
+    for (const { ev, slug } of eventPlan.eventPages) {
       // unique, e.g. /campamento-verano-2027-07-20/.
-      const slug = slugify([ev.title, ev.dates?.[0], ev.rrule?.join('-')].filter(Boolean).join(" "));
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
       const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
       pages.push({
@@ -426,7 +446,7 @@ async function run() {
         group: "eventos",
       });
     }
-    
+
     // Re-write calendar.json with the link field added to page-producing events.
     write("./docs/public/calendar.json", calendar);
   }
