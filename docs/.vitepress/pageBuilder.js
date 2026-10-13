@@ -10,6 +10,7 @@ import { translateObject } from "./translate-core.js";
 import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
 import { getEventFAQ } from "./faq.js";
+import { eventCardsFor, planEventPages } from "./eventPages.js";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -276,7 +277,10 @@ export async function autocomplete(fm, pages = [], ctx) {
       fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].filter));
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "eventCards") {
-      fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].eventsToShow?.join('|') || '' ));
+      // One card per event of the selected types (legacy), plus a card for every
+      // other type/event that has its own page (see eventPages.js).
+      const plan = ctx.eventPages ?? planEventPages({ config, calendar, takenSlugs: new Set(pages.map((p) => p.slug)) });
+      fm.sections[i].events = eventCardsFor({ eventsToShow: fm.sections[i].eventsToShow, calendar, config, plan });
       (fm.sections[i].tags ??= []).push("visualCards","masonry","free-masonry");
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "map") {
