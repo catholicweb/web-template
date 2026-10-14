@@ -372,7 +372,6 @@ async function run() {
   const places = config.info?.places ?? [];
   const eventTemplate = pagesArr.find((p) => p.protected == "Plantilla eventos");
   const townTemplate = pagesArr.find((p) => p.protected == "Plantilla templos")
-  const perPlace = config.pages?.pageperlocatoin ?? true;
 
   // Authored pages = the pages.list minus the two template pages (town + event),
   // which are only ever expanded per-place/per-event below, never emitted as a
@@ -393,8 +392,11 @@ async function run() {
   // Auto-generate one page per place when the checkbox is on, a towntemplate is
   // authored, and an actual places list exists (skip otherwise).
   if (perPlace && townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
+    const defaultSections = townTemplate.sections ?? []
     for (const place of places) {
-      if (!place || !place.name) continue;
+      if (!place || !place.name || place.createPage === false ) continue; // legacy data might contain null/undefined createPage, only skip if strictly set to false
+      const placeSections = place?.sections ? (Array.isArray(place.sections) ? place.sections : [place.sections]) : [];
+      townTemplate.sections = [...defaultSections, ...placeSections ]
       pages.push({
         ...substitute(townTemplate, place),
         title: place.name,
@@ -419,7 +421,10 @@ async function run() {
     : planEventPages({ config: {}, calendar: [] });
   ctx.eventPages = eventPlan; // eventCards (pageBuilder.autocomplete) reads the same plan
   if (hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length)) {
+    const defaultSections = eventTemplate.sections ?? []
     for (const { type, key, title, slug, data } of eventPlan.typePages) {
+      const typeSections = type?.sections ? (Array.isArray(type.sections) ? type.sections : [type.sections]) : [];
+      eventTemplate.sections = [...defaultSections, ...typeSections ]
       for (const ev of calendar) if (ev?.type === key) ev.link = "/" + slug + "/"; // surface for event cards / calendar
       pages.push({
         ...substitute(eventTemplate, data),
