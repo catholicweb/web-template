@@ -1,20 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
+// These tests only exercise plain config-shape logic, so they need no browser
+// globals. (An earlier beforeEach stubbed global.navigator/window/Notification and
+// fake timers; none of it was used, and assigning global.navigator throws on
+// Node >= 21 where navigator is a read-only getter.)
 describe("FCM / notifications initialization", () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    global.Notification = { requestPermission: vi.fn().mockResolvedValue("granted") };
-    global.navigator = {
-      serviceWorker: { register: vi.fn() },
-    };
-    global.window = { PushManager: function () {} };
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
   it("should not throw when FCM config is missing", () => {
     // Simulating the guard added to setupNotifications:
     // if config is missing/invalid, return early instead of calling initializeApp
