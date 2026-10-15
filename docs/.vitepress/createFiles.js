@@ -391,7 +391,7 @@ async function run() {
 
   // Auto-generate one page per place when the checkbox is on, a towntemplate is
   // authored, and an actual places list exists (skip otherwise).
-  if (perPlace && townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
+  if (townTemplate && Array.isArray(townTemplate.sections) && townTemplate.sections.length && places.length) {
     const defaultSections = townTemplate.sections ?? []
     for (const place of places) {
       if (!place || !place.name || place.createPage === false ) continue; // legacy data might contain null/undefined createPage, only skip if strictly set to false
