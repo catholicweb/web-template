@@ -77,10 +77,52 @@ export function buildDefaultMap(config) {
   return defaultMap;
 }
 
+const norm = (v) => (typeof v === "string" ? v.toLowerCase().trim() : "");
+
+// Public name of an event type, same precedence as eventPages.typeTitle() but
+// WITHOUT the id fallback (ids may be opaque uuids and must never be displayed).
+export function typeLabelOf(type) {
+  const d = type?.defaults ?? {};
+  return [type?.label, d.title, d.name].find((v) => typeof v === "string" && v.trim()) ?? "";
+}
+
+// Map of lowercased type id -> { label, same } where `same` holds every name that
+// means "the type itself" (label, default title/name), used to decide whether an
+// event's own title adds information beyond its type.
+export function buildTypeInfo(config) {
+  const info = {};
+  for (const t of config?.["event-types"]?.list ?? []) {
+    const key = norm(t?.id);
+    if (!key) continue;
+    const d = t.defaults ?? {};
+    const label = typeLabelOf(t);
+    info[key] = { label, same: new Set([label, t.label, d.title, d.name].map(norm).filter(Boolean)) };
+  }
+  return info;
+}
+
+// Adds `typeLabel` (the type's public name) and `subtitle` (the event's own title,
+// only when it differs from the type's names; otherwise "") to an event.
+export function labelEvent(ev, info) {
+  const t = info[norm(ev.type)];
+  const label = t?.label || "";
+  const title = typeof ev.title === "string" ? ev.title.trim() : "";
+  const subtitle = label && title && !t.same.has(norm(title)) ? title : "";
+  return { ...ev, typeLabel: label, subtitle };
+}
+
+// Labels events that do not carry the fields yet (ICS imports, calendar.json
+// published before these fields existed). Already-labelled events pass through.
+export function labelEvents(events, config) {
+  const info = buildTypeInfo(config);
+  return (events ?? []).map((e) => (e && e.typeLabel === undefined ? labelEvent(e, info) : e));
+}
+
 // Native events from config.calendar.events.list (unsorted). `now` is injectable for tests.
 export function buildEvents(config, now = new Date()) {
   const evSettings = config?.calendar?.events ?? { list: [], urls: [] };
   const defaultMap = buildDefaultMap(config);
+  const typeInfo = buildTypeInfo(config);
   const events = [];
 
   for (const evt of evSettings.list || []) {
@@ -107,7 +149,7 @@ export function buildEvents(config, now = new Date()) {
       }
     }
 
-    events.push({
+    events.push(labelEvent({
       type: type,
       typeName: defaultMap[type]?.name,
       title: e.title || e.summary || "",
@@ -121,7 +163,7 @@ export function buildEvents(config, now = new Date()) {
       locations: toArray(e.location).map((id) => findPlaceName(id, config)),
       place: toArray(e.location).map((id) => findPlace(id, config))[0],
       exceptions: toArray(e.except),
-    });
+    }, typeInfo));
   }
   return events;
 }

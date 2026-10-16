@@ -1,6 +1,8 @@
 // Pure, isomorphic translation helpers (no fs / node imports) so they can run
 // both in the build adapter and in the browser preview.
-const FIELDS = ["title", "description", "html", "name", "action", "notes"];
+// `typeLabel` / `subtitle` are derived event fields (calendar-core.labelEvent): the type's
+// public name and the event's own title. They are shown as calendar headings/extras.
+const FIELDS = ["title", "description", "html", "name", "action", "notes", "typeLabel", "subtitle"];
 
 /**
  * Recorre recursivamente un objeto/array y aplica una función
