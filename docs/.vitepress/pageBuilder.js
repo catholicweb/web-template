@@ -11,6 +11,7 @@ import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
 import { getEventFAQ } from "./faq.js";
 import { eventCardsFor, planEventPages } from "./eventPages.js";
+import { selectEvents, pageContext, groupEventsAuto } from "./calendarAuto.js";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -204,8 +205,12 @@ export async function postComplete(fm, ctx) {
       (fm.sections[i].tags ??= []).push("mansonry");
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
-      const order = assembleOrder(fm.sections[i]);
-      fm.sections[i].events = groupEvents(fm.sections[i].events, order);
+      // ordering "auto": one table per event type, each laid out from its own data
+      // (calendarAuto.js). Anything else keeps the author's manual ordering.
+      fm.sections[i].events =
+        fm.sections[i].ordering === "auto"
+          ? groupEventsAuto(fm.sections[i].events, { scope: fm.sections[i]._scope })
+          : groupEvents(fm.sections[i].events, assembleOrder(fm.sections[i]));
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
@@ -274,7 +279,11 @@ export async function autocomplete(fm, pages = [], ctx) {
       (fm.sections[i].tags ??= []).push("small");
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
-      fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].filter));
+      // Scope/horizon/type order need to know which page this is (town, event type,
+      // single event); language-independent, so it is resolved here, before translation.
+      const context = pageContext(fm, ctx.eventPages);
+      fm.sections[i].events = selectEvents(calendar, fm.sections[i], { context, config });
+      if (fm.sections[i].ordering === "auto") fm.sections[i]._scope = context?.kind ?? null;
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "eventCards") {
       // One card per event of the selected types (legacy), plus a card for every
