@@ -77,10 +77,26 @@ export function buildDefaultMap(config) {
   return defaultMap;
 }
 
+// Map of lowercased type id -> display title of the type (label, else the
+// defaults' title/name). Mirrors eventPages.typeTitle minus its final fallback to
+// the raw id: types without any title are left out so callers can fall back to
+// the event's own title instead of showing an id like "mass".
+export function buildTypeTitles(config) {
+  const evTypes = config?.["event-types"]?.list ?? [];
+  const titles = {};
+  for (const t of evTypes) {
+    const key = (t?.id || "").toLowerCase().trim();
+    const title = t?.label || t?.defaults?.title || t?.defaults?.name || "";
+    if (key && title) titles[key] = title;
+  }
+  return titles;
+}
+
 // Native events from config.calendar.events.list (unsorted). `now` is injectable for tests.
 export function buildEvents(config, now = new Date()) {
   const evSettings = config?.calendar?.events ?? { list: [], urls: [] };
   const defaultMap = buildDefaultMap(config);
+  const typeTitles = buildTypeTitles(config);
   const events = [];
 
   for (const evt of evSettings.list || []) {
@@ -107,10 +123,15 @@ export function buildEvents(config, now = new Date()) {
       }
     }
 
+    const title = e.title || e.summary || "";
     events.push({
       type: type,
       typeName: defaultMap[type]?.name,
-      title: e.title || e.summary || "",
+      // Heading to group by: the type's title, or the event's own title when its
+      // type has none (so untyped events still get a table, and the default
+      // ordering's `title-eventTypeTitle` doesn't repeat it).
+      eventTypeTitle: typeTitles[type] || title,
+      title,
       times: toArray(e.times).join("||").replaceAll(".", ":").split("||").filter(Boolean),
       dates: dates,
       images: toArray(e.images),
