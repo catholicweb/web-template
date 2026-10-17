@@ -1,3 +1,8 @@
+const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+
+// Position of a weekday key ("SA", "MO,TU,WE,TH,FR") in the week; -1 for any other key.
+const weekdayRank = (key) => WEEKDAY_CODES.indexOf(String(key).split(",")[0]);
+
 export function groupEvents(events, fields = []) {
   if (fields.length === 0) return events;
   const field = fields[0];
@@ -10,34 +15,46 @@ export function groupEvents(events, fields = []) {
     return acc;
   }, {});
 
+  const keys = Object.keys(grouped);
   if (field == "times") {
-    return Object.keys(grouped)
-      .sort((a, b) => a.localeCompare(b))
-      .reduce((acc, key) => {
-        acc[key] = groupEvents(grouped[key], fields.slice(1));
-        return acc;
-      }, {});
+    keys.sort((a, b) => a.localeCompare(b));
+  } else if (keys.some((key) => weekdayRank(key) >= 0)) {
+    // Weekday keys (recurring events) go first, in week order. Any other key
+    // (e.g. ISO dates, already chronological) keeps its relative order after them.
+    const rank = (key) => (weekdayRank(key) >= 0 ? weekdayRank(key) : WEEKDAY_CODES.length);
+    keys.sort((a, b) => rank(a) - rank(b));
   }
 
-  Object.keys(grouped).forEach((key) => {
-    grouped[key] = groupEvents(grouped[key], fields.slice(1));
-  });
-  return grouped;
+  return keys.reduce((acc, key) => {
+    acc[key] = groupEvents(grouped[key], fields.slice(1));
+    return acc;
+  }, {});
 }
+
+// Default `ordering` for calendar sections, meant to fit most event data. Each
+// entry is one level of the nested tables Calendar.vue renders:
+//   eventTypeTitle   one table per event type (the event's title when it has no type)
+//   byday/dates      rows: weekday for recurring events, else each date
+//   skip             no column level (a single headerless column)
+//   times            lines: the time of day
+//   byweek+locations+title-eventTypeTitle+notes
+//                    extra info: week of the month, place, the title (only when it
+//                    adds something to the type title) and notes
+export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "byweek+locations+title-eventTypeTitle+notes"];
 
 // Stablish a new world order
 export function assembleOrder(section) {
 
-  const newWorlOrder = section?.ordering?.split(',')
+  const newWorlOrder = section?.ordering?.split(',').map((field) => field.trim())
   if (newWorlOrder && newWorlOrder.length == 5) return newWorlOrder
   
   // Backward compatibility: legacy `order` array
-  if (Array.isArray(section.order) && section.order.length) {
+  if (Array.isArray(section?.order) && section.order.length) {
     return section.order;
   }
 
   // Default fallback
-  return ["title", "dates", "skip", "times", "locations"];
+  return [...DEFAULT_ORDERING];
 }
 
 export function toArray(value) {

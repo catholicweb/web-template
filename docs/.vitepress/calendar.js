@@ -1,7 +1,7 @@
 import ICAL from "ical.js";
 import { read, write, fs, path } from "./node_utils.js";
 import { formatWeekdays } from "./utils.js";
-import { buildEvents, buildDefaultMap, sortEvents, toArray, parseDateToISO } from "./calendar-core.js";
+import { buildEvents, buildDefaultMap, buildTypeTitles, sortEvents, toArray, parseDateToISO } from "./calendar-core.js";
 import { buildICS } from "./ics.js";
 
 function exportCalendar(events, config = {}) {
@@ -121,6 +121,7 @@ export async function fetchCalendar() {
   const config = read("./docs/public/config.json");
   const evSettings = config.calendar?.events ?? { list: [], urls: [] };
   const defaultMap = buildDefaultMap(config);
+  const typeTitles = buildTypeTitles(config);
   const events = buildEvents(config);
 
   /*
@@ -158,9 +159,12 @@ export async function fetchCalendar() {
             return p.getFirstValue().toJSDate();
           });
         }
+        const title = event.summary?.split("-")[0].trim() || "";
         events.push({
           type: type,
-          title: event.summary?.split("-")[0].trim() || "",
+          // Same grouping heading native events get (see calendar-core.buildEvents)
+          eventTypeTitle: typeTitles[type] || title,
+          title: title,
           times: toArray(getTime(event.startDate)),
           dates: dates,
           //end: event.endDate.toJSDate(),

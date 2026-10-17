@@ -4,6 +4,7 @@ import {
   applyComplexFilter,
   groupEvents,
   assembleOrder,
+  DEFAULT_ORDERING,
   formatDate,
   getCode,
   toArray,
@@ -86,6 +87,80 @@ describe("groupEvents", () => {
   it("handles empty event lists", () => {
     expect(groupEvents([], ["title"])).toEqual({});
   });
+
+  it("orders weekday keys from Monday to Sunday, before any dates", () => {
+    const recurring = (byday, dates = []) => ({ title: "Misa", byday, dates });
+    const grouped = groupEvents(
+      [recurring(["SU"]), recurring([], ["2099-12-25"]), recurring(["SA"]), recurring(["MO", "TU", "WE", "TH", "FR"])],
+      ["byday/dates"],
+    );
+    expect(Object.keys(grouped)).toEqual(["MO,TU,WE,TH,FR", "SA", "SU", "2099-12-25"]);
+  });
+});
+
+describe("assembleOrder", () => {
+  it("defaults to the smart ordering (5 levels)", () => {
+    const order = assembleOrder({});
+    expect(order).toEqual(DEFAULT_ORDERING);
+    expect(order).toHaveLength(5);
+  });
+
+  it("returns a copy, so callers cannot mutate the default", () => {
+    assembleOrder({}).push("x");
+    expect(assembleOrder({})).toHaveLength(5);
+  });
+
+  it("honours a 5-field `ordering` string and trims its entries", () => {
+    expect(assembleOrder({ ordering: "title, dates, skip, times, locations" })).toEqual(["title", "dates", "skip", "times", "locations"]);
+  });
+
+  it("falls back to the default when `ordering` has the wrong length", () => {
+    expect(assembleOrder({ ordering: "title,dates" })).toEqual(DEFAULT_ORDERING);
+  });
+
+  it("keeps supporting the legacy `order` array", () => {
+    expect(assembleOrder({ order: ["a", "b"] })).toEqual(["a", "b"]);
+  });
+});
+
+describe("default ordering end to end", () => {
+  const base = { byweek: [], notes: [], dates: [], byday: [] };
+  const events = [
+    { ...base, eventTypeTitle: "Misa", title: "Misa", byday: ["SU"], times: ["12:00"], locations: ["Iglesia"] },
+    { ...base, eventTypeTitle: "Misa", title: "Misa", byday: ["SA"], times: ["19:00"], locations: ["Iglesia"] },
+    { ...base, eventTypeTitle: "Misa", title: "Misa", byday: ["MO", "TU", "WE", "TH", "FR"], times: ["08:00"], locations: ["Capilla"] },
+    { ...base, eventTypeTitle: "Adoración", title: "Adoración", byday: ["FR"], byweek: ["WEEK1"], times: ["20:00"], locations: ["Iglesia"] },
+    {
+      ...base,
+      eventTypeTitle: "Concierto",
+      title: "Concierto de Navidad",
+      dates: ["2099-12-25"],
+      times: ["20:00"],
+      locations: ["Catedral"],
+      notes: ["Entrada libre"],
+    },
+  ];
+  const grouped = groupEvents(events, assembleOrder({}));
+
+  it("makes one table per event type", () => {
+    expect(Object.keys(grouped)).toEqual(["Misa", "Adoración", "Concierto"]);
+  });
+
+  it("lists recurring events by weekday, Monday first", () => {
+    expect(Object.keys(grouped.Misa)).toEqual(["MO,TU,WE,TH,FR", "SA", "SU"]);
+  });
+
+  it("does not repeat the type title as extra info", () => {
+    expect(Object.keys(grouped.Misa.SA[""]["19:00"])).toEqual(["Iglesia"]);
+  });
+
+  it("shows the week of the month before the place", () => {
+    expect(Object.keys(grouped["Adoración"].FR[""]["20:00"])).toEqual(["WEEK1", "Iglesia"]);
+  });
+
+  it("lists one-off events by date, with their own title and notes as extra info", () => {
+    expect(Object.keys(grouped.Concierto["2099-12-25"][""]["20:00"])).toEqual(["Catedral", "Concierto de Navidad", "Entrada libre"]);
+  });
 });
 
 describe("formatDate", () => {
@@ -160,4 +235,3 @@ describe("formatWeekdays", () => {
     ]);
   });
 });
-
