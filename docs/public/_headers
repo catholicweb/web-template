@@ -12,3 +12,6 @@ https://:version.:project.pages.dev/*
 /assets/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
+
+/calendar.ics
+  Content-Type: text/calendar; charset=utf-8
