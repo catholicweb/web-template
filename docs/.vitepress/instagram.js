@@ -1,4 +1,5 @@
 import { read, write } from "./node_utils.js";
+import { downloadImage, hasLocalFile, imageBaseName } from "./instagram-images.js";
 
 const EMBED_MAP = {
   //delejunavarra: "ffbdd8fa-1773-40d2-a55f-509b0c4ded9b",
@@ -26,6 +27,35 @@ function getEmbedId(socialUrl) {
   if (handle && EMBED_MAP[handle]) return EMBED_MAP[handle];
   // Silent fallback to default Elfsight widget id for unmapped accounts
   return "ffbdd8fa-1773-40d2-a55f-509b0c4ded9b";
+}
+
+const keyOf = (e) => e.url || e.videoId;
+
+// Instagram/Elfsight image URLs are signed and expire, so every post's image is
+// copied into docs/public/instagram/ and `image` is rewritten to the local
+// /instagram/<id>.<ext> path. Images of already-known posts were restored from
+// the deployed site by fetch.js, so only genuinely new posts hit the network.
+// Entries still pointing at a remote URL (legacy data, or a failed download)
+// are retried, preferring the fresh URL from this run's payload when the post
+// is still in it. A failed download keeps the remote URL and never fails the build.
+async function localizeImages(items, freshByKey) {
+  const out = [];
+  let downloaded = 0;
+  for (let i = 0; i < items.length; i += 5) {
+    const batch = await Promise.all(
+      items.slice(i, i + 5).map(async (item) => {
+        if (hasLocalFile(item.image)) return item; // known post, image already restored
+        const src = freshByKey.get(keyOf(item))?.image || item.image;
+        const image = await downloadImage(src, imageBaseName(item));
+        if (!image) return item;
+        downloaded++;
+        return { ...item, image };
+      }),
+    );
+    out.push(...batch);
+  }
+  console.log(`instagram: downloaded ${downloaded} image(s), ${items.length - downloaded} unchanged`);
+  return out;
 }
 
 export async function fetchInstagram() {
@@ -121,8 +151,12 @@ export async function fetchInstagram() {
     });
 
     // 4. Merge: prepend new entries, preserving existing items by unique identifier
-    const seen = new Set(existing.map((e) => e.url || e.videoId));
-    const merged = [...normalized.filter((n) => !(seen.has(n.url || n.videoId))), ...existing];
+    const seen = new Set(existing.map(keyOf));
+    const added = normalized.filter((n) => !seen.has(keyOf(n)));
+    const freshByKey = new Map(normalized.map((n) => [keyOf(n), n]));
+
+    // 5. Self-host the thumbnails (only new / not-yet-local ones are downloaded)
+    const merged = await localizeImages([...added, ...existing], freshByKey);
     write(local, merged);
     return merged;
 

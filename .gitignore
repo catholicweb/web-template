@@ -2,6 +2,7 @@ node_modules
 docs/**/*.md
 docs/public/*.json
 docs/public/*.png
+docs/public/instagram/
 docs/public/calendar.ics
 docs/.vitepress/theme/style.css
 docs/.vitepress/cache

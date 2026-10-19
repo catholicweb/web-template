@@ -19,8 +19,10 @@
  *     {siteurl}/dictionary.json        (translation cache, deployed at site root)
  *     {siteurl}/videos.json        (known-videos list, from the deployed site, falling back to the data host)
  *     {siteurl}/buildtimecache.json    (persisted build-time fetch cache)
+ *     {siteurl}/instagram.json         (known Instagram posts)
+ *     {siteurl}/instagram/*            (their self-hosted thumbnails, restored into docs/public/instagram/)
  *
- * All three are best-effort: a 404 just means the previous deploy hadn't
+ * All of them are best-effort: a 404 just means the previous deploy hadn't
  * published them yet, and the adapter starts fresh.
  *
  * It normalizes the (optionally nested) config into the flat shape the
@@ -42,6 +44,7 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { restoreInstagramImages } from "./instagram-images.js";
 
 const DATA = (process.env.PARROQUIA_DATA || 'https://data.parroquia.app').replace(/\/$/, '');
 const LOCAL_ROOT = process.env.PARROQUIA_LOCAL_ROOT
@@ -218,6 +221,16 @@ export async function fetchDataFiles(slug, config) {
   await downloadDataFile("videos.json", `${origin}/videos.json?t=${Date.now()}`, []);
   await downloadDataFile("instagram.json", `${origin}/instagram.json?t=${Date.now()}`, []);
   //await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
+
+  // instagram.json points at self-hosted thumbnails (/instagram/<id>.<ext>) that
+  // also ride along in the deployed site. Pull them back into docs/public/ so
+  // instagram.js only has to download images for genuinely new posts.
+  try {
+    const items = parseJSON(await fsp.readFile(path.join(LOCAL_ROOT, "instagram.json"), "utf8"), []);
+    await restoreInstagramImages(origin, items, { root: LOCAL_ROOT });
+  } catch (e) {
+    console.error(`fetch: instagram images restore failed (continuing): ${e.message}`);
+  }
 }
 
 // --- CLI ------------------------------------------------------------------
