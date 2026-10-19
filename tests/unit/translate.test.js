@@ -34,6 +34,14 @@ describe("translateObject", () => {
     });
   });
 
+  it("translates the event type title of calendar events", () => {
+    const result = translateObject(
+      [{ eventTypeTitle: "Misa", title: "Misa", type: "misa" }],
+      { Misa: "Meza" }
+    );
+    expect(result).toEqual([{ eventTypeTitle: "Meza", title: "Meza", type: "misa" }]);
+  });
+
   it("records translatable strings from FIELDS values", () => {
     expect(extractValues({ title: "Hola\n\nMundo", name: "A" })).toEqual(["Hola", "Mundo", "A"]);
   });
@@ -42,6 +50,10 @@ describe("translateObject", () => {
 describe("extractValues", () => {
   it("splits multi-paragraph values and trims each part", () => {
     expect(extractValues({ title: "Primer\n  \nSegundo" })).toEqual(["Primer", "Segundo"]);
+  });
+
+  it("extracts the event type title so it reaches the dictionary", () => {
+    expect(extractValues([{ eventTypeTitle: "Misa" }])).toEqual(["Misa"]);
   });
 
   it("does not extract strings nested under non-FIELD keys", () => {

@@ -1,4 +1,4 @@
-import { read, write } from "./node_utils.js";
+import { read, write, fs } from "./node_utils.js";
 import { extractValues, translateObject, translateValue } from "./translate-core.js";
 
 export { extractValues, translateObject, translateValue };
@@ -159,8 +159,10 @@ export async function buildDictionary() {
     for (const v of extractValues(read("./docs/public/calendar.json"))) valueSet.add(v);
 
     // Also extract hardcoded navbar group labels so they get translated.
+    // NOTE: read() returns a gray-matter object for non-JSON files, not a string,
+    // so the source must be read as plain text for the regexes below to work.
     try {
-      const navSrc = read("./docs/.vitepress/navBar.js");
+      const navSrc = fs.readFileSync("./docs/.vitepress/navBar.js", "utf8");
       const groupMatches = navSrc.match(/groupLabels\s*=\s*\{[^}]*\}/);
       if (groupMatches) {
         const labelMatches = groupMatches[0].match(/"([^"]+)"/g);
@@ -168,7 +170,9 @@ export async function buildDictionary() {
           for (const m of labelMatches) valueSet.add(m.replace(/"/g, ""));
         }
       }
-    } catch {}
+    } catch (e) {
+      console.warn("Unable to extract navbar group labels for translation:", e.message);
+    }
 
     const valuesArray = [...valueSet];
 

@@ -37,10 +37,10 @@ export function groupEvents(events, fields = []) {
 //   byday/dates      rows: weekday for recurring events, else each date
 //   skip             no column level (a single headerless column)
 //   times            lines: the time of day
-//   byweek+locations+title-eventTypeTitle+notes
-//                    extra info: week of the month, place, the title (only when it
-//                    adds something to the type title) and notes
-export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "byweek+locations+title-eventTypeTitle+notes"];
+//   title-eventTypeTitle+byweek+locations+notes
+//                    extra info: the title (only when it adds something to the
+//                    type title), week of the month, place and notes
+export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "title-eventTypeTitle+byweek+locations+notes"];
 
 // Stablish a new world order
 export function assembleOrder(section) {
