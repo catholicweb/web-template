@@ -150,7 +150,7 @@ describe("default ordering end to end", () => {
     expect(Object.keys(grouped.Misa)).toEqual(["MO,TU,WE,TH,FR", "SA", "SU"]);
   });
 
-  it("does not repeat the type title as a line", () => {
+  it("uses one line per time, never repeating the type title", () => {
     expect(Object.keys(grouped.Misa.SA[""])).toEqual(["19:00"]);
     expect(Object.keys(grouped.Misa.SA[""]["19:00"])).toEqual(["Iglesia"]);
   });
@@ -159,12 +159,10 @@ describe("default ordering end to end", () => {
     expect(Object.keys(grouped["Adoración"].FR[""]["20:00"])).toEqual(["WEEK1", "Iglesia"]);
   });
 
-  it("lists one-off events by date, with the time and the own title as lines", () => {
-    expect(Object.keys(grouped.Concierto["2099-12-25"][""])).toEqual(["20:00", "Concierto de Navidad"]);
-  });
-
-  it("puts the place and notes in the extra info of each line", () => {
-    expect(Object.keys(grouped.Concierto["2099-12-25"][""]["20:00"])).toEqual(["Catedral", "Entrada libre"]);
+  it("keeps a single line for one-off events, with the title first in the extra info", () => {
+    const lines = grouped.Concierto["2099-12-25"][""];
+    expect(Object.keys(lines)).toEqual(["20:00"]);
+    expect(Object.keys(lines["20:00"])).toEqual(["Concierto de Navidad", "Catedral", "Entrada libre"]);
   });
 });
 

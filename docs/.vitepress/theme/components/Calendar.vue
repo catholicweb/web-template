@@ -20,13 +20,13 @@ function getSubKeys(table) {
   return Array.from(keys);
 }
 
-// Text shown for a line (the key of the 4th ordering level, e.g. time / title).
+// Text shown for a line (the key of the 4th ordering level, e.g. the time).
 function lineLabel(line, lineKey, lang) {
   if (eventHref(line) && line.title) return line.title;
   return formatDate(lineKey, lang);
 }
 
-// Extra info of a line (the keys of the last ordering level, e.g. week / place / notes).
+// Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes).
 function lineExtras(line, lang) {
   return Object.keys(line)
     .map((key) => formatDate(key, lang))
@@ -75,7 +75,7 @@ function lineExtras(line, lang) {
                   </template>
                   <!-- The " - " separator only shows when there is both a label and extra info -->
                   <span
-                    class="extra italic text-sm"
+                    class="extra italic"
                     :class="{ 'with-label': lineLabel(line, lineKey, $frontmatter.lang) }"
                     >{{ lineExtras(line, $frontmatter.lang) }}</span
                   >
