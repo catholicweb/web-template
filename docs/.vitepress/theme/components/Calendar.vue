@@ -19,6 +19,20 @@ function getSubKeys(table) {
   }
   return Array.from(keys);
 }
+
+// Text shown for a line (the key of the 4th ordering level, e.g. time / title).
+function lineLabel(line, lineKey, lang) {
+  if (eventHref(line) && line.title) return line.title;
+  return formatDate(lineKey, lang);
+}
+
+// Extra info of a line (the keys of the last ordering level, e.g. week / place / notes).
+function lineExtras(line, lang) {
+  return Object.keys(line)
+    .map((key) => formatDate(key, lang))
+    .filter(Boolean)
+    .join(", ");
+}
 </script>
 
 <template>
@@ -54,17 +68,16 @@ function getSubKeys(table) {
                     :href="eventHref(line)"
                     class="text-accent font-medium hover:underline no-underline"
                   >
-                    {{ line.title || formatDate(lineKey, $frontmatter.lang) }}
+                    {{ lineLabel(line, lineKey, $frontmatter.lang) }}
                   </a>
                   <template v-else>
-                    {{ formatDate(lineKey, $frontmatter.lang) }}
+                    {{ lineLabel(line, lineKey, $frontmatter.lang) }}
                   </template>
-                  <span class="extra italic text-sm">
-                    {{
-                      Object.keys(line)
-                        .map((i) => formatDate(i, $frontmatter.lang))
-                        .join(", ")
-                    }}</span
+                  <!-- The " - " separator only shows when there is both a label and extra info -->
+                  <span
+                    class="extra italic text-sm"
+                    :class="{ 'with-label': lineLabel(line, lineKey, $frontmatter.lang) }"
+                    >{{ lineExtras(line, $frontmatter.lang) }}</span
                   >
                 </p>
               </td>
@@ -77,7 +90,7 @@ function getSubKeys(table) {
 </template>
 
 <style>
-.calendar .extra:before {
+.calendar .extra.with-label:before {
   content: " - ";
 }
 .calendar .extra:after {
