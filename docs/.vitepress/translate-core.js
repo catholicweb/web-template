@@ -1,6 +1,6 @@
 // Pure, isomorphic translation helpers (no fs / node imports) so they can run
 // both in the build adapter and in the browser preview.
-const FIELDS = ["title", "description", "html", "name", "action", "notes"];
+const FIELDS = ["title", "description", "html", "name", "action", "notes", "eventTypeTitle"];
 
 /**
  * Recorre recursivamente un objeto/array y aplica una función
