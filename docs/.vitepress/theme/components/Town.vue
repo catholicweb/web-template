@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import Image from "./Image.vue";
 import Grid from "./Grid.vue";
+import { withDefaultTags } from "./../../utils.js";
 import { data } from "./../../blocks.data.js";
 import { useData } from "vitepress";
 const { page } = useData();
@@ -18,10 +19,13 @@ watch(
     allItems.value = data.maps.filter((f) => f.lang === lang);
   },
 );
+
+// `small` is only the default: any size / layout tag the user picked wins.
+const gridBlock = computed(() => withDefaultTags({ ...props.block, elements: allItems.value, query: true }, ["small"]));
 </script>
 
 <template>
-  <Grid :block="{ ...props.block, elements: allItems, query: true, tags: ['small'] }" v-slot="{ item, index }">
+  <Grid :block="gridBlock" v-slot="{ item, index }">
     <div>
       <a :key="item.url" :href="item.url" class="group flex flex-col overflow-hidden rounded-xl bg-[#2d3436] transition-transform">
         <div class="aspect-square overflow-hidden bg-gray-200 relative">

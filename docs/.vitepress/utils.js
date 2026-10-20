@@ -416,6 +416,31 @@ function hash(s) {
   return h.toString(36);
 }
 
+// Tag groups understood by grid() / Grid.vue. Inside one group only one tag is meant
+// to be active, so a *default* from a group must never be added when the user (or the
+// editor) already picked a tag of that group.
+export const TAG_GROUPS = {
+  layout: ["carousel", "3d", "masonry", "horizontal", "vertical"],
+  size: ["xs", "tiny", "small", "medium", "large", "xl", "wide"],
+};
+
+// Returns `tags` plus every default the user has not already overridden.
+// Pure: never mutates its input.
+export function defaultTags(tags, defaults = []) {
+  const current = Array.isArray(tags) ? tags : [];
+  const extra = defaults.filter((tag) => {
+    if (current.includes(tag)) return false;
+    const group = Object.values(TAG_GROUPS).find((g) => g.includes(tag));
+    return !group || !group.some((t) => current.includes(t));
+  });
+  return [...current, ...extra];
+}
+
+// Same, for a whole block: `<Grid :block="withDefaultTags(block, ['small'])">`.
+export function withDefaultTags(block, defaults = []) {
+  return { ...block, tags: defaultTags(block?.tags, defaults) };
+}
+
 export function grid(section) {
   let { tags = [], elements = [] } = section;
 
@@ -433,6 +458,8 @@ export function grid(section) {
     medium: "py-4 *:w-full *:sm:w-1/2 *:md:w-1/3 *:p-2 px-2",
     large: "py-4 *:w-full *:sm:w-2/3 *:p-2",
     xl: "py-4 *:w-full *:md:w-5/6 *:p-2",
+    // 1 column, 2 from md, 3 from lg: for wide cards (image + text side by side)
+    wide: "py-4 *:w-full *:md:w-1/2 *:lg:w-1/3 *:p-2 px-2",
   };
 
   // 2. Find the active size and direction
