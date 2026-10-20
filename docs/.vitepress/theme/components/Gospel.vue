@@ -8,7 +8,7 @@
 
 			<div class="text-center leading-tight min-w-0">
 				<div class="text-sm font-semibold">{{ dateLabel }}</div>
-				<div v-if="readings.day_title" class="text-xs opacity-70 truncate">{{ readings.day_title }}</div>
+				<div v-if="dayTitle" class="text-xs opacity-70 truncate">{{ dayTitle }}</div>
 				<button v-if="!isToday" type="button" class="text-xs underline mt-1" style="color: #b30838" :disabled="loading" @click="loadDate(today)">
 					{{ t.today }}
 				</button>
@@ -114,7 +114,27 @@ const viewDate = ref(detectDate(readings.value) || today.value);
 const isToday = computed(() => viewDate.value === today.value);
 const loading = ref(false);
 
-const dateLabel = computed(() => formatDate(viewDate.value, fm.value.lang));
+// Weekday name in the page language, capitalised ("Martes")
+const weekdayLabel = computed(() => {
+	try {
+		const w = new Intl.DateTimeFormat(langCode.value, { weekday: "long", timeZone: "UTC" }).format(toNoonUTC(viewDate.value));
+		return w.charAt(0).toUpperCase() + w.slice(1);
+	} catch (e) {
+		return "";
+	}
+});
+
+// "Martes 20 octubre"
+const dateLabel = computed(() => `${weekdayLabel.value} ${formatDate(viewDate.value, fm.value.lang).toLowerCase()}`.trim());
+
+// Subtitle: hide it on ordinary-time weekdays ("Martes de la XXIX semana del
+// tiempo ordinario"); keep it for Sundays, feasts, memorials and other
+// special days.
+const ORDINARY_WEEKDAY = /^\s*(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)\b.*\btiempo ordinario\b/i;
+const dayTitle = computed(() => {
+	const title = readings.value.day_title || "";
+	return ORDINARY_WEEKDAY.test(title) ? "" : title;
+});
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -165,6 +185,9 @@ const t = computed(() => labels[langCode.value] || labels.es);
 </script>
 
 <style>
+.gospel .prose {
+	font-size: 17px; /* readings body: 1px above the 16px prose default */
+}
 .gospel .prose p {
 	margin-bottom: 0.5rem;
 }
