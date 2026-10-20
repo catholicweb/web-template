@@ -56,7 +56,7 @@ import { computed, onMounted, ref } from "vue";
 import { useData } from "vitepress";
 // Adjust these paths to wherever the files live in your project
 import { getBibleReadings } from "./../../gospel.js";
-import { formatDate, getCode } from "./../../utils.js";
+import { getCode } from "./../../utils.js";
 
 const props = defineProps({ block: { type: Object, required: true } });
 
@@ -114,26 +114,30 @@ const viewDate = ref(detectDate(readings.value) || today.value);
 const isToday = computed(() => viewDate.value === today.value);
 const loading = ref(false);
 
-// Weekday name in the page language, capitalised ("Martes")
-const weekdayLabel = computed(() => {
+// Full date with weekday, localised by the browser/Node Intl data in the page
+// language using that language's standard order, e.g.
+//   es: "Martes, 20 de octubre"   en: "Tuesday, October 20"
+// The year is only added when it is not the current one.
+const dateLabel = computed(() => {
+	const date = toNoonUTC(viewDate.value);
+	const opts = { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" };
+	if (date.getUTCFullYear() !== new Date().getFullYear()) opts.year = "numeric";
 	try {
-		const w = new Intl.DateTimeFormat(langCode.value, { weekday: "long", timeZone: "UTC" }).format(toNoonUTC(viewDate.value));
-		return w.charAt(0).toUpperCase() + w.slice(1);
+		const label = new Intl.DateTimeFormat(langCode.value, opts).format(date);
+		return label.charAt(0).toLocaleUpperCase(langCode.value) + label.slice(1);
 	} catch (e) {
-		return "";
+		return viewDate.value;
 	}
 });
 
-// "Martes 20 octubre"
-const dateLabel = computed(() => `${weekdayLabel.value} ${formatDate(viewDate.value, fm.value.lang).toLowerCase()}`.trim());
-
-// Subtitle: hide it on ordinary-time weekdays ("Martes de la XXIX semana del
-// tiempo ordinario"); keep it for Sundays, feasts, memorials and other
-// special days.
-const ORDINARY_WEEKDAY = /^\s*(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)\b.*\btiempo ordinario\b/i;
+// Subtitle: the weekday is already in the date label, so hide titles that only
+// say "<weekday> of week N of <season>" (ordinary time, Advent, Lent, Easter...)
+// and "Sunday N of <season>". Feasts, memorials and special days ("Santos Simón
+// y Judas, apóstoles (F)", "Domingo de Ramos", "Jueves Santo"...) stay.
+const ROUTINE_DAY = /^\s*(?:(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b.*\b(?:semana|tiempo ordinario)\b|domingo\s+(?:de la\s+)?[IVXLC]+\b)/i;
 const dayTitle = computed(() => {
 	const title = readings.value.day_title || "";
-	return ORDINARY_WEEKDAY.test(title) ? "" : title;
+	return ROUTINE_DAY.test(title) ? "" : title;
 });
 
 // ---------------------------------------------------------------------------
