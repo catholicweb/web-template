@@ -5,7 +5,7 @@
 // All state comes from a `ctx` built by createContext(); I/O (oembed scraping,
 // geocoding, bible API) is injected via ctx.deps so Node and the browser can differ.
 import MarkdownIt from "markdown-it";
-import { applyComplexFilter, groupEvents, getAddress as rawGetAddress, assembleOrder } from "./utils.js";
+import { applyComplexFilter, groupEvents, getAddress as rawGetAddress, assembleOrder, defaultTags } from "./utils.js";
 import { translateObject } from "./translate-core.js";
 import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
@@ -151,15 +151,18 @@ export async function postComplete(fm, ctx) {
       });
     }
 
+    // Default tags below only apply when the user has not picked a tag of the same
+    // group (layout / size) themselves; see defaultTags() in utils.js.
+
     // "video-gospel" renders the audio+books reading set for the *current* page
     // language: filters become the book list, elements the audio tracks, all
-    // laid out in one horizontal strip.
+    // laid out in one horizontal strip by default.
     if (fm.sections[i]._block == "video-gospel") {
       const { audios, books } = await getAudio(fm.lang);
       fm.sections[i].filters = books;
       fm.sections[i].query = false;
       fm.sections[i].elements = audios;
-      (fm.sections[i].tags ??= []).push("horizontal");
+      fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["horizontal"]);
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     }
     // "video-channel" slices the site's YouTube uploads by keyword: an optional
@@ -184,7 +187,7 @@ export async function postComplete(fm, ctx) {
       if (fm.sections[i].filters?.length) {
         //(fm.sections[i].tags ??= []).push("vertical", "small");
       } else {
-        (fm.sections[i].tags ??= []).push("horizontal", "medium");
+        fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["horizontal", "medium"]);
       }
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "video-instagram") {
@@ -262,16 +265,16 @@ export async function autocomplete(fm, pages = [], ctx) {
     if (fm.sections[i]._block == "links") {
       fm.sections[i]._block = "gallery-feature";
       fm.sections[i].type = "team-cards"; // fm.sections[i].type || 
-      (fm.sections[i].tags ??= []).push("small");
+      fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["small"]);
     } else if (fm.sections[i]._block == "gallery-feature") {
       fm.sections[i].type = "team-cards";
-      (fm.sections[i].tags ??= []).push("small");
+      fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["small"]);
     } else if (fm.sections[i].type == 'gallery' && fm.sections[i].images) {
       fm.sections[i].elements = fm.sections[i].images.filter(Boolean).map((i) => {
         return { title: "", description: "", image: i };
       });
       fm.sections[i].type = "gallery";
-      (fm.sections[i].tags ??= []).push("small");
+      fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["small"]);
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
       fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].filter));
@@ -281,7 +284,8 @@ export async function autocomplete(fm, pages = [], ctx) {
       // other type/event that has its own page (see eventPages.js).
       const plan = ctx.eventPages ?? planEventPages({ config, calendar, takenSlugs: new Set(pages.map((p) => p.slug)) });
       fm.sections[i].events = eventCardsFor({ eventsToShow: fm.sections[i].eventsToShow, calendar, config, plan });
-      (fm.sections[i].tags ??= []).push("visualCards","masonry","free-masonry");
+      // Masonry is the default layout, but any layout tag the user picked wins.
+      fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["visualCards", "masonry", "free-masonry"]);
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "map") {
       const [latitude, longitude] = fm.sections[i].geo?.split(",").map((s) => Number(s.trim())) || [];

@@ -2,19 +2,26 @@
 import { ref, computed } from "vue";
 import Grid from "./Grid.vue";
 import Image from "./Image.vue";
+import { withDefaultTags } from "./../../utils.js";
 import { data } from "./../../blocks.data.js";
 import { useData } from "vitepress";
 const { theme, page } = useData();
 const config = computed(() => theme.value.config || {});
 const props = defineProps({ block: { type: Object, required: true } });
-const donate = ref(false);
+
+// Which card has its bank details open (per card, so it also works in grid /
+// carousel layouts where there is no "active" card).
+const donateIndex = ref(null);
 
 const cards = computed(() => data.fundraisings.filter((f) => f.lang === page.value.frontmatter.lang));
+
+// 3d is only the default: any layout / size tag the user picked wins.
+const gridBlock = computed(() => withDefaultTags({ ...props.block, elements: cards.value, query: false }, ["3d"]));
 </script>
 
 <template>
   <div class="fundraising container relative max-w-3xl mx-auto p-6 my-6">
-    <Grid :block="{ ...props.block, elements: cards, query: false, tags: ['3d'] }" v-slot="{ item: card, index, activeIndex }">
+    <Grid :block="gridBlock" v-slot="{ item: card, index }">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden">
         <!-- Image Section -->
         <div class="relative aspect-16/9 overflow-hidden">
@@ -44,7 +51,7 @@ const cards = computed(() => data.fundraisings.filter((f) => f.lang === page.val
           </div>
           <!-- Action Buttons -->
           <div class="flex gap-3">
-            <button v-if="donate == false || index != activeIndex" @click.stop="donate = true" class="flex-1 bg-accent text-white font-semibold py-3 px-6 rounded-xl hover:shadow-lg hover:scale-101 transition-all duration-200 cursor-pointer">{{ card.action || "Donar" }}</button>
+            <button v-if="donateIndex !== index" @click.stop="donateIndex = index" class="flex-1 bg-accent text-white font-semibold py-3 px-6 rounded-xl hover:shadow-lg hover:scale-101 transition-all duration-200 cursor-pointer">{{ card.action || "Donar" }}</button>
 
             <div v-else v-for="bank in config.bank" class="text-accent">
               <p v-if="bank.account.includes('https://')">

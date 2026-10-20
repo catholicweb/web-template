@@ -1,8 +1,23 @@
 <script setup>
-import { formatDate, slugify, grid } from "./../../utils.js";
+import { computed } from "vue";
+import { formatDate, slugify, withDefaultTags } from "./../../utils.js";
 import { useData } from "vitepress";
+import Grid from "./Grid.vue";
 const props = defineProps({ block: { type: Object, required: true } });
 const { localeIndex } = useData();
+
+// Every grouped table (one per event type, by default) is a Grid item, so the layout
+// options (horizontal, carousel, sizes...) apply to the tables. `medium` is what the
+// section always used.
+const gridBlock = computed(() =>
+  withDefaultTags(
+    {
+      ...props.block,
+      elements: Object.entries(props.block.events || {}).map(([key, table]) => ({ key, table })),
+    },
+    ["medium"],
+  ),
+);
 
 // Page-producing events carry a root `/<slug>/` link (set at build time).
 // Prefix with the current locale key unless it's the root.
@@ -36,56 +51,58 @@ function lineExtras(line, lang) {
 </script>
 
 <template>
-  <div class="calendar" :class="grid(block)">
-    <!-- Primer grupo dividir en headers -->
-    <div v-for="(table, tableKey) in block.events" :class="tableKey" class="mb-6">
-      <h3 :id="slugify(tableKey)" class="text-xl text-left text-gray-800 mb-3 border-b-3 border-accent pb-1">
-        {{ formatDate(tableKey, $frontmatter.lang) }}
-      </h3>
-      <div class="overflow-x-auto bg-white">
-        <table class="min-w-full border-collapse [border-style:hidden]">
-          <!-- Añadir cabezera a la tabla (solo si hay subfields)-->
-          <thead v-if="getSubKeys(table)[0] != ''" class="bg-gray-50 text-gray-600 uppercase tracking-wide">
-            <tr>
-              <th class="p-3 text-left">&nbsp;</th>
-              <th v-for="subKey in getSubKeys(table)" class="p-3 text-left">
-                {{ formatDate(subKey, $frontmatter.lang) }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Añadir columnas a la tabla -->
-            <tr v-for="(row, rowKey, rowIndex) in table" class="odd:bg-white even:bg-gray-50">
-              <td class="p-3 border-1">
-                {{ formatDate(rowKey, $frontmatter.lang) }}
-              </td>
-              <!-- Añadir filas -->
-              <td v-for="subKey in getSubKeys(table)" class="p-3 align-top border-1">
-                <!-- Cada fila de la tabla puede tener múltiples elementos -->
-                <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
-                  <a
-                    v-if="eventHref(line)"
-                    :href="eventHref(line)"
-                    class="text-accent font-medium hover:underline no-underline"
-                  >
-                    {{ lineLabel(line, lineKey, $frontmatter.lang) }}
-                  </a>
-                  <template v-else>
-                    {{ lineLabel(line, lineKey, $frontmatter.lang) }}
-                  </template>
-                  <!-- The " - " separator only shows when there is both a label and extra info -->
-                  <span
-                    class="extra italic"
-                    :class="{ 'with-label': lineLabel(line, lineKey, $frontmatter.lang) }"
-                    >{{ lineExtras(line, $frontmatter.lang) }}</span
-                  >
-                </p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+  <div class="calendar">
+    <Grid :block="gridBlock" v-slot="{ item }">
+      <!-- Primer grupo dividir en headers -->
+      <div :class="item.key" class="mb-6">
+        <h3 :id="slugify(item.key)" class="text-xl text-left text-gray-800 mb-3 border-b-3 border-accent pb-1">
+          {{ formatDate(item.key, $frontmatter.lang) }}
+        </h3>
+        <div class="overflow-x-auto bg-white">
+          <table class="min-w-full border-collapse [border-style:hidden]">
+            <!-- Añadir cabezera a la tabla (solo si hay subfields)-->
+            <thead v-if="getSubKeys(item.table)[0] != ''" class="bg-gray-50 text-gray-600 uppercase tracking-wide">
+              <tr>
+                <th class="p-3 text-left">&nbsp;</th>
+                <th v-for="subKey in getSubKeys(item.table)" class="p-3 text-left">
+                  {{ formatDate(subKey, $frontmatter.lang) }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Añadir columnas a la tabla -->
+              <tr v-for="(row, rowKey, rowIndex) in item.table" class="odd:bg-white even:bg-gray-50">
+                <td class="p-3 border-1">
+                  {{ formatDate(rowKey, $frontmatter.lang) }}
+                </td>
+                <!-- Añadir filas -->
+                <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">
+                  <!-- Cada fila de la tabla puede tener múltiples elementos -->
+                  <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
+                    <a
+                      v-if="eventHref(line)"
+                      :href="eventHref(line)"
+                      class="text-accent font-medium hover:underline no-underline"
+                    >
+                      {{ lineLabel(line, lineKey, $frontmatter.lang) }}
+                    </a>
+                    <template v-else>
+                      {{ lineLabel(line, lineKey, $frontmatter.lang) }}
+                    </template>
+                    <!-- The " - " separator only shows when there is both a label and extra info -->
+                    <span
+                      class="extra italic"
+                      :class="{ 'with-label': lineLabel(line, lineKey, $frontmatter.lang) }"
+                      >{{ lineExtras(line, $frontmatter.lang) }}</span
+                    >
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </Grid>
   </div>
 </template>
 
