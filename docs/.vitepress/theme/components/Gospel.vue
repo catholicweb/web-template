@@ -114,40 +114,9 @@ const viewDate = ref(detectDate(readings.value) || today.value);
 const isToday = computed(() => viewDate.value === today.value);
 const loading = ref(false);
 
-// Weekday names (index 0 = Sunday), same languages as formatDate's month
-// tables. Hand-written instead of Intl so the build (Node) and every browser
-// print exactly the same text.
-const WEEKDAYS = {
-	es: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
-	eu: ["Igandea", "Astelehena", "Asteartea", "Asteazkena", "Osteguna", "Ostirala", "Larunbata"],
-	en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-	ca: ["Diumenge", "Dilluns", "Dimarts", "Dimecres", "Dijous", "Divendres", "Dissabte"],
-	fr: ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
-	de: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
-	it: ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"],
-	pt: ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"],
-	ro: ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"],
-	ar: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
-	bg: ["Неделя", "Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък", "Събота"],
-};
-// Languages whose month names are written in lowercase mid-sentence (formatDate
-// capitalises them for standalone use). English and German keep the capital.
-const LOWERCASE_MONTH = new Set(["es", "eu", "ca", "fr", "it", "pt", "ro", "bg"]);
-
-// "Martes 20 octubre" (es), "Tuesday 20 October" (en), "Asteartea, urriak 20" (eu)
-// Day and month come from formatDate; the weekday is read from the same
-// parsed date so both always agree. Unknown languages get the plain date.
-const dateLabel = computed(() => {
-	const lang = fm.value.lang;
-	const code = langCode.value;
-	const date = formatDate(viewDate.value, lang);
-	const names = WEEKDAYS[code];
-	const parsed = new Date(viewDate.value);
-	if (!names || isNaN(parsed.getTime())) return date;
-	const rest = LOWERCASE_MONTH.has(code) ? date.toLowerCase() : date;
-	// Basque: weekday first, then "month day" (formatDate's order), comma-separated
-	return code === "eu" ? `${names[parsed.getDay()]}, ${rest}` : `${names[parsed.getDay()]} ${rest}`;
-});
+// Date with weekday in the page language: "Martes 20 octubre" (es),
+// "Tuesday 20 October" (en), "Asteartea, urriak 20" (eu). See formatDate.
+const dateLabel = computed(() => formatDate(viewDate.value, fm.value.lang, { weekday: true }));
 
 // Subtitle: the weekday is already in the date label, so hide titles that only
 // say "<weekday> of week N of <season>" (ordinary time, Advent, Lent, Easter...)
