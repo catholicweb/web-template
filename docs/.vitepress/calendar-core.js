@@ -34,7 +34,7 @@ export function intersectOptions(options, field) {
   return valid;
 }
 
-function findPlaceName(id, config) {
+export function findPlaceName(id, config) {
   if (!id || !config?.info?.places) return id;
   for (const place of config.info.places) {
     if (place && place.id === id && place.name) return place.name;
@@ -42,7 +42,7 @@ function findPlaceName(id, config) {
   return id;
 }
 
-function findPlace(id, config) {
+export function findPlace(id, config) {
   if (!id || !config?.info?.places) return { name: id, id: id};
   for (const place of config.info.places) {
     if (place && place.id === id && place.name) return place;
@@ -90,6 +90,80 @@ export function buildTypeTitles(config) {
     if (key && title) titles[key] = title;
   }
   return titles;
+}
+
+// ---------------------------------------------------------------------------
+// External calendars (ICS / Google Calendar) attached to an event type.
+// Pure string logic, so it is shared by the build (calendar.js) and any preview.
+// ---------------------------------------------------------------------------
+
+const GOOGLE_ICAL = (id) => `https://calendar.google.com/calendar/ical/${encodeURIComponent(id)}/public/basic.ics`;
+const looksLikeCalendarId = (s) => /^[^\s/@]+@(group\.calendar\.google\.com|gmail\.com|googlemail\.com|import\.calendar\.google\.com|[a-z0-9.-]+\.[a-z]{2,})$/i.test(s);
+
+// Turns whatever the editor user pasted into a fetchable https ICS URL, or null.
+// Accepts: an .ics URL (https/http/webcal), Google's "public address in iCal
+// format", the "embed" / "?cid=" share links, or a bare Google calendar id
+// (xxx@group.calendar.google.com). Never returns a non-https URL: the build
+// only fetches https (http is upgraded, anything else is rejected).
+export function normalizeCalendarUrl(value) {
+  let raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+
+  if (looksLikeCalendarId(raw)) return GOOGLE_ICAL(raw);
+
+  raw = raw.replace(/^webcals?:\/\//i, "https://").replace(/^http:\/\//i, "https://");
+  if (!/^https:\/\//i.test(raw)) raw = "https://" + raw; // "calendar.google.com/..." pasted without scheme
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || !url.hostname.includes(".")) return null;
+
+  if (url.hostname === "calendar.google.com") {
+    // Already the iCal feed.
+    if (url.pathname.startsWith("/calendar/ical/")) return url.toString();
+    // .../calendar/embed?src=<id>  (the "public URL" / embed code)
+    const src = url.searchParams.get("src");
+    if (src) return GOOGLE_ICAL(src);
+    // .../calendar/u/0?cid=<base64(id)>  (the "share" link)
+    const cid = url.searchParams.get("cid");
+    if (cid) {
+      if (looksLikeCalendarId(cid)) return GOOGLE_ICAL(cid);
+      try {
+        const id = atob(cid.replace(/-/g, "+").replace(/_/g, "/"));
+        if (looksLikeCalendarId(id)) return GOOGLE_ICAL(id);
+      } catch {}
+      return null;
+    }
+  }
+  return url.toString();
+}
+
+// [{ key, type, urls }] for every event type that has a `calendar` set. `calendar`
+// may be a string or a list of strings; invalid entries are dropped.
+export function typeCalendars(config) {
+  const out = [];
+  for (const t of config?.["event-types"]?.list ?? []) {
+    const key = (t?.id || "").toLowerCase().trim();
+    if (!key) continue;
+    const urls = [...new Set(toArray(t.calendar).map(normalizeCalendarUrl).filter(Boolean))];
+    if (urls.length) out.push({ key, type: t, urls });
+  }
+  return out;
+}
+
+// Name of a place compared loosely (case/accents/spacing), to link a free-text ICS
+// location such as "Leitza" to a place of config.info.places.
+const looseName = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+export function findPlaceByName(name, config) {
+  const n = looseName(name);
+  if (!n) return null;
+  for (const place of config?.info?.places ?? []) {
+    if (place && (looseName(place.name) === n || looseName(place.id) === n)) return place;
+  }
+  return null;
 }
 
 // Native events from config.calendar.events.list (unsorted). `now` is injectable for tests.

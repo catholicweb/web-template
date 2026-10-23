@@ -1,8 +1,13 @@
 import ICAL from "ical.js";
 import { read, write, fs, path } from "./node_utils.js";
 import { formatWeekdays } from "./utils.js";
-import { buildEvents, buildDefaultMap, buildTypeTitles, sortEvents, toArray, parseDateToISO } from "./calendar-core.js";
+import { buildEvents, buildDefaultMap, buildTypeTitles, sortEvents, toArray, typeCalendars, normalizeCalendarUrl, findPlace, findPlaceByName } from "./calendar-core.js";
 import { buildICS } from "./ics.js";
+
+const TZ = "Europe/Madrid"; // same zone ics.js and the rest of the site use
+const FETCH_TIMEOUT_MS = 20_000;
+const MAX_ITERATIONS = 50_000; // safety net only; daily series since 2018 already need ~3.2k
+const pad = (n) => String(n).padStart(2, "0");
 
 function exportCalendar(events, config = {}) {
   write("./docs/public/calendar.json", events);
@@ -26,16 +31,16 @@ function getEventAttachments(vevent) {
   const allAttachments = [];
 
   vevent.getAllProperties("attach").forEach((attach) => {
-    // 2. Extract the value (usually a URL)
     let url = attach.getFirstValue();
-
-    // 3. Handle Binary Attachments
-    // Some providers embed the file. If it's binary, we create a Data URI.
     const encoding = attach.getParameter("encoding");
-    const fmttype = attach.getParameter("fmttype") || "application/octet-stream";
+    const fmttype = attach.getParameter("fmttype") || "";
+    // Only images are useful here (a PDF attached to the event is not a picture).
+    if (fmttype && !fmttype.toLowerCase().startsWith("image/")) return;
+    if (!url) return;
+    url = String(url);
 
     if (encoding && encoding.toUpperCase() === "BASE64") {
-      url = `data:${fmttype};base64,${url}`;
+      url = `data:${fmttype || "application/octet-stream"};base64,${url}`;
     } else if (url.includes("drive.google.com")) {
       const fileId = url.match(/\/d\/([^/]+)/)?.[1];
       if (fileId) {
@@ -44,144 +49,220 @@ function getEventAttachments(vevent) {
         url = url.replace("open", "thumbnail") + "&sz=s4000";
       }
     }
-
     allAttachments.push(url);
   });
 
-  if (!allAttachments.length) return;
-
-  return allAttachments;
+  return allAttachments.length ? allAttachments : undefined;
 }
 
-function getNextOccurrence(event, relativeTo = ICAL.Time.now()) {
-  // 1. If it's not recurring, just check if the start date is in the future
+// --- time helpers: everything is expressed in the site's zone (Europe/Madrid) ---
+
+const dateFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+const timeFmt = new Intl.DateTimeFormat("es-ES", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+// ICAL.Time -> { date: "YYYY-MM-DD" (zero padded, like native events), time: "HH:MM" | null (all-day) }
+export function partsOf(t) {
+  if (t.isDate) return { date: `${t.year}-${pad(t.month)}-${pad(t.day)}`, time: null };
+  // Floating time (no TZID, no Z) = wall clock of the site's zone; don't shift it by the runner's zone.
+  if (t.zone?.tzid === "floating") return { date: `${t.year}-${pad(t.month)}-${pad(t.day)}`, time: `${pad(t.hour)}:${pad(t.minute)}` };
+  const js = t.toJSDate();
+  return { date: dateFmt.format(js), time: timeFmt.format(js) };
+}
+
+const todayISO = (now) => dateFmt.format(now);
+
+// First occurrence on/after `today` (YYYY-MM-DD) that is not in `skip` (a Set of
+// YYYY-MM-DD). Recurring events are walked until then: ical.js honors the
+// series' own EXDATE/COUNT/UNTIL, `skip` covers moved/cancelled single instances.
+export function nextOccurrence(event, today, skip = new Set()) {
   if (!event.isRecurring()) {
-    return event.startDate.compare(relativeTo) >= 0 ? parseDateToISO(event.startDate.toJSDate().toLocaleDateString("es-ES")) : null;
+    const p = partsOf(event.startDate);
+    return p.date >= today && !skip.has(p.date) ? p : null;
   }
-
-  // 2. Setup the expansion engine
-  const iterator = new ICAL.RecurExpansion({
-    component: event.component,
-    dtstart: event.startDate,
-  });
-
-  // 3. Skip all occurrences that happened before "relativeTo"
+  const iterator = new ICAL.RecurExpansion({ component: event.component, dtstart: event.startDate });
   let next;
-  let iterCount = 0;
+  let count = 0;
   while ((next = iterator.next())) {
-    if (next.compare(relativeTo) >= 0) {
-      return parseDateToISO(next.toJSDate().toLocaleDateString("es-ES")); // This is the first occurrence in the future
-    }
+    const p = partsOf(next);
+    if (p.date >= today && !skip.has(p.date)) return p;
+    if (++count > MAX_ITERATIONS) break;
+  }
+  return null;
+}
 
-    // Safety break: Prevent slow/infinite loops on poorly formed rules
-    if (++iterCount > 1000 || (iterator.last && iterator.last.year > relativeTo.year + 10)) break;
+// "1SA" -> SA + WEEK1 (native format); "-1FR" (last Friday) is kept as is, which
+// intersectOptions() also accepts.
+function splitByDay(items) {
+  const byday = [];
+  const byweek = [];
+  for (const item of items) {
+    const m = String(item).match(/^([+-]?\d+)?([A-Z]{2})$/);
+    if (!m) continue;
+    const [, n, day] = m;
+    if (n && Number(n) < 0) {
+      byday.push(`${n}${day}`);
+    } else {
+      byday.push(day);
+      if (n) byweek.push(`WEEK${Number(n)}`);
+    }
+  }
+  return { byday: formatWeekdays([...new Set(byday)]), byweek: [...new Set(byweek)] };
+}
+
+const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+// Weekdays / week-of-month of a recurring event in native format.
+function recurrenceOf(event, firstDate) {
+  if (!event.isRecurring()) return { byday: [], byweek: [] };
+  const rrule = event.component.getFirstPropertyValue("rrule");
+  const parts = rrule?.parts ?? {};
+  const explicit = splitByDay(toArray(parts.BYDAY));
+  if (explicit.byday.length) return explicit;
+
+  const open = !parts.COUNT && !parts.UNTIL && (!rrule?.interval || rrule.interval === 1);
+  // Weekly without BYDAY (Apple/Outlook style): it repeats on DTSTART's weekday.
+  if (rrule?.freq === "WEEKLY" && open && firstDate) {
+    const [y, m, d] = firstDate.split("-").map(Number);
+    return { byday: [DAY_CODES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]], byweek: [] };
+  }
+  // Daily forever: every day of the week.
+  if (rrule?.freq === "DAILY" && open) return { byday: formatWeekdays(["MO", "TU", "WE", "TH", "FR", "SA", "SU"]), byweek: [] };
+  return { byday: [], byweek: [] };
+}
+
+// Dates (YYYY-MM-DD) the series must skip: EXDATE (all values, there can be several per
+// property) plus the original slot of every moved/cancelled instance.
+function exceptionDates(comp) {
+  const out = [];
+  for (const prop of comp.getAllProperties("exdate")) {
+    for (const v of prop.getValues()) out.push(partsOf(v).date);
+  }
+  return out;
+}
+
+const cleanTitle = (summary) => String(summary ?? "").split(/\s[-–—]\s/)[0].trim();
+
+/**
+ * Pure ICS text -> events in the shape buildEvents() produces for native events.
+ * opts: { type, inferType, config, now }
+ *   type       fixed type key (every event of the calendar gets it; its defaults fill gaps)
+ *   inferType  legacy mode: guess the type from the title/description, else "ics"
+ */
+export function icsToEvents(text, { type: fixedType = null, inferType = false, config = {}, now = new Date() } = {}) {
+  const defaultMap = buildDefaultMap(config);
+  const typeTitles = buildTypeTitles(config);
+  const today = todayISO(now);
+  const comp = new ICAL.Component(ICAL.parse(text));
+
+  const all = comp.getAllSubcomponents("vevent");
+  // Moved / cancelled single instances of a recurring series (same UID, RECURRENCE-ID).
+  const skipByUid = new Map();
+  for (const v of all) {
+    if (!v.hasProperty("recurrence-id")) continue;
+    const uid = v.getFirstPropertyValue("uid");
+    const rid = v.getFirstPropertyValue("recurrence-id");
+    if (!skipByUid.has(uid)) skipByUid.set(uid, new Set());
+    skipByUid.get(uid).add(partsOf(rid).date);
   }
 
-  return null; // No future occurrences found
-}
+  const events = [];
+  for (const vevent of all) {
+    const status = String(vevent.getFirstPropertyValue("status") ?? "").toUpperCase();
+    if (status === "CANCELLED") continue;
+    if (!vevent.hasProperty("dtstart")) continue;
+    const event = new ICAL.Event(vevent);
 
-function splitRRuleByDay(byDayArray) {
-  const simpleByDay = [];
-  const simpleByWeek = [];
+    const skip = new Set(skipByUid.get(vevent.getFirstPropertyValue("uid")) ?? []);
+    // A moved instance is a one-off event of its own: never skip its own date.
+    if (vevent.hasProperty("recurrence-id")) skip.clear();
+    const next = nextOccurrence(event, today, skip);
+    if (!next) continue;
 
-  byDayArray.forEach((item) => {
-    // Regex logic:
-    // ^(-?\d+)? matches an optional positive or negative number at the start
-    // ([A-Z]{2})$ matches exactly two uppercase letters at the end
-    const match = item.match(/^(-?\d+)?([A-Z]{2})$/);
-
-    if (match) {
-      const weekNum = match[1]; // e.g., "3", "-1", or undefined
-      const dayAbbr = match[2]; // e.g., "SA", "SU"
-
-      simpleByDay.push(dayAbbr);
-
-      // If no number is present (like "SU"), we'll store an empty string or null
-      simpleByWeek.push(weekNum ? `WEEK${weekNum}` : "");
+    let type = fixedType;
+    if (!type) {
+      const haystack = `${event.summary ?? ""} ${event.description ?? ""}`.toLowerCase();
+      type = (inferType && Object.keys(defaultMap).find((k) => k && haystack.includes(k))) || "ics";
     }
-  });
+    const defaults = defaultMap[type] || {};
+    const title = cleanTitle(event.summary);
 
-  return { simpleByDay: formatWeekdays(simpleByDay), simpleByWeek };
+    // Location: the ICS text ("Leitza, Navarre, Spain" -> "Leitza"), else the type's default place.
+    const rawLocation = String(event.location ?? "").split(",")[0].trim();
+    const place = findPlaceByName(rawLocation, config) || (rawLocation ? { name: rawLocation, id: rawLocation } : defaults.location ? findPlace(toArray(defaults.location)[0], config) : undefined);
+
+    const { byday, byweek } = recurrenceOf(event, next.date);
+    const exceptions = event.isRecurring() ? [...new Set([...exceptionDates(vevent), ...skip])].filter((d) => d >= today).sort() : [];
+
+    events.push({
+      type,
+      typeName: defaults.name,
+      eventTypeTitle: typeTitles[type] || title,
+      title,
+      times: next.time ? [next.time] : [],
+      dates: [next.date],
+      images: toArray(getEventAttachments(vevent) || defaults.images),
+      byday,
+      byweek,
+      notes: toArray(event.description || defaults.notes || defaults.description),
+      language: defaults.language || null,
+      locations: place?.name ? [place.name] : [],
+      place,
+      exceptions,
+    });
+  }
+  return events;
 }
 
-function getTime(t) {
-  t.isUTC = true;
-  return t.toJSDate().toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Madrid",
-  });
-  /*const hora = String(t.hour).padStart(2, "0");
-  const minuto = String(t.minute).padStart(2, "0");
-  return `${hora}:${minuto}`;*/
+// Downloads one ICS feed. Never logs the URL (private Google feeds carry a secret token
+// and build logs are public); callers get the host only.
+async function fetchICS(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  if (!text.includes("BEGIN:VCALENDAR")) throw new Error("not an iCalendar feed (is the calendar public?)");
+  return text;
+}
+
+async function importFeed(url, options) {
+  const host = new URL(url).host;
+  try {
+    const events = icsToEvents(await fetchICS(url), options);
+    console.log(`calendar: ${host} -> ${events.length} upcoming events` + (options.type ? ` (type "${options.type}")` : ""));
+    return events;
+  } catch (error) {
+    console.error(`calendar: could not import ${host}: ${error.message}`);
+    return [];
+  }
 }
 
 export async function fetchCalendar() {
   // Native events come from the pure calendar-core module (shared with the browser preview).
   const config = read("./docs/public/config.json");
   const evSettings = config.calendar?.events ?? { list: [], urls: [] };
-  const defaultMap = buildDefaultMap(config);
-  const typeTitles = buildTypeTitles(config);
   const events = buildEvents(config);
 
-  /*
-  Import external .ics calendars
-  */
-
-  for (var i = 0; i < evSettings.urls?.length; i++) {
-    const url = evSettings.urls[i];
-    try {
-      const res = await fetch(url);
-      const text = await res.text();
-      const jcalData = ICAL.parse(text);
-      const comp = new ICAL.Component(jcalData);
-      const vevents = comp.getAllSubcomponents("vevent");
-
-      console.log("Parsing ics events", vevents?.length);
-      vevents.forEach((eventComp, index) => {
-        const event = new ICAL.Event(eventComp);
-        let rrule = [];
-        let exceptions = [];
-        // Infer type
-        const validTypes = Object.keys(defaultMap);
-        const type = validTypes.find((typeKey) => `${event.summary} ${event.description}`?.toLowerCase()?.includes(typeKey?.toLowerCase())) || "ics";
-
-        const dates = toArray(getNextOccurrence(event));
-        if (!dates.length) return;
-
-        if (event.isRecurring()) {
-          // Get the recurrence rule
-          const rruleProp = event.component.getFirstProperty("rrule");
-          rrule = rruleProp ? rruleProp.getFirstValue() : null;
-
-          // Get exception dates
-          exceptions = event.component.getAllProperties("exdate").map((p) => {
-            return p.getFirstValue().toJSDate();
-          });
-        }
-        const title = event.summary?.split("-")[0].trim() || "";
-        events.push({
-          type: type,
-          // Same grouping heading native events get (see calendar-core.buildEvents)
-          eventTypeTitle: typeTitles[type] || title,
-          title: title,
-          times: toArray(getTime(event.startDate)),
-          dates: dates,
-          //end: event.endDate.toJSDate(),
-          images: toArray(getEventAttachments(eventComp) || defaultMap[type]?.image),
-          notes: toArray(event.description || defaultMap[type]?.description),
-          locations: toArray(event.location?.split(",")[0]), // Usually "Leitza, Navarre, Spain" -> "Leitza"
-          byday: toArray(rrule?.parts?.BYDAY),
-          //...JSON.parse(JSON.stringify(rrule || {})),
-          exceptions: toArray(exceptions),
-          //freq: toArray(rrule?.freq),
-        });
-        console.log(events[events.length - 1]);
-      });
-    } catch (error) {
-      console.error("Error loading calendar data:", error);
+  /* Calendars attached to an event type: every event in them is of that type. */
+  const used = new Set();
+  for (const { key, urls } of typeCalendars(config)) {
+    for (const url of urls) {
+      if (used.has(url)) continue;
+      used.add(url);
+      events.push(...(await importFeed(url, { type: key, config })));
     }
   }
+
+  /* Legacy: loose .ics urls whose events get their type guessed from the text. */
+  for (const raw of toArray(evSettings.urls)) {
+    const url = normalizeCalendarUrl(raw);
+    if (!url) {
+      console.error("calendar: ignoring an invalid calendar url");
+      continue;
+    }
+    if (used.has(url)) continue; // already imported through an event type
+    used.add(url);
+    events.push(...(await importFeed(url, { inferType: true, config })));
+  }
+
   const sorted = sortEvents(events);
   exportCalendar(sorted, config);
   console.log("Events parsed ", sorted?.length);
