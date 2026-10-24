@@ -54,11 +54,16 @@ function handleUnhandledRejection(e) {
 // vite-plugin-pwa: detect when a new SW is waiting and trigger skipWaiting on demand
 const { updateServiceWorker } = useRegisterSW({
   onNeedRefresh() {
-    // Auto-reload by default so installed PWAs refresh when the site updates;
-    // only disable via theme.pwa.autoReload = false.
-    if (theme.value.pwa?.autoReload !== false) {
+    // A new SW is installed and waiting. We do NOT force a reload by default:
+    // page navigations are already NetworkFirst (see sw.js) and /assets/* are
+    // content-hashed, so the waiting SW is harmless and simply activates once
+    // all tabs/the installed app are closed. Forcing skipWaiting + reload made
+    // the page refresh itself a few seconds after load on every deploy.
+    // Opt in per site via theme.pwa.autoReload = true (silent reload) or
+    // theme.pwa.updateBanner = true ("Nueva versión disponible" banner).
+    if (theme.value.pwa?.autoReload === true) {
       updateServiceWorker(true);
-    } else {
+    } else if (theme.value.pwa?.updateBanner === true) {
       state.value.showUpdateBanner = true;
     }
   },
