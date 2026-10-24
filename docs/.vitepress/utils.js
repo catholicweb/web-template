@@ -160,7 +160,33 @@ function weekday(days) {
   return w;
 }
 
-export function formatDate(isoString, lang = "Español:es") {
+// Singular weekday names (index 0 = Sunday, like Date#getDay) for printing a
+// date. Not the same as the recurring-event forms in tr() ("Sábados",
+// "Astelehenetan"...), which read wrong in front of a date.
+const WEEKDAY_NAMES = {
+  eu: ["Igandea", "Astelehena", "Asteartea", "Asteazkena", "Osteguna", "Ostirala", "Larunbata"],
+  es: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  bg: ["Неделя", "Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък", "Събота"],
+  it: ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"],
+  ro: ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"],
+  pt: ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"],
+  ca: ["Diumenge", "Dilluns", "Dimarts", "Dimecres", "Dijous", "Divendres", "Dissabte"],
+  ar: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
+  de: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
+  fr: ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+};
+
+// Languages whose month names are lowercase in running text. formatDate keeps
+// the capital for the plain date; with the weekday they are lowercased
+// ("Martes 20 octubre"). English and German keep the capital.
+const LOWERCASE_MONTH_LANGS = new Set(["eu", "es", "bg", "it", "ro", "pt", "ca", "fr"]);
+
+// `options.weekday`: also print the weekday before the date, in the language's
+// own order:  es "Martes 20 octubre", en "Tuesday 20 October",
+//             eu "Asteartea, urriak 20".
+// Languages without a weekday table get the plain date.
+export function formatDate(isoString, lang = "Español:es", { weekday = false } = {}) {
   if (typeof isoString !== "string") return "";
   if (typeof lang !== "string") return isoString;
   const langCode = lang.split(":")[1];
@@ -186,7 +212,13 @@ export function formatDate(isoString, lang = "Español:es") {
   };
 
   const names = months[langCode] || months["default"];
-  return langCode === "eu" ? `${names[monthIndex]} ${date.getDate()} ${note}`.trim() : `${date.getDate()} ${names[monthIndex]} ${note}`.trim();
+  const formatted = langCode === "eu" ? `${names[monthIndex]} ${date.getDate()} ${note}`.trim() : `${date.getDate()} ${names[monthIndex]} ${note}`.trim();
+
+  const dayNames = weekday && WEEKDAY_NAMES[langCode];
+  if (!dayNames) return formatted;
+  const rest = LOWERCASE_MONTH_LANGS.has(langCode) ? formatted.toLowerCase() : formatted;
+  // The weekday is read from the same parsed date as the day of the month, so both always agree.
+  return langCode === "eu" ? `${dayNames[date.getDay()]}, ${rest}` : `${dayNames[date.getDay()]} ${rest}`;
 }
 
 function tr(str, lang = "Español:es") {
