@@ -23,14 +23,21 @@ export async function generateNav(config) {
   const files = await fg(["**/*.md", "!aviso-legal*", "!**/404.md"], { cwd: docsDir, absolute: false });
   const groups = {}; // lang -> { groupKey -> { text, link, group? }[] }
   const flat = {};    // lang -> array of flat nav items
+  const homes = {};   // lang -> home nav item (always listed first)
 
   for (const f of files) {
     const { data } = read(`docs/${f}`);
     if (!data.lang) continue;
 
     const lang = data.lang;
-    if (data.home || f.includes('index')) continue
     const base = "/" + f.replace(/index\.md$/, "").replace(/\.md$/, "");
+
+    // The home page is shown as the first nav entry ("Portada" / translated).
+    if (data.home || /(^|\/)index\.md$/.test(f)) {
+      homes[lang] ??= { text: tr(groupLabels.home, lang), link: base };
+      continue;
+    }
+
     const sections = data.sections ?? [];
 
     const items = sections
@@ -52,9 +59,11 @@ export async function generateNav(config) {
   }
 
   const nav = {};
-  const groupLabels = { templos: "Templos", eventos: "Actividades" };
+  for (const lang in homes) {
+    nav[lang] = [homes[lang]];
+  }
   for (const lang in flat) {
-    nav[lang] = [...flat[lang]];
+    (nav[lang] ??= []).push(...flat[lang]);
   }
   for (const lang in groups) {
     const langNav = nav[lang] ??= [...(flat[lang] || [])];
@@ -66,6 +75,12 @@ export async function generateNav(config) {
   }
   return nav;
 }
+
+// Labels for the auto-generated nav. NOTE: translate.js extracts every quoted
+// string of this object (regex on the source) so they get translated — keep the
+// object literal flat, with double-quoted values. `home` is the label of the
+// home page entry; the other keys are page `group` names.
+const groupLabels = { home: "Portada", templos: "Parroquias", eventos: "Actividades" };
 
 function tr(str, lang) {
   const d = dictionary[lang] || {};
