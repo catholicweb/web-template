@@ -196,8 +196,9 @@ describe("assembleOrder: ordering chosen from the filter", () => {
     ];
     const grouped = groupEvents(masses, assembleOrder({ filter: "mass" }));
     expect(Object.keys(grouped)).toEqual(["MO,TU,WE,TH,FR", "SA", "SU"]);
-    expect(Object.keys(grouped["MO,TU,WE,TH,FR"][""])).toEqual(["08:00"]);
-    expect(Object.keys(grouped.SA[""]["19:00"])).toEqual(["Iglesia"]);
+    expect(Object.keys(grouped["MO,TU,WE,TH,FR"])).toEqual(["08:00"]);
+    expect(Object.keys(grouped["MO,TU,WE,TH,FR"]["08:00"][""])).toEqual(["Capilla"]);
+    expect(Object.keys(grouped.SA["19:00"][""])).toEqual(["Iglesia"]);
   });
 });
 
