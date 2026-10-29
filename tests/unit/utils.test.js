@@ -5,6 +5,8 @@ import {
   groupEvents,
   assembleOrder,
   DEFAULT_ORDERING,
+  MASS_ORDERING,
+  isMassFilter,
   formatDate,
   getCode,
   toArray,
@@ -120,6 +122,82 @@ describe("assembleOrder", () => {
 
   it("keeps supporting the legacy `order` array", () => {
     expect(assembleOrder({ order: ["a", "b"] })).toEqual(["a", "b"]);
+  });
+});
+
+describe("isMassFilter", () => {
+  it("is true for the masses-only filter, however it is written", () => {
+    expect(isMassFilter("mass")).toBe(true);
+    expect(isMassFilter("  Mass ")).toBe(true);
+    expect(isMassFilter('"type":"mass"')).toBe(true);
+  });
+
+  it("is true when masses are combined with other conditions", () => {
+    expect(isMassFilter("mass&!byday:empty")).toBe(true);
+    expect(isMassFilter("!dates:empty&mass")).toBe(true);
+  });
+
+  it("is false for filters that exclude or ignore masses", () => {
+    expect(isMassFilter("!mass")).toBe(false);
+    expect(isMassFilter("!byday:empty&!mass")).toBe(false);
+    expect(isMassFilter("funeral")).toBe(false);
+    expect(isMassFilter("!byday:empty")).toBe(false);
+    expect(isMassFilter("{name}")).toBe(false);
+  });
+
+  it("needs masses in every OR alternative", () => {
+    expect(isMassFilter("mass|funeral")).toBe(false);
+    expect(isMassFilter("mass&!byday:empty|mass&byday:empty")).toBe(true);
+  });
+
+  it("is false for an empty or missing filter", () => {
+    expect(isMassFilter("")).toBe(false);
+    expect(isMassFilter("   ")).toBe(false);
+    expect(isMassFilter(undefined)).toBe(false);
+    expect(isMassFilter(null)).toBe(false);
+  });
+});
+
+describe("assembleOrder: ordering chosen from the filter", () => {
+  it("uses the mass ordering when the section shows only masses", () => {
+    const order = assembleOrder({ filter: "mass" });
+    expect(order).toEqual(MASS_ORDERING);
+    expect(order).toEqual(["weekday", "times", "skip", "locations", "byday-weekday+byweek+notes"]);
+  });
+
+  it("treats an empty saved `ordering` (what the editor used to store) as not set", () => {
+    expect(assembleOrder({ filter: "mass", ordering: "" })).toEqual(MASS_ORDERING);
+    expect(assembleOrder({ filter: "funeral", ordering: "" })).toEqual(DEFAULT_ORDERING);
+  });
+
+  it("keeps the default for any other filter", () => {
+    expect(assembleOrder({ filter: "!mass" })).toEqual(DEFAULT_ORDERING);
+    expect(assembleOrder({ filter: "funeral" })).toEqual(DEFAULT_ORDERING);
+    expect(assembleOrder({ filter: "" })).toEqual(DEFAULT_ORDERING);
+  });
+
+  it("lets legacy data win over the filter", () => {
+    expect(assembleOrder({ filter: "mass", ordering: "title,dates,skip,times,locations" })).toEqual(["title", "dates", "skip", "times", "locations"]);
+    expect(assembleOrder({ filter: "mass", order: ["a", "b"] })).toEqual(["a", "b"]);
+  });
+
+  it("returns a copy of the mass ordering", () => {
+    assembleOrder({ filter: "mass" }).push("x");
+    expect(assembleOrder({ filter: "mass" })).toHaveLength(5);
+    expect(MASS_ORDERING).toHaveLength(5);
+  });
+
+  it("groups masses by weekday group, then time, then place", () => {
+    const base = { byweek: [], notes: [], dates: [], byday: [] };
+    const masses = [
+      { ...base, title: "Misa", byday: ["SU"], times: ["12:00"], locations: ["Iglesia"] },
+      { ...base, title: "Misa", byday: ["SA"], times: ["19:00"], locations: ["Iglesia"] },
+      { ...base, title: "Misa", byday: ["MO", "TU", "WE", "TH", "FR"], times: ["08:00"], locations: ["Capilla"] },
+    ];
+    const grouped = groupEvents(masses, assembleOrder({ filter: "mass" }));
+    expect(Object.keys(grouped)).toEqual(["MO,TU,WE,TH,FR", "SA", "SU"]);
+    expect(Object.keys(grouped["MO,TU,WE,TH,FR"][""])).toEqual(["08:00"]);
+    expect(Object.keys(grouped.SA[""]["19:00"])).toEqual(["Iglesia"]);
   });
 });
 
