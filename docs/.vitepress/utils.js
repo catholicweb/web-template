@@ -42,16 +42,43 @@ export function groupEvents(events, fields = []) {
 //                    type title), week of the month, place and notes
 export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "title-eventTypeTitle+byweek+locations+notes"];
 
-// Stablish a new world order
-export function assembleOrder(section) {
+// Ordering for sections that list only masses: one table per weekday group
+// (Mon-Fri / Sat / Sun), then the times, then the places, with the week of the
+// month and the notes as extra info ("Laborable/Festivo > Horas > Lugares > Notas").
+export const MASS_ORDERING = ["weekday", "times", "skip", "locations", "byday-weekday+byweek+notes"];
 
-  const newWorlOrder = section?.ordering?.split(',').map((field) => field.trim())
-  if (newWorlOrder && newWorlOrder.length == 5) return newWorlOrder
-  
+// Filter terms that keep only masses: the bare word (the editor's "Solo misas"
+// option) or the `type` of the mass event type (lowercased, like the filter).
+const MASS_TERMS = new Set(["mass", '"type":"mass"']);
+
+// True when the filter keeps only masses: every alternative (`|`) has a positive
+// mass term (so "mass" and "mass&!byday:empty" do, "!mass" and "funeral" do not).
+// Same syntax as applyComplexFilter.
+export function isMassFilter(filter) {
+  if (typeof filter !== "string" || !filter.trim()) return false;
+  return filter
+    .toLowerCase()
+    .split("|")
+    .every((orPart) => orPart.split("&").some((term) => MASS_TERMS.has(term.trim())));
+}
+
+// Levels of a calendar section's tables. First match wins:
+//   1. `ordering`: a 5-level string saved by the editor (legacy data: the editor
+//      no longer lets the user edit it, but sites may still have one)
+//   2. `order`: the older array form
+//   3. nothing saved: chosen from the section's `filter` (masses only -> MASS_ORDERING)
+//   4. DEFAULT_ORDERING
+// Always returns a new array, so callers can't mutate the defaults.
+export function assembleOrder(section) {
+  const custom = section?.ordering?.split(",").map((field) => field.trim());
+  if (custom && custom.length == 5) return custom;
+
   // Backward compatibility: legacy `order` array
   if (Array.isArray(section?.order) && section.order.length) {
     return section.order;
   }
+
+  if (isMassFilter(section?.filter)) return [...MASS_ORDERING];
 
   // Default fallback
   return [...DEFAULT_ORDERING];
