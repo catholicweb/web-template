@@ -216,6 +216,9 @@ export function buildEvents(config, now = new Date()) {
       locations: toArray(e.location).map((id) => findPlaceName(id, config)),
       place: toArray(e.location).map((id) => findPlace(id, config))[0],
       exceptions: toArray(e.except),
+      // Page for this event: the event's own switch, else the type's default; left
+      // undefined when neither is set (eventPages.js then falls back to the type's mode).
+      createPage: typeof e.createPage === "boolean" ? e.createPage : undefined,
     });
   }
   return events;
