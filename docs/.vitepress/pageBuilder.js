@@ -10,7 +10,7 @@ import { translateObject } from "./translate-core.js";
 import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
 import { getEventFAQ } from "./faq.js";
-import { eventCardsFor, planEventPages, withinHorizon } from "./eventPages.js";
+import { eventCardsFor, planEventPages, applyEventFilter } from "./eventPages.js";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -277,8 +277,8 @@ export async function autocomplete(fm, pages = [], ctx) {
       fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["small"]);
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
-      // Events starting more than two months away are hidden by default (withinHorizon).
-      fm.sections[i].events = calendar.filter((obj) => applyComplexFilter(obj, fm.sections[i].filter) && withinHorizon(obj));
+      // The filter may include the opt-in `withinHorizon` term (see applyEventFilter).
+      fm.sections[i].events = calendar.filter((obj) => applyEventFilter(obj, fm.sections[i].filter));
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "eventCards") {
       // One card per event of the selected types (legacy), plus a card for every

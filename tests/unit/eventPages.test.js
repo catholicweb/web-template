@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import {
   resolvePageMode,
@@ -9,14 +9,6 @@ import {
 } from "../../docs/.vitepress/eventPages.js";
 import { createContext, prepare, autocomplete, substitute } from "../../docs/.vitepress/pageBuilder.js";
 import { buildEvents, sortEvents } from "../../docs/.vitepress/calendar-core.js";
-
-// Event cards hide events starting more than two months away; pin "today" so the
-// fixed fixture dates below stay inside that window.
-beforeAll(() => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2099-06-01"));
-});
-afterAll(() => vi.useRealTimers());
 
 const types = [
   { id: "Catequesis", label: "Catequesis", defaults: { description: "Grupos de catequesis", images: ["/media/cat.jpg"], location: "p1" } },
