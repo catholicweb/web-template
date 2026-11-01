@@ -2,14 +2,17 @@
 // which cards the `eventCards` block shows. Pure and browser-safe (no fs / node
 // imports), so the build adapter (createFiles.js) and the live preview share it.
 //
-// Per-type page mode, authored on `event-types.list[].pageMode`:
-//   "none"  - no dedicated page (the default)
-//   "type"  - ONE page for the type, listing its events
-//   "event" - one page for EACH event of the type (the legacy behaviour)
+// What gets a page is authored with two switches:
+//   group: `event-types.list[].createPage` -> ONE page for the type, listing its events
+//   event: `createPage` on an event (or in the type's `defaults`, i.e. every event of
+//          the type) -> a page for that event; an event can opt out with `false`
 //
-// Backward compatibility: when `pageMode` is unset, a type listed in the legacy
-// `pages.pageperevent` array resolves to "event"; anything else resolves to "none".
-// `pages.pageperevent` will be dropped in the future, `pageMode` is the way forward.
+// Backward compatibility (read, never written, by the build):
+//   - `event-types.list[].pageMode` ("none" | "type" | "event"), the old three-way
+//     select. When present it wins (the editor removes it when it migrates a site):
+//     "type" = group page, "event" = a page for each event of the type.
+//   - a type listed in the legacy `pages.pageperevent` array resolves to "event".
+// `pageMode` and `pages.pageperevent` will be dropped in the future.
 import { slugify, applyComplexFilter } from "./utils.js";
 
 export const PAGE_MODES = ["none", "type", "event"];
@@ -36,6 +39,7 @@ export const hasExplicitPageMode = (type) => PAGE_MODES.includes(type?.pageMode)
 
 export function resolvePageMode(type, pageperevent = []) {
   if (hasExplicitPageMode(type)) return type.pageMode;
+  if (type?.createPage === true) return "type";
   const legacy = new Set(asArray(pageperevent).map(norm));
   return legacy.has(typeKey(type)) ? "event" : "none";
 }
@@ -100,7 +104,11 @@ export function planEventPages({ config, calendar = [], takenSlugs = new Set() }
   const eventPages = [];
   const eventLinks = new Map();
   for (const ev of calendar) {
-    if (!ev || modes.get(norm(ev.type)) !== "event") continue;
+    if (!ev) continue;
+    // A page for this event: its own switch (which also carries the type's default),
+    // else the legacy "event" mode of its type.
+    const wanted = typeof ev.createPage === "boolean" ? ev.createPage : modes.get(norm(ev.type)) === "event";
+    if (!wanted) continue;
     const slug = eventPageSlug(ev);
     eventPages.push({ ev, slug });
     eventLinks.set(ev, "/" + slug + "/");
@@ -130,11 +138,11 @@ function typeCard(type, link) {
 // Cards for an `eventCards` block.
 //  1. Exactly as before: one card per event matching `eventsToShow` (every event
 //     when nothing is selected).
-//  2. When types are selected, the rest follow their page mode: a type with
-//     pageMode "type" adds ONE card for the type, one with pageMode "event" adds
-//     a card per event, both only when they actually have a page. Types whose mode
-//     is merely inferred from the legacy pageperevent list are not added, so
-//     existing sites render exactly as they did.
+//  2. When types are selected, the rest follow their pages: a type with a group
+//     page adds ONE card for the type, and each of its events that has its own page
+//     adds a card, both only when the page actually exists. Types whose mode is
+//     merely inferred from the legacy pageperevent list are not added, so existing
+//     sites render exactly as they did.
 export function eventCardsFor({ eventsToShow, calendar = [], config, plan } = {}) {
   const selected = asArray(eventsToShow);
   const legacy = calendar.filter((obj) => applyComplexFilter(obj, selected.join("|") || ""));
@@ -146,15 +154,12 @@ export function eventCardsFor({ eventsToShow, calendar = [], config, plan } = {}
   const p = plan ?? planEventPages({ config, calendar });
   for (const type of eventTypesOf(config)) {
     const key = typeKey(type);
-    if (chosen.has(key) || !hasExplicitPageMode(type)) continue;
-    if (type.pageMode === "type" && p.typeLinks.has(key)) {
-      cards.push(typeCard(type, p.typeLinks.get(key)));
-    } else if (type.pageMode === "event") {
-      for (const ev of calendar) {
-        if (seen.has(ev) || norm(ev?.type) !== key || !p.eventLinks.has(ev)) continue;
-        seen.add(ev);
-        cards.push({ ...ev, link: p.eventLinks.get(ev) });
-      }
+    if (chosen.has(key) || !(hasExplicitPageMode(type) || typeof type.createPage === "boolean")) continue;
+    if (p.typeLinks.has(key)) cards.push(typeCard(type, p.typeLinks.get(key)));
+    for (const ev of calendar) {
+      if (seen.has(ev) || norm(ev?.type) !== key || !p.eventLinks.has(ev)) continue;
+      seen.add(ev);
+      cards.push({ ...ev, link: p.eventLinks.get(ev) });
     }
   }
   return cards;
