@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { withinHorizon, eventCardsFor, EVENT_HORIZON_MONTHS } from "../../docs/.vitepress/eventPages.js";
+import { withinHorizon, applyEventFilter, eventCardsFor, EVENT_HORIZON_MONTHS } from "../../docs/.vitepress/eventPages.js";
 import { createContext, autocomplete } from "../../docs/.vitepress/pageBuilder.js";
 
 // Local-time ISO date (YYYY-MM-DD) `days` away from `from`.
@@ -13,7 +13,7 @@ const iso = (from, days) => {
 describe("withinHorizon", () => {
   const now = new Date(2026, 10, 1, 15, 30); // 1 Nov 2026 (limit: 1 Jan 2027)
 
-  it("uses a two month window by default", () => {
+  it("uses a two month window", () => {
     expect(EVENT_HORIZON_MONTHS).toBe(2);
   });
 
@@ -27,7 +27,7 @@ describe("withinHorizon", () => {
     expect(withinHorizon({ dates: ["2027-01-01"] }, now)).toBe(true);
   });
 
-  it("hides events starting after the window", () => {
+  it("rejects events starting after the window", () => {
     expect(withinHorizon({ dates: ["2027-01-02"] }, now)).toBe(false);
     expect(withinHorizon({ dates: ["2027-06-15"] }, now)).toBe(false);
   });
@@ -43,28 +43,77 @@ describe("withinHorizon", () => {
   });
 });
 
-describe("eventCardsFor horizon", () => {
+describe("applyEventFilter", () => {
+  const now = new Date(2026, 10, 1);
+  const near = { type: "concert", title: "Near", dates: ["2026-11-20"], byday: [] };
+  const far = { type: "concert", title: "Far", dates: ["2027-05-20"], byday: [] };
+  const weekly = { type: "mass", title: "Weekly", dates: [], byday: ["SU"] };
+
+  it("behaves exactly like applyComplexFilter without the term", () => {
+    expect(applyEventFilter(far, "", now)).toBe(true);
+    expect(applyEventFilter(far, undefined, now)).toBe(true);
+    expect(applyEventFilter(far, "concert", now)).toBe(true);
+    expect(applyEventFilter(far, "mass", now)).toBe(false);
+  });
+
+  it("never hides far events unless asked", () => {
+    expect(applyEventFilter(far, "concert", now)).toBe(true);
+    expect(applyEventFilter(far, "!mass", now)).toBe(true);
+  });
+
+  it("the bare term keeps events inside the window", () => {
+    expect(applyEventFilter(near, "withinHorizon", now)).toBe(true);
+    expect(applyEventFilter(weekly, "withinHorizon", now)).toBe(true);
+    expect(applyEventFilter(far, "withinHorizon", now)).toBe(false);
+  });
+
+  it("is case-insensitive and ignores spaces", () => {
+    expect(applyEventFilter(far, " WITHINHORIZON ", now)).toBe(false);
+    expect(applyEventFilter(far, "concert & withinHorizon", now)).toBe(false);
+  });
+
+  it("combines with & and |", () => {
+    expect(applyEventFilter(near, "concert&withinHorizon", now)).toBe(true);
+    expect(applyEventFilter(far, "concert&withinHorizon", now)).toBe(false);
+    expect(applyEventFilter(weekly, "concert&withinHorizon", now)).toBe(false);
+    expect(applyEventFilter(far, "mass|concert&withinHorizon", now)).toBe(false);
+    expect(applyEventFilter(weekly, "mass|concert&withinHorizon", now)).toBe(true);
+  });
+
+  it("can be negated to get only the far events", () => {
+    expect(applyEventFilter(far, "!withinHorizon", now)).toBe(true);
+    expect(applyEventFilter(near, "!withinHorizon", now)).toBe(false);
+    expect(applyEventFilter(far, "concert&!withinHorizon", now)).toBe(true);
+  });
+});
+
+describe("eventCardsFor horizon (opt-in)", () => {
   const now = new Date(2026, 10, 1);
   const near = { type: "concert", title: "Near", dates: ["2026-11-20"] };
   const far = { type: "concert", title: "Far", dates: ["2027-05-20"] };
   const weekly = { type: "mass", title: "Weekly", dates: [], byday: ["SU"] };
+  const calendar = [near, far, weekly];
 
-  it("drops far events when every event is shown", () => {
-    const cards = eventCardsFor({ calendar: [near, far, weekly], config: {}, now });
-    expect(cards).toEqual([near, weekly]);
+  it("shows far events when the horizon is not asked for", () => {
+    expect(eventCardsFor({ calendar, config: {}, now })).toEqual([near, far, weekly]);
+    expect(eventCardsFor({ eventsToShow: ["concert"], calendar, config: {}, now })).toEqual([near, far]);
   });
 
-  it("drops far events matching the selected types", () => {
-    const cards = eventCardsFor({ eventsToShow: ["concert"], calendar: [near, far, weekly], config: {}, now });
-    expect(cards).toEqual([near]);
+  it("withinHorizon alone narrows every event", () => {
+    expect(eventCardsFor({ eventsToShow: ["withinHorizon"], calendar, config: {}, now })).toEqual([near, weekly]);
   });
 
-  it("drops far events that only appear through their own page", () => {
+  it("withinHorizon narrows the selected types (it is a modifier, not an extra type)", () => {
+    expect(eventCardsFor({ eventsToShow: ["concert", "withinHorizon"], calendar, config: {}, now })).toEqual([near]);
+    expect(eventCardsFor({ eventsToShow: ["withinhorizon", "concert", "mass"], calendar, config: {}, now })).toEqual([near, weekly]);
+  });
+
+  it("also applies to the cards of events that have their own page, only when asked", () => {
     const config = { "event-types": { list: [{ id: "concert", createPage: true }, { id: "mass" }] } };
-    const calendar = [near, far, weekly];
     const plan = { typeLinks: new Map(), eventLinks: new Map([[near, "/near/"], [far, "/far/"]]) };
-    const cards = eventCardsFor({ eventsToShow: ["mass"], calendar, config, plan, now });
-    expect(cards.map((c) => c.title)).toEqual(["Weekly", "Near"]);
+    const titles = (eventsToShow) => eventCardsFor({ eventsToShow, calendar, config, plan, now }).map((c) => c.title);
+    expect(titles(["mass"])).toEqual(["Weekly", "Near", "Far"]);
+    expect(titles(["mass", "withinHorizon"])).toEqual(["Weekly", "Near"]);
   });
 });
 
@@ -80,19 +129,20 @@ describe("autocomplete calendar section", () => {
     await autocomplete(fm, [], ctx);
     return fm.sections[0];
   };
+  const titles = (s) => s.events.map((e) => e.title);
 
-  it("hides far events by default", async () => {
-    const section = await run({});
-    expect(section.events.map((e) => e.title)).toEqual(["Near", "Weekly"]);
+  it("shows far events by default (no horizon)", async () => {
+    expect(titles(await run({}))).toEqual(["Near", "Far", "Weekly"]);
+    expect(titles(await run({ filter: "concert" }))).toEqual(["Near", "Far"]);
   });
 
-  it("applies on top of the complex filter", async () => {
-    const section = await run({ filter: "concert" });
-    expect(section.events.map((e) => e.title)).toEqual(["Near"]);
+  it("hides far events when the filter has withinHorizon", async () => {
+    expect(titles(await run({ filter: "withinHorizon" }))).toEqual(["Near", "Weekly"]);
+    expect(titles(await run({ filter: "concert&withinHorizon" }))).toEqual(["Near"]);
   });
 
   it("hides the section when only far events remain", async () => {
-    const section = await run({ filter: "far" });
+    const section = await run({ filter: "far&withinHorizon" });
     expect(section.events).toEqual([]);
     expect(section.tags).toContain("hidden");
   });
