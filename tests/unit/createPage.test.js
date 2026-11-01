@@ -1,6 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { planEventPages, eventCardsFor } from "../../docs/.vitepress/eventPages.js";
 import { buildEvents } from "../../docs/.vitepress/calendar-core.js";
+
+// Event cards hide events starting more than two months away; pin "today" so the
+// fixed fixture dates below stay inside that window.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-01-01"));
+});
+afterAll(() => vi.useRealTimers());
 
 describe("createPage switches (group + event)", () => {
   const cfg = (extra = {}) => ({
