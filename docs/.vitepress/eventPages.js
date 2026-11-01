@@ -21,14 +21,17 @@ const asArray = (v) => (Array.isArray(v) ? v : typeof v === "string" && v ? [v] 
 const first = (v) => asArray(v).find((x) => typeof x === "string" && x.trim()) ?? "";
 const norm = (v) => String(v ?? "").toLowerCase().trim();
 
-// Events whose start date is further away than this many months are hidden from the
-// calendar and event-card sections (default window, applied on top of the section's filter).
+// Opt-in filter term: keeps only events whose start date is at most this many months
+// away. It is NOT applied unless the section's filter asks for it, with the term
+// `withinHorizon` (any case): in a calendar `filter` string next to the usual operators
+// ("mass&withinHorizon", "!withinHorizon"), or as an entry of an eventCards `eventsToShow`.
 export const EVENT_HORIZON_MONTHS = 2;
+export const HORIZON_TERM = "withinhorizon";
 
-// True when the event should be displayed: it has no date (purely recurring events
-// are always shown), or its earliest date is on or before today + `months`.
-// Dates are the ISO strings built by calendar-core / calendar.js; unparsable dates
-// are ignored. `now` is injectable for tests.
+// True when the event starts inside the window: it has no date (purely recurring events
+// always qualify), or its earliest date is on or before today + `months`. Dates are the
+// ISO strings built by calendar-core / calendar.js; unparsable dates are ignored.
+// `now` is injectable for tests.
 export function withinHorizon(event, now = new Date(), months = EVENT_HORIZON_MONTHS) {
   const times = asArray(event?.dates)
     .map((d) => new Date(d).getTime())
@@ -38,6 +41,24 @@ export function withinHorizon(event, now = new Date(), months = EVENT_HORIZON_MO
   limit.setHours(0, 0, 0, 0);
   limit.setMonth(limit.getMonth() + months);
   return Math.min(...times) <= limit.getTime();
+}
+
+// applyComplexFilter plus the `withinHorizon` term (same | & ! syntax, so it can be
+// negated or combined). Filters without the term go straight to applyComplexFilter,
+// so their behaviour is exactly the same as before.
+export function applyEventFilter(obj, filter, now = new Date()) {
+  if (!filter || !String(filter).toLowerCase().includes(HORIZON_TERM)) return applyComplexFilter(obj, filter);
+  return String(filter)
+    .toLowerCase()
+    .split("|")
+    .some((orPart) =>
+      orPart.split("&").every((term) => {
+        const t = term.trim();
+        const negated = t.startsWith("!");
+        if ((negated ? t.slice(1).trim() : t) !== HORIZON_TERM) return applyComplexFilter(obj, t);
+        return withinHorizon(obj, now) !== negated;
+      }),
+    );
 }
 
 // Lowercased type id, the same key calendar-core uses for `event.type`.
@@ -162,11 +183,16 @@ function typeCard(type, link) {
 //     adds a card, both only when the page actually exists. Types whose mode is
 //     merely inferred from the legacy pageperevent list are not added, so existing
 //     sites render exactly as they did.
-// Events starting more than EVENT_HORIZON_MONTHS away are left out of both parts
-// (see withinHorizon); type cards carry no dates and are always kept.
+// The horizon is opt-in: only when `eventsToShow` contains the `withinHorizon` entry are
+// events starting more than EVENT_HORIZON_MONTHS away left out (of both parts). That
+// entry is a modifier, not a type: it narrows the selected types (or every event when no
+// type is selected). Type cards carry no dates and are always kept.
 export function eventCardsFor({ eventsToShow, calendar = [], config, plan, now = new Date() } = {}) {
-  const selected = asArray(eventsToShow);
-  const legacy = calendar.filter((obj) => applyComplexFilter(obj, selected.join("|") || "") && withinHorizon(obj, now));
+  const asked = asArray(eventsToShow);
+  const horizon = asked.some((t) => norm(t) === HORIZON_TERM);
+  const selected = asked.filter((t) => norm(t) !== HORIZON_TERM);
+  const inWindow = (ev) => !horizon || withinHorizon(ev, now);
+  const legacy = calendar.filter((obj) => applyEventFilter(obj, selected.join("|") || "", now) && inWindow(obj));
   if (!selected.length) return legacy;
 
   const chosen = new Set(selected.map(norm));
@@ -178,7 +204,7 @@ export function eventCardsFor({ eventsToShow, calendar = [], config, plan, now =
     if (chosen.has(key) || !(hasExplicitPageMode(type) || typeof type.createPage === "boolean")) continue;
     if (p.typeLinks.has(key)) cards.push(typeCard(type, p.typeLinks.get(key)));
     for (const ev of calendar) {
-      if (seen.has(ev) || norm(ev?.type) !== key || !p.eventLinks.has(ev) || !withinHorizon(ev, now)) continue;
+      if (seen.has(ev) || norm(ev?.type) !== key || !p.eventLinks.has(ev) || !inWindow(ev)) continue;
       seen.add(ev);
       cards.push({ ...ev, link: p.eventLinks.get(ev) });
     }
