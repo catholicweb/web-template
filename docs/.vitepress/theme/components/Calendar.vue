@@ -1,10 +1,11 @@
 <script setup>
 import { computed } from "vue";
 import { formatDate, slugify, withDefaultTags } from "./../../utils.js";
-import { useData } from "vitepress";
+import { useData, useRoute } from "vitepress";
 import Grid from "./Grid.vue";
 const props = defineProps({ block: { type: Object, required: true } });
 const { localeIndex } = useData();
+const route = useRoute();
 
 // Every grouped table (one per event type, by default) is a Grid item, so the layout
 // options (horizontal, carousel, sizes...) apply to the tables. `medium` is what the
@@ -19,6 +20,17 @@ const gridBlock = computed(() =>
   ),
 );
 
+// Same page, whatever the way it is written: "/a/b", "/a/b/", "/a/b.html", "/a/b/index.html".
+const normalizePath = (p) =>
+  String(p || "")
+    .split(/[?#]/)[0]
+    .replace(/\.html$/, "")
+    .replace(/\/index$/, "")
+    .replace(/\/+$/, "") || "/";
+
+// Links to the page being viewed are not useful: they are left out.
+const isCurrentPage = (href) => normalizePath(href) === normalizePath(route.path);
+
 // Page-producing events carry a root `/<slug>/` link (set at build time).
 // Prefix with the current locale key unless it's the root.
 function localizedHref(link) {
@@ -29,13 +41,22 @@ function localizedHref(link) {
 
 // A line is the last grouping level: { "<extra info>": [{ link }, ...] }. groupEvents
 // leaves a `{ link }` stub there for every event that has its own page (and nothing
-// for the rest), so the link of the line is the first one found.
+// for the rest), so the link of the line is the first one found that is not this page.
 function lineHref(line) {
   for (const stubs of Object.values(line || {})) {
-    const link = Array.isArray(stubs) ? stubs.find((e) => e?.link)?.link : "";
-    if (link) return localizedHref(link);
+    for (const stub of Array.isArray(stubs) ? stubs : []) {
+      const href = localizedHref(stub?.link);
+      if (href && !isCurrentPage(href)) return href;
+    }
   }
   return "";
+}
+
+// Page of a place, when it has one. `block.placeLinks` (built per language by
+// pageBuilder) already holds the final href, keyed by the place name.
+function placeHref(name) {
+  const href = props.block.placeLinks?.[name];
+  return href && !isCurrentPage(href) ? href : "";
 }
 
 function getSubKeys(table) {
@@ -51,12 +72,16 @@ function lineLabel(lineKey, lang) {
   return formatDate(lineKey, lang);
 }
 
-// Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes).
+// Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes),
+// each with the page of its place when it is one.
 function lineExtras(line, lang) {
   return Object.keys(line)
-    .map((key) => formatDate(key, lang))
-    .filter(Boolean)
-    .join(", ");
+    .map((key) => ({ text: formatDate(key, lang), href: placeHref(key) }))
+    .filter((part) => part.text);
+}
+
+function lineText(line, lineKey, lang) {
+  return [lineLabel(lineKey, lang), ...lineExtras(line, lang).map((p) => p.text)].filter(Boolean).join(" ");
 }
 </script>
 
@@ -89,20 +114,23 @@ function lineExtras(line, lang) {
                 <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">
                   <!-- Cada fila de la tabla puede tener múltiples elementos -->
                   <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
-                    <!-- The whole line links to the event page when the event has one -->
-                    <component
-                      :is="lineHref(line) ? 'a' : 'span'"
-                      :href="lineHref(line) || undefined"
-                      :class="lineHref(line) ? 'text-accent font-medium hover:underline no-underline' : ''"
-                    >
-                      {{ lineLabel(lineKey, $frontmatter.lang) }}
-                      <!-- The " - " separator only shows when there is both a label and extra info -->
-                      <span
-                        class="extra italic"
-                        :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
-                        >{{ lineExtras(line, $frontmatter.lang) }}</span
-                      >
-                    </component>
+                    {{ lineLabel(lineKey, $frontmatter.lang) }}
+                    <!-- The " - " separator only shows when there is both a label and extra info -->
+                    <span
+                      v-if="lineExtras(line, $frontmatter.lang).length"
+                      class="extra italic"
+                      :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
+                      ><template v-for="(part, i) in lineExtras(line, $frontmatter.lang)" :key="i"
+                        ><template v-if="i">, </template
+                        ><a v-if="part.href" :href="part.href" class="place-link">{{ part.text }}</a
+                        ><template v-else>{{ part.text }}</template></template
+                      ></span
+                    ><a
+                      v-if="lineHref(line)"
+                      :href="lineHref(line)"
+                      :aria-label="lineText(line, lineKey, $frontmatter.lang)"
+                      class="event-link"
+                    ></a>
                   </p>
                 </td>
               </tr>
@@ -136,5 +164,36 @@ function lineExtras(line, lang) {
 .calendar td:empty::after {
   content: "-";
   color: #9ca3af;
+}
+
+/* Event page: the line stays normal text, followed by a faint link symbol. */
+.calendar a.event-link {
+  color: inherit !important;
+  text-decoration: none !important;
+  margin-left: 0.4em;
+  font-size: 0.75em;
+  font-style: normal;
+  opacity: 0.4;
+}
+.calendar a.event-link::after {
+  content: "\1F517";
+  filter: grayscale(1);
+}
+.calendar a.event-link:hover,
+.calendar a.event-link:focus-visible {
+  opacity: 1;
+}
+
+/* Place page: the place name stays normal text, with a faint dotted underline. */
+.calendar a.place-link {
+  color: inherit !important;
+  font-weight: inherit;
+  text-decoration: underline dotted !important;
+  text-decoration-color: rgb(0 0 0 / 0.3) !important;
+  text-underline-offset: 3px;
+}
+.calendar a.place-link:hover,
+.calendar a.place-link:focus-visible {
+  text-decoration-style: solid !important;
 }
 </style>
