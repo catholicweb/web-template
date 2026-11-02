@@ -11,6 +11,9 @@ export function groupEvents(events, fields = []) {
     for (const key of key_array) {
       if (!acc[key]) acc[key] = [];
       if (fields.length > 1 || field == "all") acc[key].push(event);
+      // Last level: keep only a `{ link }` stub for events that have their own page, so
+      // renderers (Calendar.vue) can link the line without duplicating whole events.
+      else if (event.link) acc[key].push({ link: event.link });
     }
     return acc;
   }, {});

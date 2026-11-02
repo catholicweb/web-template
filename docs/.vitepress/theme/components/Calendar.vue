@@ -21,10 +21,21 @@ const gridBlock = computed(() =>
 
 // Page-producing events carry a root `/<slug>/` link (set at build time).
 // Prefix with the current locale key unless it's the root.
-function eventHref(event) {
-  if (!event?.link) return "";
+function localizedHref(link) {
+  if (!link) return "";
   const idx = localeIndex.value;
-  return !idx || idx === "root" || idx === "index" ? event.link : "/" + idx + event.link;
+  return !idx || idx === "root" || idx === "index" ? link : "/" + idx + link;
+}
+
+// A line is the last grouping level: { "<extra info>": [{ link }, ...] }. groupEvents
+// leaves a `{ link }` stub there for every event that has its own page (and nothing
+// for the rest), so the link of the line is the first one found.
+function lineHref(line) {
+  for (const stubs of Object.values(line || {})) {
+    const link = Array.isArray(stubs) ? stubs.find((e) => e?.link)?.link : "";
+    if (link) return localizedHref(link);
+  }
+  return "";
 }
 
 function getSubKeys(table) {
@@ -36,8 +47,7 @@ function getSubKeys(table) {
 }
 
 // Text shown for a line (the key of the 4th ordering level, e.g. the time).
-function lineLabel(line, lineKey, lang) {
-  if (eventHref(line) && line.title) return line.title;
+function lineLabel(lineKey, lang) {
   return formatDate(lineKey, lang);
 }
 
@@ -79,22 +89,20 @@ function lineExtras(line, lang) {
                 <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">
                   <!-- Cada fila de la tabla puede tener múltiples elementos -->
                   <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
-                    <a
-                      v-if="eventHref(line)"
-                      :href="eventHref(line)"
-                      class="text-accent font-medium hover:underline no-underline"
+                    <!-- The whole line links to the event page when the event has one -->
+                    <component
+                      :is="lineHref(line) ? 'a' : 'span'"
+                      :href="lineHref(line) || undefined"
+                      :class="lineHref(line) ? 'text-accent font-medium hover:underline no-underline' : ''"
                     >
-                      {{ lineLabel(line, lineKey, $frontmatter.lang) }}
-                    </a>
-                    <template v-else>
-                      {{ lineLabel(line, lineKey, $frontmatter.lang) }}
-                    </template>
-                    <!-- The " - " separator only shows when there is both a label and extra info -->
-                    <span
-                      class="extra italic"
-                      :class="{ 'with-label': lineLabel(line, lineKey, $frontmatter.lang) }"
-                      >{{ lineExtras(line, $frontmatter.lang) }}</span
-                    >
+                      {{ lineLabel(lineKey, $frontmatter.lang) }}
+                      <!-- The " - " separator only shows when there is both a label and extra info -->
+                      <span
+                        class="extra italic"
+                        :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
+                        >{{ lineExtras(line, $frontmatter.lang) }}</span
+                      >
+                    </component>
                   </p>
                 </td>
               </tr>
@@ -115,11 +123,18 @@ function lineExtras(line, lang) {
 }
 .calendar h1:empty,
 .calendar h3:empty,
-.calendar td:empty,
-.calendar th:empty,
 .calendar tr:empty,
 .calendar i:empty,
 .calendar span:empty {
   display: none !important;
+}
+/* Empty header cells keep their space so the columns stay aligned with the body. */
+.calendar th:empty {
+  visibility: hidden;
+}
+/* Empty data cells show a dash instead of collapsing the column. */
+.calendar td:empty::after {
+  content: "-";
+  color: #9ca3af;
 }
 </style>
