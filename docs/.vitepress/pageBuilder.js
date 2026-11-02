@@ -5,7 +5,7 @@
 // All state comes from a `ctx` built by createContext(); I/O (oembed scraping,
 // geocoding, bible API) is injected via ctx.deps so Node and the browser can differ.
 import MarkdownIt from "markdown-it";
-import { applyComplexFilter, groupEvents, getAddress as rawGetAddress, assembleOrder, defaultTags } from "./utils.js";
+import { applyComplexFilter, groupEvents, getAddress as rawGetAddress, assembleOrder, defaultTags, slugify } from "./utils.js";
 import { translateObject } from "./translate-core.js";
 import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
@@ -119,6 +119,25 @@ export function render(text, index = 1) {
 }
 
 
+// Links to the generated place pages, for the calendar tables: { "<place name>": "/<page>" }.
+// Same rule as createFiles.js: a page is generated for every named place (unless its
+// `createPage` is false) when a "Plantilla templos" page with sections exists. The href
+// follows the emitted file name of `lang` (translated title), so it is language-specific
+// and already carries the language prefix. Keyed by the authored name, which is what the
+// events' `locations` hold (that field is not translated).
+export function placeLinksFor(ctx, lang) {
+  const { config, NAMING } = ctx;
+  const template = (config?.pages?.list ?? []).find((p) => p.protected == "Plantilla templos");
+  if (!template || !Array.isArray(template.sections) || !template.sections.length) return {};
+  const links = {};
+  for (const place of config?.info?.places ?? []) {
+    if (!place || !place.name || place.createPage === false) continue;
+    links[place.name] = "/" + NAMING.filename(slugify(place.name) + ".md", place.name, lang);
+  }
+  return links;
+}
+
+
 export async function postComplete(fm, ctx) {
   if (!fm.sections) return;
   const { NAMING, videos, instagram } = ctx;
@@ -209,6 +228,7 @@ export async function postComplete(fm, ctx) {
     } else if (fm.sections[i]._block == "calendar") {
       const order = assembleOrder(fm.sections[i]);
       fm.sections[i].events = groupEvents(fm.sections[i].events, order);
+      fm.sections[i].placeLinks = placeLinksFor(ctx, fm.lang);
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
