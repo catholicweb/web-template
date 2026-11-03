@@ -142,12 +142,13 @@ export function accessMultikey(obj, multikey) {
 //           event in Zubieta matched "ituren" through the photo
 //           ".../Zubietako_joaldunak_iturendarren_bila.jpg" of the Zubieta place.
 //   link    URL slug of the event's own page (derived from its title)
+//   id      the editor's internal id: an opaque string a bare term could match by accident
 //   images / image
 //           image URLs. Only whether there are any is kept, so `images:empty` and
 //           `!images:empty` still work.
 export function searchableText(obj) {
   const json = JSON.stringify(obj, (key, value) => {
-    if (key === "place" || key === "link") return undefined;
+    if (key === "place" || key === "link" || key === "id") return undefined;
     if (key === "images" || key === "image") {
       if (Array.isArray(value)) return value.length ? ["…"] : value;
       return value ? "…" : value;
