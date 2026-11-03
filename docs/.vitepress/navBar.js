@@ -2,6 +2,7 @@ import { slugify } from "./utils.js";
 import { read, fg, path } from "./node_utils.js";
 import { dictionary, translateValue } from "./translate.js";
 import { createNaming, buildConfigPages, getCode } from "./naming.js";
+import { translateNavLabel, navComparator } from "./navLabels.js";
 
 export function locales(languages) {
   const loc = {};
@@ -58,20 +59,19 @@ export async function generateNav(config) {
     }
   }
 
+  // Home first, then the loose pages, then the menus. Everything but the home is
+  // sorted alphabetically using the rules of each language.
   const nav = {};
-  for (const lang in homes) {
-    nav[lang] = [homes[lang]];
-  }
-  for (const lang in flat) {
-    (nav[lang] ??= []).push(...flat[lang]);
-  }
-  for (const lang in groups) {
-    const langNav = nav[lang] ??= [...(flat[lang] || [])];
-    for (const key in groups[lang]) {
-      const children = groups[lang][key];
-      if (!children?.length) continue; // don't show empty groups
-      langNav.push({ text: tr(groupLabels[key] || key, lang), items: children });
-    }
+  for (const lang of new Set([...Object.keys(homes), ...Object.keys(flat), ...Object.keys(groups)])) {
+    const byText = navComparator(lang);
+    const langNav = homes[lang] ? [homes[lang]] : [];
+    langNav.push(...[...(flat[lang] || [])].sort(byText));
+    const menus = Object.entries(groups[lang] || {})
+      .filter(([, children]) => children?.length) // don't show empty groups
+      .map(([key, children]) => ({ text: tr(groupLabels[key] || key, lang), items: [...children].sort(byText) }))
+      .sort(byText);
+    langNav.push(...menus);
+    nav[lang] = langNav;
   }
   return nav;
 }
@@ -82,7 +82,10 @@ export async function generateNav(config) {
 // home page entry; the other keys are page `group` names.
 const groupLabels = { home: "Portada", templos: "Parroquias", eventos: "Actividades" };
 
+// Hardcoded translation first (navLabels.js), then the LLM dictionary, then the source text.
 function tr(str, lang) {
+  const hardcoded = translateNavLabel(str, lang);
+  if (hardcoded) return hardcoded;
   const d = dictionary[lang] || {};
   return translateValue(str, d) || str;
 }
