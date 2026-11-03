@@ -132,10 +132,59 @@ export function accessMultikey(obj, multikey) {
   return result.length ? result.filter(Boolean) : [""];
 }
 
+// The text a plain filter term is searched in: the event as lowercased JSON, so
+// structured terms keep working (`"type":"mass"`, `byday:empty`, `!dates:empty`).
+//
+// Fields that only describe *other things* are left out, because a bare term such as
+// a place name (`ituren`) is a substring search and would otherwise hit them:
+//   place   the WHOLE place object (name, address, geo and every image URL).
+//           The event's `locations` already carries the place name. Without this an
+//           event in Zubieta matched "ituren" through the photo
+//           ".../Zubietako_joaldunak_iturendarren_bila.jpg" of the Zubieta place.
+//   link    URL slug of the event's own page (derived from its title)
+//   images / image
+//           image URLs. Only whether there are any is kept, so `images:empty` and
+//           `!images:empty` still work.
+export function searchableText(obj) {
+  const json = JSON.stringify(obj, (key, value) => {
+    if (key === "place" || key === "link") return undefined;
+    if (key === "images" || key === "image") {
+      if (Array.isArray(value)) return value.length ? ["…"] : value;
+      return value ? "…" : value;
+    }
+    return value;
+  });
+  return (json ?? "").toLowerCase().replaceAll('":[]', ":empty");
+}
+
+// Case/accent-insensitive form used to compare place names.
+const fold = (s) =>
+  String(s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+// True when `name` appears as a whole word in one of the event's locations
+// (`locations`, else the place name). "ituren" matches "Ituren" and "Ituren (Iglesia)"
+// but not "Iturendarren"; "lesaka" matches "Residencia Andra Mari (Lesaka)".
+export function matchesLocation(obj, name) {
+  const wanted = fold(name);
+  if (!wanted) return false;
+  const escaped = wanted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "u");
+  const names = [...toArray(obj?.locations), obj?.place?.name].filter(Boolean).map(fold);
+  return names.some((n) => re.test(n));
+}
+
+// Filter syntax: terms joined by `&` (AND), groups joined by `|` (OR), `!` negates a term.
+//   plain term        substring of the event's searchableText()
+//   location:<name>   exact: <name> is a whole word of one of the event's locations
+//                     (what a page for one place should use, e.g. "location:{{name}}")
 export function applyComplexFilter(obj, filter) {
   if (!filter) return true;
 
-  const content = JSON.stringify(obj).toLowerCase().replaceAll('":[]', ":empty");
+  const content = searchableText(obj);
 
   // 1. Split by OR (|) - Any one of these groups must be true
   const orParts = filter.toLowerCase().split("|");
@@ -154,7 +203,7 @@ export function applyComplexFilter(obj, filter) {
         searchTerm = searchTerm.slice(1).trim();
       }
 
-      const found = content.includes(searchTerm);
+      const found = searchTerm.startsWith("location:") ? matchesLocation(obj, searchTerm.slice("location:".length)) : content.includes(searchTerm);
 
       // If negated, we want NOT found. Otherwise, we want found.
       return isNegated ? !found : found;
@@ -587,7 +636,7 @@ export async function getAddress(lat, lng, name, zoom = 17) {
       },
     });
 
-    // Nominatim may return a non-OK response (429 rate-limit, 403 blocked, etc.)
+    // Nominatim may return a non-OK response (429, 403, etc.)
     // with an XML/HTML error body instead of JSON. Bail out early with just the
     // map links.
     if (!response.ok) {
