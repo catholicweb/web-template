@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseJSON, normalizeConfig, siteOrigin } from "../../docs/.vitepress/fetch.js";
+import { describe, it, expect, vi } from "vitest";
+import { parseJSON, normalizeConfig, siteOrigin, downloadUrlIndex } from "../../docs/.vitepress/fetch.js";
 
 const DATA = "https://data.parroquia.app";
 
@@ -87,5 +87,44 @@ describe("siteOrigin", () => {
     expect(siteOrigin({ dev: { siteurl: "http://example.com" } }, "foo")).toBe(
       "https://example.com"
     );
+  });
+});
+
+describe("downloadUrlIndex", () => {
+  const url = "https://x.parroquia.app/url-index.json";
+  const ok = (body) => ({ ok: true, status: 200, text: async () => (typeof body === "string" ? body : JSON.stringify(body)) });
+  const status = (code) => ({ ok: false, status: code, text: async () => "" });
+  const opts = (fetchImpl, extra = {}) => ({ fetchImpl, attempts: 3, delayMs: 0, allowReset: false, ...extra });
+
+  it("returns the published index", async () => {
+    const idx = { version: 1, entries: { "page:1": { urls: {} } } };
+    expect(await downloadUrlIndex(url, opts(vi.fn(async () => ok(idx))))).toEqual(idx);
+  });
+
+  it("starts fresh on 404 (first build), without retrying", async () => {
+    const f = vi.fn(async () => status(404));
+    expect(await downloadUrlIndex(url, opts(f))).toEqual({ version: 1, entries: {} });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries transient failures and then succeeds", async () => {
+    const f = vi.fn().mockRejectedValueOnce(new Error("ECONNRESET")).mockResolvedValueOnce(status(503)).mockResolvedValueOnce(ok({ version: 1, entries: {} }));
+    expect(await downloadUrlIndex(url, opts(f))).toEqual({ version: 1, entries: {} });
+    expect(f).toHaveBeenCalledTimes(3);
+  });
+
+  it("throws instead of starting empty when the download keeps failing", async () => {
+    await expect(downloadUrlIndex(url, opts(vi.fn(async () => status(500))))).rejects.toThrow(/Refusing to build with an empty URL index/);
+    await expect(downloadUrlIndex(url, opts(vi.fn(async () => { throw new Error("offline"); })))).rejects.toThrow(/offline/);
+  });
+
+  it("throws on a 200 that is not an index (e.g. an HTML catch-all)", async () => {
+    await expect(downloadUrlIndex(url, opts(vi.fn(async () => ok("<!doctype html>"))))).rejects.toThrow(/Refusing/);
+  });
+
+  it("starts fresh on failure only when explicitly allowed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await downloadUrlIndex(url, opts(vi.fn(async () => status(500)), { allowReset: true }))).toEqual({ version: 1, entries: {} });
+    warn.mockRestore();
   });
 });

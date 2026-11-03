@@ -21,6 +21,7 @@
  *     {siteurl}/buildtimecache.json    (persisted build-time fetch cache)
  *     {siteurl}/instagram.json         (known Instagram posts)
  *     {siteurl}/instagram/*            (their self-hosted thumbnails, restored into docs/public/instagram/)
+ *     {siteurl}/url-index.json         (page id -> URL history, drives the _redirects file; strict, see downloadUrlIndex)
  *
  * All of them are best-effort: a 404 just means the previous deploy hadn't
  * published them yet, and the adapter starts fresh.
@@ -45,6 +46,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { restoreInstagramImages } from "./instagram-images.js";
+import { INDEX_FILE, emptyIndex, parseIndex } from "./urlIndex.js";
 
 const DATA = (process.env.PARROQUIA_DATA || 'https://data.parroquia.app').replace(/\/$/, '');
 const LOCAL_ROOT = process.env.PARROQUIA_LOCAL_ROOT
@@ -207,6 +209,40 @@ async function downloadDataFile(name, url, fallback) {
 }
 
 /**
+ * Download the URL-history index published by the previous deploy (see urlIndex.js).
+ *
+ * Unlike the best-effort data files above, this one must NOT silently start empty:
+ * the index only grows, so building from an empty one after a failed download would
+ * permanently erase every remembered URL (and the redirects with it). So:
+ *   - 404                      -> first build with this feature: start a fresh index
+ *   - network error / 5xx /
+ *     malformed body           -> retry, then throw (the build fails and can be re-run)
+ * Set URL_INDEX_ALLOW_RESET=1 to deliberately start fresh (e.g. a new custom domain).
+ */
+export async function downloadUrlIndex(url, { fetchImpl = fetch, attempts = 3, delayMs = 1000, allowReset = process.env.URL_INDEX_ALLOW_RESET === "1" } = {}) {
+  let lastError;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await fetchImpl(url, { cache: "no-cache" });
+      if (res.status === 404) {
+        console.log(`fetch: ${INDEX_FILE} not published yet (404) — starting a fresh URL index`);
+        return emptyIndex();
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return parseIndex(await res.text());
+    } catch (e) {
+      lastError = e;
+      if (i < attempts) await new Promise((r) => setTimeout(r, delayMs * i));
+    }
+  }
+  if (allowReset) {
+    console.warn(`fetch: ${INDEX_FILE} unavailable (${lastError.message}) — URL_INDEX_ALLOW_RESET=1, starting fresh`);
+    return emptyIndex();
+  }
+  throw new Error(`could not download ${INDEX_FILE} from ${url} (${lastError.message}). Refusing to build with an empty URL index, since that would drop all redirects. Re-run, or set URL_INDEX_ALLOW_RESET=1 to start fresh on purpose.`);
+}
+
+/**
  * Materialize the per-site data files that were previously re-downloaded inside
  * createFiles.js (translate.js dictionary, youtube.js videos, and the buildtime
  * cache). Only the fetch step calls this — createFiles simply reads the local
@@ -220,6 +256,10 @@ export async function fetchDataFiles(slug, config) {
   await downloadDataFile("buildtimecache.json", `${origin}/buildtimecache.json?t=${Date.now()}`, {});
   await downloadDataFile("videos.json", `${origin}/videos.json?t=${Date.now()}`, []);
   await downloadDataFile("instagram.json", `${origin}/instagram.json?t=${Date.now()}`, []);
+  // URL history (old page URLs -> redirects). Strict: throws instead of starting empty.
+  const urlIndex = await downloadUrlIndex(`${origin}/${INDEX_FILE}?t=${Date.now()}`);
+  await fsp.writeFile(path.join(LOCAL_ROOT, INDEX_FILE), JSON.stringify(urlIndex, null, 2));
+  console.log(`fetch: wrote ${path.join(LOCAL_ROOT, INDEX_FILE)} (${Object.keys(urlIndex.entries).length} pages)`);
   //await downloadDataFile("videos.json", `${DATA}/${slug}/videos.json`, []);
 
   // instagram.json points at self-hosted thumbnails (/instagram/<id>.<ext>) that
