@@ -56,3 +56,11 @@ describe("buildEvents eventTypeTitle", () => {
     expect(events[0].title).toBe("Misa de 12");
   });
 });
+
+describe("buildEvents ids", () => {
+  it("carries the editor id so the event page URL can be tracked", () => {
+    const events = buildEvents({ calendar: { events: { list: [{ id: "ev_1", title: "Retiro" }, { title: "Sin id" }] } } });
+    expect(events[0].id).toBe("ev_1");
+    expect(events[1].id).toBeUndefined();
+  });
+});

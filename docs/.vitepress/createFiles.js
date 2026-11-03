@@ -1,5 +1,6 @@
 import { read, write, path } from "./node_utils.js";
-import { slugify, getAddress, oklchToHex } from "./utils.js";
+import { slugify, getAddress, oklchToHex, getCode } from "./utils.js";
+import { INDEX_FILE, REDIRECTS_FILE, emptyIndex, parseIndex, updateIndex, buildRedirectsFile } from "./urlIndex.js";
 import { getPreview } from "./oembed.js";
 import { fetchVideos } from "./youtube.js";
 import { fetchInstagram } from "./instagram.js";
@@ -304,6 +305,20 @@ async function generateLegalPage(bctx) {
   write(dest, page, "");
 }
 
+// Merge this build's URLs into the index fetch.js downloaded, publish the new index
+// (docs/public -> deployed site root, so the next build finds it) and emit the
+// Cloudflare Pages _redirects file for pages whose URL changed. A missing local
+// index only happens when fetch.js was skipped (local dev): treat it as a first build.
+// A present-but-corrupt one throws: starting fresh would erase the history.
+function writeUrlHistory(records) {
+  const file = `./docs/public/${INDEX_FILE}`;
+  const previous = fs.existsSync(file) ? parseIndex(fs.readFileSync(file, "utf8")) : emptyIndex();
+  const { index, redirects } = updateIndex(previous, records);
+  write(file, index);
+  fs.writeFileSync(`./docs/public/${REDIRECTS_FILE}`, buildRedirectsFile(redirects), "utf8");
+  console.log(`url history: ${Object.keys(index.entries).length} pages tracked, ${redirects.length} redirected old URLs`);
+}
+
 async function run() {
   // Materialize (or refresh) the remote config before reading any page data.
   try {
@@ -376,9 +391,14 @@ async function run() {
   // Authored pages = the pages.list minus the two template pages (town + event),
   // which are only ever expanded per-place/per-event below, never emitted as a
   // literal {{...}} page.
+  // Stable ids for URL history (urlIndex.js). Kept in a side table rather than on the
+  // page objects, because every page field ends up in the emitted frontmatter.
+  const urlIds = new WeakMap();
+  const track = (page, id) => (id ? urlIds.set(page, id) : null, page);
+
   let pages = pagesArr
     .filter((p) => p !== townTemplate && p !== eventTemplate)
-    .map((p) => ({ ...p, slug: NAMING.resolveSlug(p) }));
+    .map((p) => track({ ...p, slug: NAMING.resolveSlug(p) }, p.id && `page:${p.id}`));
 
   // Home fallback: if none marked, the first hand-authored page becomes home.
   // Skip the injected 404 page so it is never promoted to index — slugify never
@@ -386,7 +406,7 @@ async function run() {
   if (pages.length && !pages.some((p) => p.slug == "index")) {
     let firstReal = pagesArr.findIndex((p) => p.protected == "Portada");
     if (firstReal < 0) firstReal = pages.findIndex((p) => p.slug !== "404");
-    if (firstReal >= 0) pages[firstReal] = { ...pages[firstReal], slug: "index", home: true };
+    if (firstReal >= 0) pages[firstReal] = track({ ...pages[firstReal], slug: "index", home: true }, urlIds.get(pages[firstReal]));
   }
 
   // Auto-generate one page per place when the checkbox is on, a towntemplate is
@@ -397,13 +417,13 @@ async function run() {
       if (!place || !place.name || place.createPage === false ) continue; // legacy data might contain null/undefined createPage, only skip if strictly set to false
       const placeSections = place?.sections ? (Array.isArray(place.sections) ? place.sections : [place.sections]) : [];
       townTemplate.sections = [...defaultSections, ...placeSections ]
-      pages.push({
+      pages.push(track({
         ...substitute(townTemplate, place),
         title: place.name,
         slug: slugify(place.name),
         home: false,
         group: "templos",
-      });
+      }, place.id && `place:${place.id}`));
     }
   }
 
@@ -426,7 +446,7 @@ async function run() {
       const typeSections = type?.sections ? (Array.isArray(type.sections) ? type.sections : [type.sections]) : [];
       eventTemplate.sections = [...defaultSections, ...typeSections ]
       for (const ev of calendar) if (ev?.type === key) ev.link = "/" + slug + "/"; // surface for event cards / calendar
-      pages.push({
+      pages.push(track({
         ...substitute(eventTemplate, data),
         title,
         slug,
@@ -434,14 +454,14 @@ async function run() {
         // Keep the type slug stable across languages (event cards link to /<slug>/).
         filenameMode: "original",
         group: "eventos",
-      });
+      }, `type:${key}`));
     }
 
     for (const { ev, slug } of eventPlan.eventPages) {
       // unique, e.g. /campamento-verano-2027-07-20/.
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
       const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
-      pages.push({
+      pages.push(track({
         ...substitute(eventTemplate, data),
         title: ev.title,
         slug,
@@ -449,12 +469,15 @@ async function run() {
         // Event URLs must keep their date-suffixed slug (e.g. /misa-2027-07-20/),
         filenameMode: "original",
         group: "eventos",
-      });
+      }, ev.id && `event:${ev.id}`));
     }
 
     // Re-write calendar.json with the link field added to page-producing events.
     write("./docs/public/calendar.json", calendar);
   }
+
+  // Every URL this build emits, with the id of the page behind it (see urlIndex.js).
+  const urlRecords = [];
 
   for (const page of pages) {
     if (!Array.isArray(page.sections)) continue;
@@ -490,8 +513,18 @@ async function run() {
         NAMING.filename(nameArg, data.title, lang) +
         ".md";
       write(dest, translatedData, ""); // config pages have no markdown body
+
+      const urlId = urlIds.get(page);
+      if (urlId && slug !== "404") {
+        // Public URL: home pages are served at the folder ("/", "/eu/"), not at ".../index".
+        const url = ("/" + NAMING.filename(nameArg, data.title, lang)).replace(/\/index$/, "/");
+        urlRecords.push({ id: urlId, lang: getCode(lang), url });
+      }
     }
   }
+
+  // Remember every page URL and turn the history into 301s for the ones that moved.
+  writeUrlHistory(urlRecords);
 
   // Emit the legal/privacy page last; a failure here (e.g. a geocode timeout)
   // must never abort an otherwise-good build.

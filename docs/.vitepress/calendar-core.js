@@ -199,6 +199,9 @@ export function buildEvents(config, now = new Date()) {
 
     const title = e.title || e.summary || "";
     events.push({
+      // The editor's own id: stable across title/date edits. Only used to track the
+      // event page's URL history (urlIndex.js); undefined for events without one.
+      id: evt.id,
       type: type,
       typeName: defaultMap[type]?.name,
       // Heading to group by: the type's title, or the event's own title when its

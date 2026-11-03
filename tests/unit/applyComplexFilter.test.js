@@ -90,3 +90,12 @@ describe("location: term", () => {
     expect(matchesLocation({ locations: [] }, "")).toBe(false);
   });
 });
+
+describe("event ids", () => {
+  it("are not searchable (an opaque id must not match a bare term)", () => {
+    const ev = { id: "mass-7f3a", title: "Retiro", type: "retreat" };
+    expect(searchableText(ev)).not.toContain("7f3a");
+    expect(applyComplexFilter(ev, "mass")).toBe(false);
+    expect(applyComplexFilter(ev, "retiro")).toBe(true);
+  });
+});
