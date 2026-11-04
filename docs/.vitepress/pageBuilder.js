@@ -227,7 +227,7 @@ export async function postComplete(fm, ctx) {
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
       const order = assembleOrder(fm.sections[i]);
-      fm.sections[i].events = groupEvents(fm.sections[i].events, order);
+      fm.sections[i].events = groupEvents(fm.sections[i].events, order, { lines: true });
       fm.sections[i].placeLinks = placeLinksFor(ctx, fm.lang);
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
