@@ -3,9 +3,28 @@ const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 // Position of a weekday key ("SA", "MO,TU,WE,TH,FR") in the week; -1 for any other key.
 const weekdayRank = (key) => WEEKDAY_CODES.indexOf(String(key).split(",")[0]);
 
-export function groupEvents(events, fields = []) {
+// Last level as lines: one entry per distinct event (not per distinct value), so two events
+// that only differ in the last level (same type / day / time, different place) stay apart
+// instead of having their values merged into one bag. Events with identical extra info
+// still collapse into one entry. -> [{ extras: ["Place A"], links: ["/page/"] }, ...]
+function toLines(events, field) {
+  const lines = new Map();
+  for (const event of events) {
+    const extras = accessMultikey(event, field).filter(Boolean);
+    const id = JSON.stringify(extras);
+    if (!lines.has(id)) lines.set(id, { extras, links: [] });
+    const line = lines.get(id);
+    if (event.link && !line.links.includes(event.link)) line.links.push(event.link);
+  }
+  return [...lines.values()];
+}
+
+// `options.lines`: the last level becomes an array of lines (see toLines) instead of an
+// object keyed by value. Calendar sections use it; other callers (faq.js) keep the keys.
+export function groupEvents(events, fields = [], options = {}) {
   if (fields.length === 0) return events;
   const field = fields[0];
+  if (options.lines && fields.length === 1 && field != "all") return toLines(events, field);
   const grouped = events.reduce((acc, event) => {
     const key_array = accessMultikey(event, field);
     for (const key of key_array) {
@@ -29,7 +48,7 @@ export function groupEvents(events, fields = []) {
   }
 
   return keys.reduce((acc, key) => {
-    acc[key] = groupEvents(grouped[key], fields.slice(1));
+    acc[key] = groupEvents(grouped[key], fields.slice(1), options);
     return acc;
   }, {});
 }
@@ -180,7 +199,7 @@ export function matchesLocation(obj, name) {
 
 // Filter syntax: terms joined by `&` (AND), groups joined by `|` (OR), `!` negates a term.
 //   plain term        substring of the event's searchableText()
-//   location:<name>   exact: <name> is a whole word of one of the event's locations
+//   location:<n>   exact: <n> is a whole word of one of the event's locations
 //                     (what a page for one place should use, e.g. "location:{{name}}")
 export function applyComplexFilter(obj, filter) {
   if (!filter) return true;
