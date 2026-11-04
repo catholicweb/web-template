@@ -10,6 +10,7 @@ import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { fetchCalendar } from "./calendar.js";
 import { planEventPages } from "./eventPages.js";
+import { asSections } from "./calendar-core.js";
 import crypto from "crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -443,11 +444,11 @@ async function run() {
   if (hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length)) {
     const defaultSections = eventTemplate.sections ?? []
     for (const { type, key, title, slug, data } of eventPlan.typePages) {
-      const typeSections = type?.sections ? (Array.isArray(type.sections) ? type.sections : [type.sections]) : [];
-      eventTemplate.sections = [...defaultSections, ...typeSections ]
+      // Template sections + the sections of the type (never mutate the shared template)
+      const typeTemplate = { ...eventTemplate, sections: [...defaultSections, ...asSections(type?.sections)] };
       for (const ev of calendar) if (ev?.type === key) ev.link = "/" + slug + "/"; // surface for event cards / calendar
       pages.push(track({
-        ...substitute(eventTemplate, data),
+        ...substitute(typeTemplate, data),
         title,
         slug,
         home: false,
@@ -461,8 +462,11 @@ async function run() {
       // unique, e.g. /campamento-verano-2027-07-20/.
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
       const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
+      // Template sections + the extra sections of this event (calendar-core already merged
+      // the type's default sections with the event's own into ev.sections).
+      const pageTemplate = { ...eventTemplate, sections: [...defaultSections, ...asSections(ev.sections)] };
       pages.push(track({
-        ...substitute(eventTemplate, data),
+        ...substitute(pageTemplate, data),
         title: ev.title,
         slug,
         home: false,
@@ -473,8 +477,12 @@ async function run() {
     }
 
     // Re-write calendar.json with the link field added to page-producing events.
-    write("./docs/public/calendar.json", calendar);
+    write("./docs/public/calendar.json", calendar.map(({ sections, ...ev }) => ev));
   }
+
+  // Page content is only needed above; keep it out of the events that end up in every
+  // calendar / eventCards block of the emitted pages.
+  for (const ev of calendar) if (ev) delete ev.sections;
 
   // Every URL this build emits, with the id of the page behind it (see urlIndex.js).
   const urlRecords = [];
