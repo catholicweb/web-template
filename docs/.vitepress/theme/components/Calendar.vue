@@ -39,15 +39,18 @@ function localizedHref(link) {
   return !idx || idx === "root" || idx === "index" ? link : "/" + idx + link;
 }
 
-// A line is the last grouping level: { "<extra info>": [{ link }, ...] }. groupEvents
-// leaves a `{ link }` stub there for every event that has its own page (and nothing
-// for the rest), so the link of the line is the first one found that is not this page.
+// A cell holds { "<time>": [line, ...] } where every line is one distinct event
+// ({ extras, links }, see groupEvents with `lines`). Flattened to one entry per line, so two
+// events at the same time (e.g. the same class in two places) get a line each.
+function cellLines(cell) {
+  return Object.entries(cell || {}).flatMap(([lineKey, lines]) => (Array.isArray(lines) ? lines : []).map((line) => ({ ...line, lineKey })));
+}
+
+// The link of a line is the first event page that is not this page.
 function lineHref(line) {
-  for (const stubs of Object.values(line || {})) {
-    for (const stub of Array.isArray(stubs) ? stubs : []) {
-      const href = localizedHref(stub?.link);
-      if (href && !isCurrentPage(href)) return href;
-    }
+  for (const link of line?.links || []) {
+    const href = localizedHref(link);
+    if (href && !isCurrentPage(href)) return href;
   }
   return "";
 }
@@ -72,16 +75,13 @@ function lineLabel(lineKey, lang) {
   return formatDate(lineKey, lang);
 }
 
-// Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes),
-// each with the page of its place when it is one.
+// Extra info of a line (title / week / place / notes), each with the page of its place when it is one.
 function lineExtras(line, lang) {
-  return Object.keys(line)
-    .map((key) => ({ text: formatDate(key, lang), href: placeHref(key) }))
-    .filter((part) => part.text);
+  return (line.extras || []).map((key) => ({ text: formatDate(key, lang), href: placeHref(key) })).filter((part) => part.text);
 }
 
-function lineText(line, lineKey, lang) {
-  return [lineLabel(lineKey, lang), ...lineExtras(line, lang).map((p) => p.text)].filter(Boolean).join(" ");
+function lineText(line, lang) {
+  return [lineLabel(line.lineKey, lang), ...lineExtras(line, lang).map((p) => p.text)].filter(Boolean).join(" ");
 }
 </script>
 
@@ -113,22 +113,22 @@ function lineText(line, lineKey, lang) {
                 <!-- Añadir filas -->
                 <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">
                   <!-- Cada fila de la tabla puede tener múltiples elementos -->
-                  <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
-                    {{ lineLabel(lineKey, $frontmatter.lang) }}
+                  <p v-for="(line, i) in cellLines(row[subKey])" :key="i" class="text-left pl-8 -indent-8">
+                    {{ lineLabel(line.lineKey, $frontmatter.lang) }}
                     <!-- The " - " separator only shows when there is both a label and extra info -->
                     <span
                       v-if="lineExtras(line, $frontmatter.lang).length"
                       class="extra italic"
-                      :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
-                      ><template v-for="(part, i) in lineExtras(line, $frontmatter.lang)" :key="i"
-                        ><template v-if="i">, </template
+                      :class="{ 'with-label': lineLabel(line.lineKey, $frontmatter.lang) }"
+                      ><template v-for="(part, j) in lineExtras(line, $frontmatter.lang)" :key="j"
+                        ><template v-if="j">, </template
                         ><a v-if="part.href" :href="part.href" class="place-link">{{ part.text }}</a
                         ><template v-else>{{ part.text }}</template></template
                       ></span
                     ><a
                       v-if="lineHref(line)"
                       :href="lineHref(line)"
-                      :aria-label="lineText(line, lineKey, $frontmatter.lang)"
+                      :aria-label="lineText(line, $frontmatter.lang)"
                       class="event-link"
                     ></a>
                   </p>
