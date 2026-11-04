@@ -65,6 +65,13 @@ function isEmptyOverride(v) {
   return ( v === '' || (Array.isArray(v) && (v.length === 0 || (v.length === 1 && v[0] === ''))) );
 }
 
+// `sections` as a clean list of section objects: the editor stores a list, older data
+// may hold a single section, and anything else (undefined, "", blanks) means "none".
+export function asSections(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+  return list.filter((s) => s && typeof s === "object");
+}
+
 
 // Map of lowercased type id -> defaults {title,image,description,...}.
 export function buildDefaultMap(config) {
@@ -197,6 +204,11 @@ export function buildEvents(config, now = new Date()) {
       }
     }
 
+    // Extra sections for the page of this event: the type's default sections first, then
+    // the event's own. They are added together (never one instead of the other), so an
+    // event with no sections of its own keeps the type's, and one with its own gets both.
+    const sections = [...asSections(defaults_.sections), ...asSections(evt.sections)];
+
     const title = e.title || e.summary || "";
     events.push({
       // The editor's own id: stable across title/date edits. Only used to track the
@@ -222,6 +234,8 @@ export function buildEvents(config, now = new Date()) {
       // Page for this event: the event's own switch, else the type's default; left
       // undefined when neither is set (eventPages.js then falls back to the type's mode).
       createPage: typeof e.createPage === "boolean" ? e.createPage : undefined,
+      // Only for the page builder (createFiles.js strips it afterwards); left out when empty.
+      ...(sections.length ? { sections } : {}),
     });
   }
   return events;

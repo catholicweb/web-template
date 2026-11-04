@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildEvents, buildTypeTitles } from "../../docs/.vitepress/calendar-core.js";
+import { buildEvents, buildTypeTitles, asSections } from "../../docs/.vitepress/calendar-core.js";
 
 const config = {
   "event-types": {
@@ -62,5 +62,50 @@ describe("buildEvents ids", () => {
     const events = buildEvents({ calendar: { events: { list: [{ id: "ev_1", title: "Retiro" }, { title: "Sin id" }] } } });
     expect(events[0].id).toBe("ev_1");
     expect(events[1].id).toBeUndefined();
+  });
+});
+
+describe("buildEvents sections", () => {
+  const typeSection = { _block: "text", html: "from the type" };
+  const eventSection = { _block: "text", html: "from the event" };
+  const build = (evt, defaults = { sections: [typeSection] }) =>
+    buildEvents({
+      "event-types": { list: [{ id: "camp", defaults }] },
+      calendar: { events: { list: [{ type: "camp", title: "Campamento", ...evt }] } },
+    })[0];
+
+  it("keeps the type's sections when the event has an empty list", () => {
+    expect(build({ sections: [] }).sections).toEqual([typeSection]);
+  });
+
+  it("keeps the type's sections when the event has none at all", () => {
+    expect(build({}).sections).toEqual([typeSection]);
+  });
+
+  it("adds the event's sections after the type's instead of replacing them", () => {
+    expect(build({ sections: [eventSection] }).sections).toEqual([typeSection, eventSection]);
+  });
+
+  it("uses the event's sections when the type has none", () => {
+    expect(build({ sections: [eventSection] }, {}).sections).toEqual([eventSection]);
+  });
+
+  it("leaves the field out when neither has sections", () => {
+    expect(build({ sections: [] }, {})).not.toHaveProperty("sections");
+  });
+
+  it("does not touch the type's list when merging", () => {
+    const defaults = { sections: [typeSection] };
+    build({ sections: [eventSection] }, defaults);
+    expect(defaults.sections).toEqual([typeSection]);
+  });
+});
+
+describe("asSections", () => {
+  it("accepts a list, a single section or nothing, and drops non-objects", () => {
+    expect(asSections([{ a: 1 }, "", null])).toEqual([{ a: 1 }]);
+    expect(asSections({ a: 1 })).toEqual([{ a: 1 }]);
+    expect(asSections(undefined)).toEqual([]);
+    expect(asSections("")).toEqual([]);
   });
 });
