@@ -15,8 +15,14 @@ const DEFAULT_LANGS = ["Español:es"];
 export function createNaming({ languages, dictionary }) {
   const TARGET_LANGS = languages?.length ? languages : DEFAULT_LANGS;
 
-  const filename = (name, title, lang) => {
-    const code = TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/";
+  // "" for the default language, "<code>/" for the others.
+  const prefix = (lang) => (TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/");
+
+  // `suffix` is an optional ready-made slug tail (an event's date / recurrence). It is
+  // appended after the translated title, so "summer-camp-2027-07-20" follows the language
+  // while the date stays as is. Only used for `.md` names (translated mode).
+  const filename = (name, title, lang, suffix = "") => {
+    const code = prefix(lang);
     const isIndex = name == "index" || basename(name) == "index.md";
     if (isIndex) return code + "index";
     // Force the 404 basename regardless of filenameMode — the page slug is always
@@ -26,10 +32,10 @@ export function createNaming({ languages, dictionary }) {
     const dict = dictionary[lang] || {};
     // `.md` names take the translated-title slug; plain slugs are used verbatim
     // (filenameMode:"original").
-    const base =
-      name && !/\.md$/i.test(name)
-        ? slugify(name)
-        : slugify(translateValue(title, dict));
+    const translated = name && !/\.md$/i.test(name);
+    const base = translated
+      ? slugify(name)
+      : slugify(translateValue(title, dict)) + (suffix ? "-" + suffix : "");
     return code + base;
   };
 
@@ -39,7 +45,7 @@ export function createNaming({ languages, dictionary }) {
   const resolveSlug = (p) =>
     isIndex(p) ? "index" : p.slug || slugify(p.title || "") || "page";
 
-  return { filename, isIndex, resolveSlug, TARGET_LANGS };
+  return { filename, prefix, isIndex, resolveSlug, TARGET_LANGS };
 }
 
 // Ordered list of pages we emit .md files for — mirrors createFiles `run()`.

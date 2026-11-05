@@ -84,14 +84,37 @@ export function resolvePageMode(type, pageperevent = []) {
   return legacy.has(typeKey(type)) ? "event" : "none";
 }
 
-// Slug of a per-event page: title + first date + recurrence. Events built by
-// calendar-core carry `byweek`/`byday` instead of an ICS-style `rrule`, so those
-// are used when `rrule` is missing; without them, recurring events with the same
-// title (and no dates) would all share one slug and overwrite each other.
-export function eventPageSlug(ev) {
+// Events built by calendar-core carry `byweek`/`byday` instead of an ICS-style `rrule`,
+// so those are used when `rrule` is missing; without them, recurring events with the
+// same title (and no dates) would all share one slug and overwrite each other.
+const recurrenceOf = (ev) => {
   const rrule = asArray(ev.rrule);
-  const recurrence = rrule.length ? rrule : [...asArray(ev.byweek), ...asArray(ev.byday)];
-  return slugify([ev.title, ev.dates?.[0], recurrence.join("-")].filter(Boolean).join(" "));
+  return rrule.length ? rrule : [...asArray(ev.byweek), ...asArray(ev.byday)];
+};
+
+// Slug of a per-event page: title + first date + recurrence.
+export function eventPageSlug(ev) {
+  return slugify([ev.title, ev.dates?.[0], recurrenceOf(ev).join("-")].filter(Boolean).join(" "));
+}
+
+// The part of the slug that is NOT the title (first date + recurrence), e.g.
+// "2099-07-20" or "week1-sa"; "" when the event has neither. The title part is
+// translated per language, this tail is kept as is.
+export function eventSlugSuffix(ev) {
+  return slugify([ev.dates?.[0], recurrenceOf(ev).join("-")].filter(Boolean).join(" "));
+}
+
+// Event cards and calendar lines point at generated pages with a language-neutral key
+// (the "/<slug>/" link made by the plan). `links` maps that key to the link of one
+// language (without the language prefix: the components add it). Returns a copy of the
+// page data; the shared events are never mutated.
+export function localizeEventLinks(data, links) {
+  if (!data || !links?.size) return data;
+  const fix = (events) => (Array.isArray(events) ? events.map((ev) => (ev && links.has(ev.link) ? { ...ev, link: links.get(ev.link) } : ev)) : events);
+  const out = { ...data };
+  if (data.events) out.events = fix(data.events);
+  if (Array.isArray(data.sections)) out.sections = data.sections.map((s) => (s && Array.isArray(s.events) ? { ...s, events: fix(s.events) } : s));
+  return out;
 }
 
 function findPlace(config, id) {
@@ -112,7 +135,7 @@ function typePageData(config, type) {
 //   modes       Map typeKey -> "none" | "type" | "event"
 //   typePages   [{ type, key, title, slug, data }]  (data feeds substitute())
 //   typeLinks   Map typeKey -> "/slug/" for the types that got a page
-//   eventPages  [{ ev, slug }]                       (legacy per-event pages)
+//   eventPages  [{ ev, slug, suffix }]               (legacy per-event pages)
 //   eventLinks  Map event -> "/slug/"
 // `takenSlugs` are the slugs of already-authored pages: those always win over a
 // generated type page.
@@ -150,7 +173,7 @@ export function planEventPages({ config, calendar = [], takenSlugs = new Set() }
     const wanted = typeof ev.createPage === "boolean" ? ev.createPage : modes.get(norm(ev.type)) === "event";
     if (!wanted) continue;
     const slug = eventPageSlug(ev);
-    eventPages.push({ ev, slug });
+    eventPages.push({ ev, slug, suffix: eventSlugSuffix(ev) });
     eventLinks.set(ev, "/" + slug + "/");
   }
 

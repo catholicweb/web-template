@@ -9,7 +9,7 @@ import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { fetchCalendar } from "./calendar.js";
-import { planEventPages } from "./eventPages.js";
+import { planEventPages, localizeEventLinks } from "./eventPages.js";
 import { asSections } from "./calendar-core.js";
 import crypto from "crypto";
 import fs from "node:fs";
@@ -396,6 +396,10 @@ async function run() {
   // page objects, because every page field ends up in the emitted frontmatter.
   const urlIds = new WeakMap();
   const track = (page, id) => (id ? urlIds.set(page, id) : null, page);
+  // Same idea for the event/type pages: the language-neutral "/<slug>/" key that event
+  // cards and calendar lines carry in `link`, and the date/recurrence tail of an event's URL.
+  const sourceLinks = new WeakMap();
+  const slugSuffixes = new WeakMap();
 
   let pages = pagesArr
     .filter((p) => p !== townTemplate && p !== eventTemplate)
@@ -441,43 +445,80 @@ async function run() {
     ? planEventPages({ config, calendar, takenSlugs: new Set(pages.map((p) => p.slug)) })
     : planEventPages({ config: {}, calendar: [] });
   ctx.eventPages = eventPlan; // eventCards (pageBuilder.autocomplete) reads the same plan
-  if (hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length)) {
+  const hasEventPages = hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length);
+  if (hasEventPages) {
     const defaultSections = eventTemplate.sections ?? []
     for (const { type, key, title, slug, data } of eventPlan.typePages) {
       // Template sections + the sections of the type (never mutate the shared template)
       const typeTemplate = { ...eventTemplate, sections: [...defaultSections, ...asSections(type?.sections)] };
       for (const ev of calendar) if (ev?.type === key) ev.link = "/" + slug + "/"; // surface for event cards / calendar
-      pages.push(track({
+      // No filenameMode:"original": the URL follows the translated title in every language.
+      const typePage = track({
         ...substitute(typeTemplate, data),
         title,
         slug,
         home: false,
-        // Keep the type slug stable across languages (event cards link to /<slug>/).
-        filenameMode: "original",
         group: "eventos",
-      }, `type:${key}`));
+      }, `type:${key}`);
+      sourceLinks.set(typePage, "/" + slug + "/");
+      pages.push(typePage);
     }
 
-    for (const { ev, slug } of eventPlan.eventPages) {
+    for (const { ev, slug, suffix } of eventPlan.eventPages) {
       // unique, e.g. /campamento-verano-2027-07-20/.
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
       const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
       // Template sections + the extra sections of this event (calendar-core already merged
       // the type's default sections with the event's own into ev.sections).
       const pageTemplate = { ...eventTemplate, sections: [...defaultSections, ...asSections(ev.sections)] };
-      pages.push(track({
+      // The URL is the translated title + the date/recurrence tail (see naming.filename).
+      const eventPage = track({
         ...substitute(pageTemplate, data),
         title: ev.title,
         slug,
         home: false,
-        // Event URLs must keep their date-suffixed slug (e.g. /misa-2027-07-20/),
-        filenameMode: "original",
         group: "eventos",
-      }, ev.id && `event:${ev.id}`));
+      }, ev.id && `event:${ev.id}`);
+      sourceLinks.set(eventPage, ev.link);
+      slugSuffixes.set(eventPage, suffix);
+      pages.push(eventPage);
     }
+  }
 
-    // Re-write calendar.json with the link field added to page-producing events.
-    write("./docs/public/calendar.json", calendar.map(({ sections, ...ev }) => ev));
+  // Output name of every page in every language, decided up front so the links between
+  // generated pages (event cards, calendar lines) can point at the right language's URL.
+  // Per-language names are the default: each .md is named from that language's translated
+  // title — slug(translate(title)) — e.g. es/imprimir.md, de/drucken.md, ar/<hash>.md.
+  // A site can opt back into stable source-slug names with pages.filenameMode:"original"
+  // (plain `slug` is used verbatim for every lang); individual pages can do the same with
+  // their own filenameMode:"original".
+  const outNames = new Map(); // page -> { [lang]: "<code>/<basename>" }
+  const linkMaps = new Map(NAMING.TARGET_LANGS.map((lang) => [lang, new Map()])); // lang -> (source link -> link in that lang)
+  for (const page of pages) {
+    if (!Array.isArray(page.sections)) continue;
+    const original = config.pages?.filenameMode === "original" || page.filenameMode === "original";
+    // Passing a `.md`-suffixed name makes filename() take its translated-title branch
+    // (same path postComplete already uses).
+    const nameArg = original ? page.slug : page.slug + ".md";
+    const names = {};
+    for (const lang of NAMING.TARGET_LANGS) {
+      names[lang] = NAMING.filename(nameArg, page.title, lang, slugSuffixes.get(page));
+    }
+    outNames.set(page, names);
+    const link = sourceLinks.get(page);
+    if (link) {
+      for (const lang of NAMING.TARGET_LANGS) {
+        // Components add the language prefix themselves, so the link has none.
+        linkMaps.get(lang).set(link, "/" + names[lang].slice(NAMING.prefix(lang).length) + "/");
+      }
+    }
+  }
+
+  if (hasEventPages) {
+    // Re-write calendar.json with the link field added to page-producing events
+    // (pointing at the default language's page).
+    const rootLinks = linkMaps.get(NAMING.TARGET_LANGS[0]);
+    write("./docs/public/calendar.json", calendar.map(({ sections, ...ev }) => (ev.link ? { ...ev, link: rootLinks.get(ev.link) ?? ev.link } : ev)));
   }
 
   // Page content is only needed above; keep it out of the events that end up in every
@@ -496,36 +537,18 @@ async function run() {
 
     await autocomplete(data, pages, ctx);
 
-    // Output basenames are per-language by default: each .md is named from that
-    // language's translated title — slug(translate(title)) — e.g. es/imprimir.md,
-    // de/drucken.md, ar/<hash>.md. Passing a `.md`-suffixed name makes filename()
-    // take its translated-title branch (same path postComplete already uses).
-    // A site can opt back into stable source-slug names with
-    // pages.filenameMode:"original" (plain `slug` is used verbatim for every lang);
-    // individual pages can do the same with their own filenameMode:"original"
-    // (event pages use it to keep their date-suffixed slug in the URL).
-    const original =
-      config.pages?.filenameMode === "original" || page.filenameMode === "original";
-    const translatedNames = !original;
-    const nameArg = translatedNames ? slug + ".md" : slug;
+    const names = outNames.get(page);
+    const equiv = NAMING.TARGET_LANGS.map((lan) => ({ lang: lan, href: "/" + names[lan] }));
 
     for (const lang of NAMING.TARGET_LANGS) {
-      const equiv = NAMING.TARGET_LANGS.map((lan) => ({
-        lang: lan,
-        href: "/" + NAMING.filename(nameArg, data.title, lan),
-      }));
-      const translatedData = await finalize(data, lang, ctx, { equiv });
+      const translatedData = await finalize(localizeEventLinks(data, linkMaps.get(lang)), lang, ctx, { equiv });
 
-      const dest =
-        "./docs/" +
-        NAMING.filename(nameArg, data.title, lang) +
-        ".md";
-      write(dest, translatedData, ""); // config pages have no markdown body
+      write("./docs/" + names[lang] + ".md", translatedData, ""); // config pages have no markdown body
 
       const urlId = urlIds.get(page);
       if (urlId && slug !== "404") {
         // Public URL: home pages are served at the folder ("/", "/eu/"), not at ".../index".
-        const url = ("/" + NAMING.filename(nameArg, data.title, lang)).replace(/\/index$/, "/");
+        const url = ("/" + names[lang]).replace(/\/index$/, "/");
         urlRecords.push({ id: urlId, lang: getCode(lang), url });
       }
     }
