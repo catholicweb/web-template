@@ -183,7 +183,7 @@ export function matchesLocation(obj, name) {
 
 // Filter syntax: terms joined by `&` (AND), groups joined by `|` (OR), `!` negates a term.
 //   plain term        substring of the event's searchableText()
-//   location:<n>   exact: <n> is a whole word of one of the event's locations
+//   location:<name>   exact: <name> is a whole word of one of the event's locations
 //                     (what a page for one place should use, e.g. "location:{{name}}")
 export function applyComplexFilter(obj, filter) {
   if (!filter) return true;
