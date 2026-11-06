@@ -6,17 +6,14 @@ const weekdayRank = (key) => WEEKDAY_CODES.indexOf(String(key).split(",")[0]);
 export function groupEvents(events, fields = []) {
   if (fields.length === 0) return events;
   const field = fields[0];
-  const grouped = events.reduce((acc, event, n) => {
+  const grouped = events.reduce((acc, event) => {
     const key_array = accessMultikey(event, field);
     for (const key of key_array) {
       if (!acc[key]) acc[key] = [];
       if (fields.length > 1 || field == "all") acc[key].push(event);
-      // Last level: keep only a small stub per event, so renderers (Calendar.vue) can split
-      // a line into one entry per event without duplicating whole events. `n` is the position
-      // of the event among the events of this line (always present, unique within the line,
-      // in the events' own order; `id` can't be used: not every event has one). `link` is
-      // added for events that have their own page, so the entry can link to it.
-      else acc[key].push(event.link ? { n, link: event.link } : { n });
+      // Last level: keep only a `{ link }` stub for events that have their own page, so
+      // renderers (Calendar.vue) can link the line without duplicating whole events.
+      else if (event.link) acc[key].push({ link: event.link });
     }
     return acc;
   }, {});
