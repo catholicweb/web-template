@@ -59,24 +59,41 @@ function lineLabel(lineKey, lang) {
   return formatDate(lineKey, lang);
 }
 
-// A line is the last grouping level: { "<extra info>": [{ n, link? }, ...] }. Several
-// events can share a line (same row, column and time), so the line is regrouped by
-// event: `n` is the position of the event among the events of the line (groupEvents
-// leaves one stub per event under each of its extra-info keys). Each entry is one event:
+const isStub = (stub) => stub && typeof stub === "object" && typeof stub.n === "number";
+
+// A line is the last grouping level. groupEvents leaves a stub { n, link? } per event at
+// the very end of the tree, and several events can share a line (same row, column and
+// time), so the line is regrouped by event: `n` is the position of the event among the
+// events of the line. Each entry is one event:
 //   extras  the extra info of the event (title / week / place / notes...), each with the
 //           page of its place when it is one
 //   href    the page of the event, unless it is the page being viewed
 // Entries keep the order of the events.
+//
+// Two shapes of line:
+//   { "<extra info>": [stub, ...], ... }   the usual 5-level ordering (extra info last)
+//   [stub, ...]                           an ordering without an extra-info level (the line
+//                                         key is the last level): events with no extras
 function lineEvents(line, lang) {
   const byEvent = new Map();
-  for (const [key, stubs] of Object.entries(line || {})) {
-    for (const stub of Array.isArray(stubs) ? stubs : []) {
-      if (!byEvent.has(stub.n)) byEvent.set(stub.n, { n: stub.n, extras: [], href: "" });
-      const ev = byEvent.get(stub.n);
+  const entry = (stub) => {
+    if (!byEvent.has(stub.n)) byEvent.set(stub.n, { n: stub.n, extras: [], href: "" });
+    const ev = byEvent.get(stub.n);
+    const href = localizedHref(stub.link);
+    if (!ev.href && href && !isCurrentPage(href)) ev.href = href;
+    return ev;
+  };
+
+  if (Array.isArray(line)) {
+    for (const stub of line) if (isStub(stub)) entry(stub);
+  } else {
+    for (const [key, stubs] of Object.entries(line || {})) {
       const text = formatDate(key, lang);
-      if (text) ev.extras.push({ text, href: placeHref(key) });
-      const href = localizedHref(stub.link);
-      if (!ev.href && href && !isCurrentPage(href)) ev.href = href;
+      for (const stub of Array.isArray(stubs) ? stubs : []) {
+        if (!isStub(stub)) continue;
+        const ev = entry(stub);
+        if (text) ev.extras.push({ text, href: placeHref(key) });
+      }
     }
   }
   return [...byEvent.values()].sort((a, b) => a.n - b.n);
