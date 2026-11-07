@@ -1,16 +1,29 @@
 const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 
+// Keys produced by the opt-in `index` token (see accessMultikey) end in "#<n>".
+// Renderers call stripIndex() to get the text to show.
+const INDEX_SUFFIX = /#\d+$/;
+export const stripIndex = (key) => String(key ?? "").replace(INDEX_SUFFIX, "");
+
+// A level without its `index` token: "times+index" -> "times".
+const withoutIndex = (field) =>
+  String(field)
+    .split("+")
+    .filter((group) => group !== "index")
+    .join("+");
+
 // Position of a weekday key ("SA", "MO,TU,WE,TH,FR") in the week; -1 for any other key.
-const weekdayRank = (key) => WEEKDAY_CODES.indexOf(String(key).split(",")[0]);
+const weekdayRank = (key) => WEEKDAY_CODES.indexOf(stripIndex(key).split(",")[0]);
 
 export function groupEvents(events, fields = []) {
   if (fields.length === 0) return events;
   const field = fields[0];
-  const grouped = events.reduce((acc, event) => {
-    const key_array = accessMultikey(event, field);
+  const base = withoutIndex(field);
+  const grouped = events.reduce((acc, event, i) => {
+    const key_array = accessMultikey(event, field, i);
     for (const key of key_array) {
       if (!acc[key]) acc[key] = [];
-      if (fields.length > 1 || field == "all") acc[key].push(event);
+      if (fields.length > 1 || base == "all") acc[key].push(event);
       // Last level: keep only a `{ link }` stub for events that have their own page, so
       // renderers (Calendar.vue) can link the line without duplicating whole events.
       else if (event.link) acc[key].push({ link: event.link });
@@ -19,7 +32,7 @@ export function groupEvents(events, fields = []) {
   }, {});
 
   const keys = Object.keys(grouped);
-  if (field == "times") {
+  if (base == "times") {
     keys.sort((a, b) => a.localeCompare(b));
   } else if (keys.some((key) => weekdayRank(key) >= 0)) {
     // Weekday keys (recurring events) go first, in week order. Any other key
@@ -43,6 +56,11 @@ export function groupEvents(events, fields = []) {
 //   title-eventTypeTitle+byweek+locations+notes
 //                    extra info: the title (only when it adds something to the
 //                    type title), week of the month, place and notes
+//
+// Any level can carry the opt-in `index` token (e.g. "times+index"): every key of that
+// level then gets "#<position>" appended, so events that share all their data at that
+// level stay apart instead of collapsing. Calendar.vue drops the suffix (stripIndex)
+// when it prints the keys.
 export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "title-eventTypeTitle+byweek+locations+notes"];
 
 // Ordering for sections that list only masses: one table per weekday group
@@ -96,13 +114,22 @@ export function toArray(value) {
   return [];
 }
 
-export function accessMultikey(obj, multikey) {
+// `index` (the event's 0-based position in the list being grouped) only matters for the
+// opt-in `index` token: a `+` group that is exactly "index" produces no key of its own,
+// it appends "#<index + 1>" to every key of the level ("locations+index" -> "Paris#1").
+export function accessMultikey(obj, multikey, index = 0) {
   let result = [];
+  let withIndex = false;
 
   // 1. Split by '+' to get additive groups
   const groups = multikey.split("+");
 
   for (const group of groups) {
+    if (group === "index") {
+      withIndex = true;
+      continue;
+    }
+
     // 2. Split by '/' for fallbacks
     const fallbacks = group.split("/");
 
@@ -129,7 +156,8 @@ export function accessMultikey(obj, multikey) {
       }
     }
   }
-  return result.length ? result.filter(Boolean) : [""];
+  const keys = result.length ? result.filter(Boolean) : [""];
+  return withIndex ? keys.map((key) => `${key}#${index + 1}`) : keys;
 }
 
 // The text a plain filter term is searched in: the event as lowercased JSON, so
