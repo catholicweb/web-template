@@ -39,6 +39,19 @@ function localizedHref(link) {
   return !idx || idx === "root" || idx === "index" ? link : "/" + idx + link;
 }
 
+// A line is the last grouping level: { "<extra info>": [{ link }, ...] }. groupEvents
+// leaves a `{ link }` stub there for every event that has its own page (and nothing
+// for the rest), so the link of the line is the first one found that is not this page.
+function lineHref(line) {
+  for (const stubs of Object.values(line || {})) {
+    for (const stub of Array.isArray(stubs) ? stubs : []) {
+      const href = localizedHref(stub?.link);
+      if (href && !isCurrentPage(href)) return href;
+    }
+  }
+  return "";
+}
+
 // Page of a place, when it has one. `block.placeLinks` (built per language by
 // pageBuilder) already holds the final href, keyed by the place name.
 function placeHref(name) {
@@ -59,48 +72,16 @@ function lineLabel(lineKey, lang) {
   return formatDate(lineKey, lang);
 }
 
-const isStub = (stub) => stub && typeof stub === "object" && typeof stub.n === "number";
-
-// A line is the last grouping level. groupEvents leaves a stub { n, link? } per event at
-// the very end of the tree, and several events can share a line (same row, column and
-// time), so the line is regrouped by event: `n` is the position of the event among the
-// events of the line. Each entry is one event:
-//   extras  the extra info of the event (title / week / place / notes...), each with the
-//           page of its place when it is one
-//   href    the page of the event, unless it is the page being viewed
-// Entries keep the order of the events.
-//
-// Two shapes of line:
-//   { "<extra info>": [stub, ...], ... }   the usual 5-level ordering (extra info last)
-//   [stub, ...]                           an ordering without an extra-info level (the line
-//                                         key is the last level): events with no extras
-function lineEvents(line, lang) {
-  const byEvent = new Map();
-  const entry = (stub) => {
-    if (!byEvent.has(stub.n)) byEvent.set(stub.n, { n: stub.n, extras: [], href: "" });
-    const ev = byEvent.get(stub.n);
-    const href = localizedHref(stub.link);
-    if (!ev.href && href && !isCurrentPage(href)) ev.href = href;
-    return ev;
-  };
-
-  if (Array.isArray(line)) {
-    for (const stub of line) if (isStub(stub)) entry(stub);
-  } else {
-    for (const [key, stubs] of Object.entries(line || {})) {
-      const text = formatDate(key, lang);
-      for (const stub of Array.isArray(stubs) ? stubs : []) {
-        if (!isStub(stub)) continue;
-        const ev = entry(stub);
-        if (text) ev.extras.push({ text, href: placeHref(key) });
-      }
-    }
-  }
-  return [...byEvent.values()].sort((a, b) => a.n - b.n);
+// Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes),
+// each with the page of its place when it is one.
+function lineExtras(line, lang) {
+  return Object.keys(line)
+    .map((key) => ({ text: formatDate(key, lang), href: placeHref(key) }))
+    .filter((part) => part.text);
 }
 
-function lineText(ev, lineKey, lang) {
-  return [lineLabel(lineKey, lang), ...ev.extras.map((p) => p.text)].filter(Boolean).join(" ");
+function lineText(line, lineKey, lang) {
+  return [lineLabel(lineKey, lang), ...lineExtras(line, lang).map((p) => p.text)].filter(Boolean).join(" ");
 }
 </script>
 
@@ -131,28 +112,26 @@ function lineText(ev, lineKey, lang) {
                 </td>
                 <!-- Añadir filas -->
                 <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">
-                  <!-- Cada fila de la tabla puede tener múltiples elementos: una línea por evento -->
-                  <template v-for="(line, lineKey) in row[subKey]" :key="lineKey">
-                    <p v-for="ev in lineEvents(line, $frontmatter.lang)" :key="ev.n" class="text-left pl-8 -indent-8">
-                      {{ lineLabel(lineKey, $frontmatter.lang) }}
-                      <!-- The " - " separator only shows when there is both a label and extra info -->
-                      <span
-                        v-if="ev.extras.length"
-                        class="extra italic"
-                        :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
-                        ><template v-for="(part, i) in ev.extras" :key="i"
-                          ><template v-if="i">, </template
-                          ><a v-if="part.href" :href="part.href" class="place-link">{{ part.text }}</a
-                          ><template v-else>{{ part.text }}</template></template
-                        ></span
-                      ><a
-                        v-if="ev.href"
-                        :href="ev.href"
-                        :aria-label="lineText(ev, lineKey, $frontmatter.lang)"
-                        class="event-link"
-                      ></a>
-                    </p>
-                  </template>
+                  <!-- Cada fila de la tabla puede tener múltiples elementos -->
+                  <p v-for="(line, lineKey) in row[subKey]" class="text-left pl-8 -indent-8">
+                    {{ lineLabel(lineKey, $frontmatter.lang) }}
+                    <!-- The " - " separator only shows when there is both a label and extra info -->
+                    <span
+                      v-if="lineExtras(line, $frontmatter.lang).length"
+                      class="extra italic"
+                      :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
+                      ><template v-for="(part, i) in lineExtras(line, $frontmatter.lang)" :key="i"
+                        ><template v-if="i">, </template
+                        ><a v-if="part.href" :href="part.href" class="place-link">{{ part.text }}</a
+                        ><template v-else>{{ part.text }}</template></template
+                      ></span
+                    ><a
+                      v-if="lineHref(line)"
+                      :href="lineHref(line)"
+                      :aria-label="lineText(line, lineKey, $frontmatter.lang)"
+                      class="event-link"
+                    ></a>
+                  </p>
                 </td>
               </tr>
             </tbody>
