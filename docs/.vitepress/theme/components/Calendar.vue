@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { formatDate, slugify, withDefaultTags } from "./../../utils.js";
+import { formatDate, slugify, stripIndex, withDefaultTags } from "./../../utils.js";
 import { useData, useRoute } from "vitepress";
 import Grid from "./Grid.vue";
 const props = defineProps({ block: { type: Object, required: true } });
@@ -67,16 +67,23 @@ function getSubKeys(table) {
   return Array.from(keys);
 }
 
+// Keys can end in "#<n>" when an ordering level uses the opt-in `index` token (it keeps
+// identical events apart, see accessMultikey in utils.js). Keys are looked up as they
+// are, but every key is shown through stripIndex() so the suffix never reaches the page.
+
 // Text shown for a line (the key of the 4th ordering level, e.g. the time).
 function lineLabel(lineKey, lang) {
-  return formatDate(lineKey, lang);
+  return formatDate(stripIndex(lineKey), lang);
 }
 
 // Extra info of a line (the keys of the last ordering level, e.g. title / week / place / notes),
 // each with the page of its place when it is one.
 function lineExtras(line, lang) {
   return Object.keys(line)
-    .map((key) => ({ text: formatDate(key, lang), href: placeHref(key) }))
+    .map((key) => {
+      const name = stripIndex(key);
+      return { text: formatDate(name, lang), href: placeHref(name) };
+    })
     .filter((part) => part.text);
 }
 
@@ -89,18 +96,18 @@ function lineText(line, lineKey, lang) {
   <div class="calendar">
     <Grid :block="gridBlock" v-slot="{ item }">
       <!-- Primer grupo dividir en headers -->
-      <div :class="item.key" class="mb-6">
+      <div :class="stripIndex(item.key)" class="mb-6">
         <h3 :id="slugify(item.key)" class="text-xl text-left text-gray-800 mb-3 border-b-3 border-accent pb-1">
-          {{ formatDate(item.key, $frontmatter.lang) }}
+          {{ formatDate(stripIndex(item.key), $frontmatter.lang) }}
         </h3>
         <div class="overflow-x-auto bg-white">
           <table class="min-w-full border-collapse [border-style:hidden]">
             <!-- Añadir cabezera a la tabla (solo si hay subfields)-->
-            <thead v-if="getSubKeys(item.table)[0] != ''" class="bg-gray-50 text-gray-600 uppercase tracking-wide">
+            <thead v-if="stripIndex(getSubKeys(item.table)[0]) != ''" class="bg-gray-50 text-gray-600 uppercase tracking-wide">
               <tr>
                 <th class="p-3 text-left">&nbsp;</th>
                 <th v-for="subKey in getSubKeys(item.table)" class="p-3 text-left">
-                  {{ formatDate(subKey, $frontmatter.lang) }}
+                  {{ formatDate(stripIndex(subKey), $frontmatter.lang) }}
                 </th>
               </tr>
             </thead>
@@ -108,7 +115,7 @@ function lineText(line, lineKey, lang) {
               <!-- Añadir columnas a la tabla -->
               <tr v-for="(row, rowKey, rowIndex) in item.table" class="odd:bg-white even:bg-gray-50">
                 <td class="p-3 border-1">
-                  {{ formatDate(rowKey, $frontmatter.lang) }}
+                  {{ formatDate(stripIndex(rowKey), $frontmatter.lang) }}
                 </td>
                 <!-- Añadir filas -->
                 <td v-for="subKey in getSubKeys(item.table)" class="p-3 align-top border-1">

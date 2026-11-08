@@ -1,16 +1,34 @@
 const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 
+// Keys produced by the `&index` append (see accessMultikey) end in "#<n>".
+// Renderers call stripIndex() to get the text to show.
+const INDEX_SUFFIX = /#\d+$/;
+export const stripIndex = (key) => String(key ?? "").replace(INDEX_SUFFIX, "");
+
+// Order keys by their text first, then by the number of their "#<n>" suffix (numerically,
+// so #2 comes before #10).
+const suffixNumber = (key) => Number(/#(\d+)$/.exec(key)?.[1] ?? 0);
+const byKeyText = (a, b) => stripIndex(a).localeCompare(stripIndex(b)) || suffixNumber(a) - suffixNumber(b);
+
+// A level without its `&` appends: "times&index" -> "times".
+const withoutAppends = (field) =>
+  String(field)
+    .split("+")
+    .map((group) => group.split("&")[0])
+    .join("+");
+
 // Position of a weekday key ("SA", "MO,TU,WE,TH,FR") in the week; -1 for any other key.
-const weekdayRank = (key) => WEEKDAY_CODES.indexOf(String(key).split(",")[0]);
+const weekdayRank = (key) => WEEKDAY_CODES.indexOf(stripIndex(key).split(",")[0]);
 
 export function groupEvents(events, fields = []) {
   if (fields.length === 0) return events;
   const field = fields[0];
-  const grouped = events.reduce((acc, event) => {
-    const key_array = accessMultikey(event, field);
+  const base = withoutAppends(field);
+  const grouped = events.reduce((acc, event, i) => {
+    const key_array = accessMultikey(event, field, i);
     for (const key of key_array) {
       if (!acc[key]) acc[key] = [];
-      if (fields.length > 1 || field == "all") acc[key].push(event);
+      if (fields.length > 1 || base == "all") acc[key].push(event);
       // Last level: keep only a `{ link }` stub for events that have their own page, so
       // renderers (Calendar.vue) can link the line without duplicating whole events.
       else if (event.link) acc[key].push({ link: event.link });
@@ -19,8 +37,8 @@ export function groupEvents(events, fields = []) {
   }, {});
 
   const keys = Object.keys(grouped);
-  if (field == "times") {
-    keys.sort((a, b) => a.localeCompare(b));
+  if (base == "times") {
+    keys.sort(byKeyText);
   } else if (keys.some((key) => weekdayRank(key) >= 0)) {
     // Weekday keys (recurring events) go first, in week order. Any other key
     // (e.g. ISO dates, already chronological) keeps its relative order after them.
@@ -34,16 +52,25 @@ export function groupEvents(events, fields = []) {
   }, {});
 }
 
+// Syntax of one level (see accessMultikey), loosest to tightest:
+//   a+b    one key per value of a and of b: the event shows up under each of them
+//   a&b    append: the keys of a, each followed by the value(s) of b. Nothing is multiplied
+//          (several values of b are joined with ", "). `&index` appends "#<n>" instead, the
+//          event's position in the group being split, so events that share all their data
+//          stay apart. Calendar.vue hides that suffix (stripIndex).
+//   a/b    fallback: b only when a has no value
+//   a-b    the values of a, minus those of b
+//
 // Default `ordering` for calendar sections, meant to fit most event data. Each
 // entry is one level of the nested tables Calendar.vue renders:
 //   eventTypeTitle   one table per event type (the event's title when it has no type)
 //   byday/dates      rows: weekday for recurring events, else each date
 //   skip             no column level (a single headerless column)
-//   times            lines: the time of day
+//   times&index      lines: the time of day (`&index` keeps events that share it from merging)
 //   title-eventTypeTitle+byweek+locations+notes
 //                    extra info: the title (only when it adds something to the
 //                    type title), week of the month, place and notes
-export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times", "title-eventTypeTitle+byweek+locations+notes"];
+export const DEFAULT_ORDERING = ["eventTypeTitle", "byday/dates", "skip", "times&index", "title-eventTypeTitle+byweek+locations+notes"];
 
 // Ordering for sections that list only masses: one table per weekday group
 // (Mon-Fri / Sat / Sun), then the times, then the places, with the week of the
@@ -96,38 +123,61 @@ export function toArray(value) {
   return [];
 }
 
-export function accessMultikey(obj, multikey) {
+// The values of one field of the event (`weekday` and `byday` are derived from `byday`).
+function fieldValues(obj, key) {
+  if (key == "weekday") return weekday(obj.byday);
+  if (key == "byday") return formatWeekdays(obj.byday);
+  return toArray(obj[key]);
+}
+
+// One `/` fallback chain with its `-` subtractions: the values of the first fallback that
+// has any, minus the values (or the literal text) of each subtracted key.
+function resolveGroup(obj, group) {
+  for (const fallback of group.split("/")) {
+    const [mainKey, ...keysToSubtract] = fallback.split("-");
+    let value = fieldValues(obj, mainKey);
+
+    if (value.length > 0) {
+      // If there are subtraction keys, filter the current values
+      for (const subKey of keysToSubtract) {
+        let subtractValues = fieldValues(obj, subKey);
+        if (!subtractValues.length) subtractValues = [subKey];
+        value = value.filter((val) => !subtractValues.includes(val));
+      }
+      return value; // Found a valid fallback, stop looking in this group
+    }
+  }
+  return [];
+}
+
+// Keys of one level of an event. Precedence, loosest to tightest: `+`, `&`, `/`, `-`.
+//   a+b   additive: the keys of a and the keys of b (the event lands in each)
+//   a&b   append: every key of a followed by b. `&index` appends "#<index + 1>" (`index` is the
+//         0-based position of the event in the list being grouped); any other b appends its
+//         values joined with ", " after a space. An empty b appends nothing.
+export function accessMultikey(obj, multikey, index = 0) {
   let result = [];
 
   // 1. Split by '+' to get additive groups
-  const groups = multikey.split("+");
+  for (const group of multikey.split("+")) {
+    // 2. Split by '&': the first part gives the keys, the others are appended to each of them
+    const [head, ...appends] = group.split("&");
+    let keys = resolveGroup(obj, head);
 
-  for (const group of groups) {
-    // 2. Split by '/' for fallbacks
-    const fallbacks = group.split("/");
-
-    for (const fallback of fallbacks) {
-      // 3. Split by '-' for subtractions within this fallback
-      const [mainKey, ...keysToSubtract] = fallback.split("-");
-
-      let value = toArray(obj[mainKey]);
-      if (mainKey == "weekday") value = weekday(obj.byday);
-      if (mainKey == "byday") value = formatWeekdays(obj.byday);
-
-      if (value.length > 0) {
-        // If there are subtraction keys, filter the current values
-        for (const subKey of keysToSubtract) {
-          let subtractValues = toArray(obj[subKey]);
-          if (subKey == "weekday") subtractValues = weekday(obj.byday);
-          if (subKey == "byday") subtractValues = formatWeekdays(obj.byday);
-          if (!subtractValues.length) subtractValues = [subKey];
-          value = value.filter((val) => !subtractValues.includes(val));
+    if (appends.length) {
+      if (!keys.length) keys = [""];
+      for (const part of appends) {
+        if (part === "index") {
+          keys = keys.map((key) => `${key}#${index + 1}`);
+        } else {
+          const text = resolveGroup(obj, part).join(", ");
+          keys = keys.map((key) => (key && text ? `${key} ${text}` : key || text));
         }
-
-        result = result.concat(value);
-        break; // Found a valid fallback, stop looking in this group
       }
+      keys = keys.filter(Boolean);
     }
+
+    result = result.concat(keys);
   }
   return result.length ? result.filter(Boolean) : [""];
 }

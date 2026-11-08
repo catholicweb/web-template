@@ -123,6 +123,10 @@ describe("assembleOrder", () => {
   it("keeps supporting the legacy `order` array", () => {
     expect(assembleOrder({ order: ["a", "b"] })).toEqual(["a", "b"]);
   });
+
+  it("keeps events that share their time on separate lines by default (`times&index`)", () => {
+    expect(DEFAULT_ORDERING[3]).toBe("times&index");
+  });
 });
 
 describe("isMassFilter", () => {
@@ -221,6 +225,7 @@ describe("default ordering end to end", () => {
   ];
   const grouped = groupEvents(events, assembleOrder({}));
 
+  // The time level is `times&index`: its keys end in "#<n>" (hidden again by Calendar.vue).
   it("makes one table per event type", () => {
     expect(Object.keys(grouped)).toEqual(["Misa", "Adoración", "Concierto"]);
   });
@@ -230,18 +235,18 @@ describe("default ordering end to end", () => {
   });
 
   it("uses one line per time, never repeating the type title", () => {
-    expect(Object.keys(grouped.Misa.SA[""])).toEqual(["19:00"]);
-    expect(Object.keys(grouped.Misa.SA[""]["19:00"])).toEqual(["Iglesia"]);
+    expect(Object.keys(grouped.Misa.SA[""])).toEqual(["19:00#1"]);
+    expect(Object.keys(grouped.Misa.SA[""]["19:00#1"])).toEqual(["Iglesia"]);
   });
 
   it("shows the week of the month before the place", () => {
-    expect(Object.keys(grouped["Adoración"].FR[""]["20:00"])).toEqual(["WEEK1", "Iglesia"]);
+    expect(Object.keys(grouped["Adoración"].FR[""]["20:00#1"])).toEqual(["WEEK1", "Iglesia"]);
   });
 
   it("keeps a single line for one-off events, with the title first in the extra info", () => {
     const lines = grouped.Concierto["2099-12-25"][""];
-    expect(Object.keys(lines)).toEqual(["20:00"]);
-    expect(Object.keys(lines["20:00"])).toEqual(["Concierto de Navidad", "Catedral", "Entrada libre"]);
+    expect(Object.keys(lines)).toEqual(["20:00#1"]);
+    expect(Object.keys(lines["20:00#1"])).toEqual(["Concierto de Navidad", "Catedral", "Entrada libre"]);
   });
 });
 
@@ -317,3 +322,4 @@ describe("formatWeekdays", () => {
     ]);
   });
 });
+
