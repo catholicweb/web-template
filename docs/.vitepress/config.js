@@ -74,6 +74,13 @@ export default defineConfig(async () => {
         }),
         __FCM_TOPIC__: JSON.stringify(process.env.SITE_SLUG || ""),
         __FCM_TOKEN_ENDPOINT__: JSON.stringify("https://api.parroquia.app/api/fcm/token"),
+        // Event sign-up form (theme/components/Register.vue). The Turnstile site key is public by design;
+        // the secret lives only in config-api.
+        __REGISTRATION__: JSON.stringify({
+          endpoint: "https://api.parroquia.app/api/register",
+          sitekey: "0x4AAAAAAF5rFbcV8KMfijyP",
+          site: process.env.SITE_SLUG || "",
+        }),
       },
       plugins: [
         VitePWA({
