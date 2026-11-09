@@ -24,6 +24,8 @@
 
     <!-- PWA Component -->
     <ClientOnly><component :is="components.PWA" /></ClientOnly>
+    <!-- Event sign-up form (only renders on pages with frontmatter.registration, or for ?edit links) -->
+    <ClientOnly><component :is="components.Register" /></ClientOnly>
   </div>
 </template>
 
