@@ -178,6 +178,10 @@ export function buildEvents(config, now = new Date()) {
   const evSettings = config?.calendar?.events ?? { list: [], urls: [] };
   const defaultMap = buildDefaultMap(config);
   const typeTitles = buildTypeTitles(config);
+  // Types whose own "registration" switch is on (event-types.list[].registration).
+  const typeRegistration = new Set(
+    (config?.["event-types"]?.list ?? []).filter((t) => t?.registration === true).map((t) => (t.id || "").toLowerCase().trim()),
+  );
   const events = [];
 
   for (const evt of evSettings.list || []) {
@@ -234,8 +238,9 @@ export function buildEvents(config, now = new Date()) {
       // Page for this event: the event's own switch, else the type's default; left
       // undefined when neither is set (eventPages.js then falls back to the type's mode).
       createPage: typeof e.createPage === "boolean" ? e.createPage : undefined,
-      // Sign-up form (Register.vue): the event's own switch, else the type's default; off when unset.
-      registration: e.registration === true ? true : undefined,
+      // Sign-up form (Register.vue): on when the event, the type's `defaults` or the type itself
+      // has the switch on (any of them is enough; an event's untouched `false` never turns it off).
+      registration: e.registration === true || typeRegistration.has(type) ? true : undefined,
       // Only for the page builder (createFiles.js strips it afterwards); left out when empty.
       ...(sections.length ? { sections } : {}),
     });
@@ -247,5 +252,5 @@ export function sortEvents(events) {
   function comp(a, b, key, def = "000") {
     return (a[key]?.[0]?.padStart(3, "0") || def).localeCompare(b[key]?.[0]?.padStart(3, "0") || def);
   }
-  return events.toSorted((a, b) => comp(a, b, "dates") || comp(a, b, "times") || comp(a, b, "byweek") || comp(a, b, "byday") || comp(a, b, "title"));
+  return events.toSorted((a, b) => comp(a, b, "dates") || comp(a, b, "times") || comp(a, b, "byday") || comp(a, b, "title"));
 }
