@@ -9,7 +9,7 @@ import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
 import { fetchCalendar } from "./calendar.js";
-import { planEventPages, localizeEventLinks } from "./eventPages.js";
+import { planEventPages, localizeEventLinks, eventPageSlug } from "./eventPages.js";
 import { asSections } from "./calendar-core.js";
 import crypto from "crypto";
 import fs from "node:fs";
@@ -446,6 +446,15 @@ async function run() {
     : planEventPages({ config: {}, calendar: [] });
   ctx.eventPages = eventPlan; // eventCards (pageBuilder.autocomplete) reads the same plan
   const hasEventPages = hasEventTemplate && (eventPlan.typePages.length || eventPlan.eventPages.length);
+  // Sign-up form data for a generated event / type page (read by theme/components/Register.vue).
+  // Only events with the `registration` switch take part; one without an editor id (e.g. imported
+  // from a calendar) is keyed by its page slug.
+  const registrationFor = (evs) => {
+    const list = evs
+      .filter((ev) => ev?.registration === true)
+      .map((ev) => ({ id: ev.id || eventPageSlug(ev), title: ev.title, dates: ev.dates, times: ev.times, byday: ev.byday, place: ev.locations?.[0] ?? "" }));
+    return list.length ? { registration: { events: list } } : {};
+  };
   if (hasEventPages) {
     const defaultSections = eventTemplate.sections ?? []
     for (const { type, key, title, slug, data } of eventPlan.typePages) {
@@ -459,6 +468,7 @@ async function run() {
         slug,
         home: false,
         group: "eventos",
+        ...registrationFor(calendar.filter((ev) => ev?.type === key)),
       }, `type:${key}`);
       sourceLinks.set(typePage, "/" + slug + "/");
       pages.push(typePage);
@@ -478,6 +488,7 @@ async function run() {
         slug,
         home: false,
         group: "eventos",
+        ...registrationFor([ev]),
       }, ev.id && `event:${ev.id}`);
       sourceLinks.set(eventPage, ev.link);
       slugSuffixes.set(eventPage, suffix);

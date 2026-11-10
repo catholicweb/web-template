@@ -234,6 +234,8 @@ export function buildEvents(config, now = new Date()) {
       // Page for this event: the event's own switch, else the type's default; left
       // undefined when neither is set (eventPages.js then falls back to the type's mode).
       createPage: typeof e.createPage === "boolean" ? e.createPage : undefined,
+      // Sign-up form (Register.vue): the event's own switch, else the type's default; off when unset.
+      registration: e.registration === true ? true : undefined,
       // Only for the page builder (createFiles.js strips it afterwards); left out when empty.
       ...(sections.length ? { sections } : {}),
     });
