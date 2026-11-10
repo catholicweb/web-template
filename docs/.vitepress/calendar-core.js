@@ -252,5 +252,5 @@ export function sortEvents(events) {
   function comp(a, b, key, def = "000") {
     return (a[key]?.[0]?.padStart(3, "0") || def).localeCompare(b[key]?.[0]?.padStart(3, "0") || def);
   }
-  return events.toSorted((a, b) => comp(a, b, "dates") || comp(a, b, "times") || comp(a, b, "byday") || comp(a, b, "title"));
+  return events.toSorted((a, b) => comp(a, b, "dates") || comp(a, b, "times") || comp(a, b, "byweek") || comp(a, b, "byday") || comp(a, b, "title"));
 }
