@@ -84,25 +84,11 @@ export function resolvePageMode(type, pageperevent = []) {
   return legacy.has(typeKey(type)) ? "event" : "none";
 }
 
-// Events built by calendar-core carry `byweek`/`byday` instead of an ICS-style `rrule`,
-// so those are used when `rrule` is missing; without them, recurring events with the
-// same title (and no dates) would all share one slug and overwrite each other.
-const recurrenceOf = (ev) => {
-  const rrule = asArray(ev.rrule);
-  return rrule.length ? rrule : [...asArray(ev.byweek), ...asArray(ev.byday)];
-};
-
-// Slug of a per-event page: title + first date + recurrence.
-export function eventPageSlug(ev) {
-  return slugify([ev.title, ev.dates?.[0], recurrenceOf(ev).join("-")].filter(Boolean).join(" "));
-}
-
-// The part of the slug that is NOT the title (first date + recurrence), e.g.
-// "2099-07-20" or "week1-sa"; "" when the event has neither. The title part is
-// translated per language, this tail is kept as is.
-export function eventSlugSuffix(ev) {
-  return slugify([ev.dates?.[0], recurrenceOf(ev).join("-")].filter(Boolean).join(" "));
-}
+// Slug of a per-event page: the slugified title, nothing else (no date, no recurrence).
+// Two distinct events must not share a title: when they do, it is the editor's job to
+// tell them apart in the title itself (e.g. "Catequesis 2026-27"). planEventPages warns
+// about a clash and keeps the first page.
+export const eventPageSlug = (ev) => slugify(ev?.title ?? "");
 
 // Event cards and calendar lines point at generated pages with a language-neutral key
 // (the "/<slug>/" link made by the plan). `links` maps that key to the link of one
@@ -135,10 +121,11 @@ function typePageData(config, type) {
 //   modes       Map typeKey -> "none" | "type" | "event"
 //   typePages   [{ type, key, title, slug, data }]  (data feeds substitute())
 //   typeLinks   Map typeKey -> "/slug/" for the types that got a page
-//   eventPages  [{ ev, slug, suffix }]               (legacy per-event pages)
+//   eventPages  [{ ev, slug }]                       (per-event pages)
 //   eventLinks  Map event -> "/slug/"
 // `takenSlugs` are the slugs of already-authored pages: those always win over a
-// generated type page.
+// generated page, and a type page wins over an event page. A page whose slug is
+// taken (or empty) is skipped with a warning.
 export function planEventPages({ config, calendar = [], takenSlugs = new Set() } = {}) {
   const legacy = asArray(config?.pages?.pageperevent).map(norm).filter(Boolean);
   const types = eventTypesOf(config);
@@ -173,7 +160,12 @@ export function planEventPages({ config, calendar = [], takenSlugs = new Set() }
     const wanted = typeof ev.createPage === "boolean" ? ev.createPage : modes.get(norm(ev.type)) === "event";
     if (!wanted) continue;
     const slug = eventPageSlug(ev);
-    eventPages.push({ ev, slug, suffix: eventSlugSuffix(ev) });
+    if (!slug || taken.has(slug)) {
+      console.warn(`event pages: no page for event "${ev.title}" (slug "${slug}" is already taken; events need different names)`);
+      continue;
+    }
+    taken.add(slug);
+    eventPages.push({ ev, slug });
     eventLinks.set(ev, "/" + slug + "/");
   }
 
