@@ -23,7 +23,7 @@ describe("eventPageSlug", () => {
 });
 
 describe("events sharing a title", () => {
-  const configWith = (titles, extra = {}) => ({
+  const configWith = (titles) => ({
     "event-types": { list: [{ id: "cat", label: "Catequesis" }] },
     pages: { list: [], pageperevent: ["cat"] },
     calendar: {
@@ -34,12 +34,12 @@ describe("events sharing a title", () => {
         ],
       },
     },
-    ...extra,
   });
   const plan = (cfg, takenSlugs) => planEventPages({ config: cfg, calendar: sortEvents(buildEvents(cfg, new Date("2026-01-01"))), takenSlugs });
+  const quiet = () => vi.spyOn(console, "warn").mockImplementation(() => {});
 
   it("keeps the first page and warns about the rest", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = quiet();
     const { eventPages, eventLinks } = plan(configWith(["Catequesis", "Catequesis"]));
     expect(eventPages.map((p) => p.slug)).toEqual(["catequesis"]);
     expect(eventPages[0].ev.byday).toEqual(["SA"]);
@@ -49,15 +49,15 @@ describe("events sharing a title", () => {
   });
 
   it("are told apart when the editor names them differently", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { eventPages } = plan(configWith(["Catequesis sábado", "Catequesis domingo"]));
+    const warn = quiet();
+    const { eventPages } = plan(configWith(["Catequesis sabado", "Catequesis domingo"]));
     expect(eventPages.map((p) => p.slug)).toEqual(["catequesis-sabado", "catequesis-domingo"]);
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 
   it("never take the slug of an authored page", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = quiet();
     const { eventPages } = plan(configWith(["Contacto", "Catequesis"]), new Set(["contacto"]));
     expect(eventPages.map((p) => p.slug)).toEqual(["catequesis"]);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -65,14 +65,13 @@ describe("events sharing a title", () => {
   });
 
   it("never take the slug of a type page", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = quiet();
     const cfg = configWith(["Catequesis", "Catequesis de adultos"]);
-    cfg["event-types"].list[0].pageMode = "type";
-    cfg["event-types"].list[0].pageMode = "event";
     cfg["event-types"].list.push({ id: "adultos", label: "Catequesis", pageMode: "type" });
     const { typePages, eventPages } = plan(cfg);
     expect(typePages.map((p) => p.slug)).toEqual(["catequesis"]);
     expect(eventPages.map((p) => p.slug)).toEqual(["catequesis-de-adultos"]);
+    expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
 });
