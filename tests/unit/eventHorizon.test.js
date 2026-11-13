@@ -11,10 +11,10 @@ const iso = (from, days) => {
 };
 
 describe("withinHorizon", () => {
-  const now = new Date(2026, 10, 1, 15, 30); // 1 Nov 2026 (limit: 1 Jan 2027)
+  const now = new Date(2026, 10, 1, 15, 30); // 1 Nov 2026 (limit: 1 Dec 2026)
 
-  it("uses a two month window", () => {
-    expect(EVENT_HORIZON_MONTHS).toBe(2);
+  it("uses a one month window", () => {
+    expect(EVENT_HORIZON_MONTHS).toBe(1);
   });
 
   it("keeps events without dates (purely recurring)", () => {
@@ -24,16 +24,16 @@ describe("withinHorizon", () => {
 
   it("keeps events starting inside the window, including the last day", () => {
     expect(withinHorizon({ dates: ["2026-11-02"] }, now)).toBe(true);
-    expect(withinHorizon({ dates: ["2027-01-01"] }, now)).toBe(true);
+    expect(withinHorizon({ dates: ["2026-12-01"] }, now)).toBe(true);
   });
 
   it("rejects events starting after the window", () => {
-    expect(withinHorizon({ dates: ["2027-01-02"] }, now)).toBe(false);
+    expect(withinHorizon({ dates: ["2026-12-02"] }, now)).toBe(false);
     expect(withinHorizon({ dates: ["2027-06-15"] }, now)).toBe(false);
   });
 
   it("uses the earliest date of an event with several dates", () => {
-    expect(withinHorizon({ dates: ["2027-06-15", "2026-12-24"] }, now)).toBe(true);
+    expect(withinHorizon({ dates: ["2027-06-15", "2026-11-24"] }, now)).toBe(true);
     expect(withinHorizon({ dates: ["2027-05-01", "2027-06-15"] }, now)).toBe(false);
   });
 
