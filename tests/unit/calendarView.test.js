@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { rowKind, lineStatus, tableView, horizonLimit, toISODay, buildDay } from "../../docs/.vitepress/calendar-view.js";
-import { groupEvents, assembleOrder } from "../../docs/.vitepress/utils.js";
+import { rowKind, contextOf, lineStatus, tableView, horizonLimit, toISODay, buildDay, HIGHLIGHT_RECURRING_TODAY } from "../../docs/.vitepress/calendar-view.js";
+import { groupEvents, assembleOrder, MASS_ORDERING } from "../../docs/.vitepress/utils.js";
 import { calendarLabels } from "../../docs/.vitepress/calendarLabels.js";
 
 // 2026-11-12 is a Thursday, the 2nd Thursday of the month.
 const TODAY = "2026-11-12";
-const status = (rowKey, stubs, today = TODAY, months = 0) => lineStatus(rowKey, stubs, today, months);
+// `where` is the row key, or a whole path [table, row, column, line]. Weekday highlight on (it is off by default).
+const status = (where, stubs, today = TODAY, months = 0, opts = { recurring: true }) => lineStatus([].concat(where), stubs, today, months, opts);
 
 describe("rowKind", () => {
   it("tells dates, weekdays and anything else apart", () => {
@@ -41,6 +42,37 @@ describe("today", () => {
 
   it("ignores rows it does not understand", () => {
     expect(status("Misa", [{}])).toEqual({ today: false, muted: false, far: false });
+  });
+
+  it("highlights only dated lines by default (the weekday highlight is switched off)", () => {
+    expect(HIGHLIGHT_RECURRING_TODAY).toBe(false);
+    expect(lineStatus(["Misa", "2026-11-12", "", "20:00"], [{}], TODAY).today).toBe(true);
+    expect(lineStatus(["Misa", "TH", "", "20:00"], [{}], TODAY).today).toBe(false);
+    expect(lineStatus(["Misa", "TH", "", "20:00"], [{}], TODAY, 0, { recurring: true }).today).toBe(true);
+  });
+
+  it("dated events that no key places in time still match by their dates", () => {
+    expect(lineStatus(["Charlas", "Iglesia", "", "20:00"], [{ dates: ["2026-11-12", "2026-12-05"] }], TODAY).today).toBe(true);
+    expect(lineStatus(["Charlas", "Iglesia", "", "20:00"], [{ dates: ["2026-12-05"] }], TODAY).today).toBe(false);
+  });
+
+  it("a dated row is only today on its own date, even when the event has more dates", () => {
+    expect(lineStatus(["Charlas", "2026-12-05", "", "20:00"], [{ dates: ["2026-11-12", "2026-12-05"] }], TODAY).today).toBe(false);
+  });
+});
+
+describe("contextOf: orderings put the date / weekdays at any level", () => {
+  it("takes the first key of the path that is a date or weekdays", () => {
+    expect(contextOf(["Misa", "2026-12-24", "", "20:00"])).toEqual({ type: "date", iso: "2026-12-24" });
+    expect(contextOf(["MO,TU,WE,TH,FR", "12:00", "", "Iglesia"])).toEqual({ type: "days", days: ["MO", "TU", "WE", "TH", "FR"] });
+    expect(contextOf(["Iglesia", "SA", "", "19:00#2"])).toEqual({ type: "days", days: ["SA"] });
+    expect(contextOf(["Iglesia", "19:00", "", ""])).toEqual({ type: "other" });
+    expect(contextOf(undefined)).toEqual({ type: "other" });
+  });
+
+  it("fades a week-restricted line when the weekdays sit in the table key (mass ordering)", () => {
+    expect(status(["SA", "19:00", "", "Iglesia"], [{ byweek: ["WEEK1"] }]).muted).toBe(true);
+    expect(status(["SA", "19:00", "", "Iglesia"], [{ byweek: ["WEEK2"] }]).muted).toBe(false);
   });
 });
 
@@ -126,9 +158,25 @@ describe("tableView", () => {
   it("recurring events with a week: highlighted and muted through the whole tree", () => {
     const mass = (byweek) => ({ ...base, eventTypeTitle: "Misa", title: "Misa", byday: ["TH"], byweek, dates: [] });
     const t = groupEvents([mass(["WEEK2"]), mass(["WEEK1"])], assembleOrder({}));
-    const view = tableView(t.Misa, TODAY, 0);
+    const view = tableView(t.Misa, TODAY, 0, { tableKey: "Misa", recurring: true });
     const lines = Object.values(view.rows[0].lines[""]);
     expect(lines.map((l) => [l.today, l.muted])).toEqual([[true, false], [false, true]]);
+  });
+
+  it("fades week-restricted lines with the mass ordering too (weekdays in the table key, weeks in the extras)", () => {
+    const mass = (byweek, times) => ({ ...base, eventTypeTitle: "Misa", title: "Misa", byday: ["SA"], byweek, times, dates: [] });
+    const t = groupEvents([mass([], ["18:00"]), mass(["WEEK1"], ["19:00"]), mass(["WEEK2"], ["20:00"])], MASS_ORDERING);
+    expect(Object.keys(t)).toEqual(["SA"]);
+    const view = tableView(t.SA, TODAY, 0, { tableKey: "SA" });
+    const state = Object.fromEntries(view.rows.map((r) => [r.key, r.lines[""][Object.keys(r.lines[""])[0]].muted]));
+    // 14 Nov 2026 (the next Saturday) is the 2nd one
+    expect(state).toEqual({ "18:00": false, "19:00": true, "20:00": false });
+  });
+
+  it("collapses far dated events whatever the ordering", () => {
+    const t = groupEvents(events, ["locations", "times", "skip", "byday/dates", "title"]);
+    const view = tableView(t.Iglesia, TODAY, 2, { tableKey: "Iglesia" });
+    expect(view.hidden).toBe(2);
   });
 });
 
