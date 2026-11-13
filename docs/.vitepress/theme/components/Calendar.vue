@@ -171,7 +171,20 @@ function lineExtras(line, lang) {
                           ><a v-if="part.href && !lineHref(line)" :href="part.href" class="place-link">{{ part.text }}</a
                           ><template v-else>{{ part.text }}</template></template
                         ></span
-                      ><span v-if="lineHref(line)" aria-hidden="true" class="ml-1 text-xs not-italic opacity-70 group-hover:opacity-100">🔗</span>
+                      ><svg
+                        v-if="lineHref(line)"
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="ml-1 inline-block size-3 align-baseline text-accent opacity-70 group-hover:opacity-100"
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
                     </component>
                   </p>
                 </td>
