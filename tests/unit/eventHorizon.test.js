@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { withinHorizon, applyEventFilter, eventCardsFor, EVENT_HORIZON_MONTHS } from "../../docs/.vitepress/eventPages.js";
+import { withinHorizon, applyEventFilter, softHorizon, eventCardsFor, EVENT_HORIZON_MONTHS } from "../../docs/.vitepress/eventPages.js";
 import { createContext, autocomplete } from "../../docs/.vitepress/pageBuilder.js";
 
 // Local-time ISO date (YYYY-MM-DD) `days` away from `from`.
@@ -117,6 +117,33 @@ describe("eventCardsFor horizon (opt-in)", () => {
   });
 });
 
+describe("softHorizon / applyEventFilter soft", () => {
+  const now = new Date(2026, 10, 1);
+  const far = { type: "concert", title: "Far", dates: ["2027-05-20"], byday: [] };
+
+  it("is on only for a positive withinHorizon term", () => {
+    expect(softHorizon("withinHorizon")).toBe(true);
+    expect(softHorizon("concert & WithinHorizon")).toBe(true);
+    expect(softHorizon("mass|concert&withinHorizon")).toBe(true);
+    expect(softHorizon("!withinHorizon")).toBe(false);
+    expect(softHorizon("concert")).toBe(false);
+    expect(softHorizon("")).toBe(false);
+    expect(softHorizon(undefined)).toBe(false);
+  });
+
+  it("keeps the far events for a positive term, and still filters on the rest", () => {
+    expect(applyEventFilter(far, "withinHorizon", now, { soft: true })).toBe(true);
+    expect(applyEventFilter(far, "concert&withinHorizon", now, { soft: true })).toBe(true);
+    expect(applyEventFilter(far, "mass&withinHorizon", now, { soft: true })).toBe(false);
+  });
+
+  it("a negated term still filters (only the far events)", () => {
+    const near = { type: "concert", title: "Near", dates: ["2026-11-20"], byday: [] };
+    expect(applyEventFilter(far, "!withinHorizon", now, { soft: true })).toBe(true);
+    expect(applyEventFilter(near, "!withinHorizon", now, { soft: true })).toBe(false);
+  });
+});
+
 describe("autocomplete calendar section", () => {
   const today = new Date();
   const near = { type: "concert", title: "Near", dates: [iso(today, 10)], byday: [], byweek: [] };
@@ -134,16 +161,25 @@ describe("autocomplete calendar section", () => {
   it("shows far events by default (no horizon)", async () => {
     expect(titles(await run({}))).toEqual(["Near", "Far", "Weekly"]);
     expect(titles(await run({ filter: "concert" }))).toEqual(["Near", "Far"]);
+    expect((await run({})).horizon).toBeUndefined();
   });
 
-  it("hides far events when the filter has withinHorizon", async () => {
-    expect(titles(await run({ filter: "withinHorizon" }))).toEqual(["Near", "Weekly"]);
-    expect(titles(await run({ filter: "concert&withinHorizon" }))).toEqual(["Near"]);
+  it("keeps the far events with withinHorizon and tells Calendar.vue to collapse them", async () => {
+    const section = await run({ filter: "withinHorizon" });
+    expect(titles(section)).toEqual(["Near", "Far", "Weekly"]);
+    expect(section.horizon).toBe(EVENT_HORIZON_MONTHS);
+    expect(titles(await run({ filter: "concert&withinHorizon" }))).toEqual(["Near", "Far"]);
   });
 
-  it("hides the section when only far events remain", async () => {
+  it("!withinHorizon still keeps only the far events, with no collapsing", async () => {
+    const section = await run({ filter: "concert&!withinHorizon" });
+    expect(titles(section)).toEqual(["Far"]);
+    expect(section.horizon).toBeUndefined();
+  });
+
+  it("is not hidden when only far events remain (they sit behind the button)", async () => {
     const section = await run({ filter: "far&withinHorizon" });
-    expect(section.events).toEqual([]);
-    expect(section.tags).toContain("hidden");
+    expect(titles(section)).toEqual(["Far"]);
+    expect(section.tags ?? []).not.toContain("hidden");
   });
 });

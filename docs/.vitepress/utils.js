@@ -20,6 +20,18 @@ const withoutAppends = (field) =>
 // Position of a weekday key ("SA", "MO,TU,WE,TH,FR") in the week; -1 for any other key.
 const weekdayRank = (key) => WEEKDAY_CODES.indexOf(stripIndex(key).split(",")[0]);
 
+// What the last grouping level keeps of an event: `link` (when it has its own page), its
+// `dates` and its `byweek` (weeks of the month it is limited to). Empty values are left out.
+function stubOf(event) {
+  const stub = {};
+  if (event.link) stub.link = event.link;
+  const dates = toArray(event.dates);
+  if (dates.length) stub.dates = dates;
+  const weeks = toArray(event.byweek);
+  if (weeks.length) stub.byweek = weeks;
+  return stub;
+}
+
 export function groupEvents(events, fields = []) {
   if (fields.length === 0) return events;
   const field = fields[0];
@@ -29,9 +41,9 @@ export function groupEvents(events, fields = []) {
     for (const key of key_array) {
       if (!acc[key]) acc[key] = [];
       if (fields.length > 1 || base == "all") acc[key].push(event);
-      // Last level: keep only a `{ link }` stub for events that have their own page, so
-      // renderers (Calendar.vue) can link the line without duplicating whole events.
-      else if (event.link) acc[key].push({ link: event.link });
+      // Last level: keep only a small stub per event (see stubOf), so renderers (Calendar.vue)
+      // can link the line and tell when it happens without duplicating whole events.
+      else acc[key].push(stubOf(event));
     }
     return acc;
   }, {});

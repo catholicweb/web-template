@@ -10,7 +10,8 @@ import { translateObject } from "./translate-core.js";
 import { createNaming, getCode } from "./naming.js";
 import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from "./gospel.js";
 import { getEventFAQ } from "./faq.js";
-import { eventCardsFor, planEventPages, applyEventFilter } from "./eventPages.js";
+import { eventCardsFor, planEventPages, applyEventFilter, softHorizon, EVENT_HORIZON_MONTHS } from "./eventPages.js";
+import { buildDay } from "./calendar-view.js";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -229,6 +230,8 @@ export async function postComplete(fm, ctx) {
       const order = assembleOrder(fm.sections[i]);
       fm.sections[i].events = groupEvents(fm.sections[i].events, order);
       fm.sections[i].placeLinks = placeLinksFor(ctx, fm.lang);
+      // Day of the build: what Calendar.vue renders (and hydrates) with, until the browser knows its own date.
+      fm.sections[i].builtAt = buildDay();
     } else if (fm.sections[i]._block == "gospel") {
       fm.sections[i].gospel = await getBibleReadings({ lang: getCode(fm.lang), date: new Date(), gospelOnly: !fm.sections[i].readings });
     }
@@ -297,8 +300,12 @@ export async function autocomplete(fm, pages = [], ctx) {
       fm.sections[i].tags = defaultTags(fm.sections[i].tags, ["small"]);
       if (!fm.sections[i].elements.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "calendar") {
-      // The filter may include the opt-in `withinHorizon` term (see applyEventFilter).
-      fm.sections[i].events = calendar.filter((obj) => applyEventFilter(obj, fm.sections[i].filter));
+      // The filter may include the opt-in `withinHorizon` term (see applyEventFilter). A calendar
+      // does not drop the far events: it keeps them and sets `horizon` (months), so Calendar.vue
+      // collapses them behind a "show more" button. `!withinHorizon` still filters.
+      const soft = softHorizon(fm.sections[i].filter);
+      fm.sections[i].events = calendar.filter((obj) => applyEventFilter(obj, fm.sections[i].filter, new Date(), { soft }));
+      if (soft) fm.sections[i].horizon = EVENT_HORIZON_MONTHS;
       if (!fm.sections[i].events?.length) (fm.sections[i].tags ??= []).push("hidden");
     } else if (fm.sections[i]._block == "eventCards") {
       // One card per event of the selected types (legacy), plus a card for every

@@ -43,10 +43,23 @@ export function withinHorizon(event, now = new Date(), months = EVENT_HORIZON_MO
   return Math.min(...times) <= limit.getTime();
 }
 
+// True when the filter has a positive `withinHorizon` term (not `!withinHorizon`) in some
+// alternative. A calendar section then collapses what is beyond the horizon instead of dropping
+// it (Calendar.vue offers a "show more" button); see applyEventFilter's `soft` option.
+export function softHorizon(filter) {
+  if (!filter || !String(filter).toLowerCase().includes(HORIZON_TERM)) return false;
+  return String(filter)
+    .toLowerCase()
+    .split("|")
+    .some((orPart) => orPart.split("&").some((term) => term.trim() === HORIZON_TERM));
+}
+
 // applyComplexFilter plus the `withinHorizon` term (same | & ! syntax, so it can be
 // negated or combined). Filters without the term go straight to applyComplexFilter,
 // so their behaviour is exactly the same as before.
-export function applyEventFilter(obj, filter, now = new Date()) {
+// `soft`: a positive term keeps every event (the caller collapses the far ones itself);
+// a negated term (`!withinHorizon`, only the far events) still filters.
+export function applyEventFilter(obj, filter, now = new Date(), { soft = false } = {}) {
   if (!filter || !String(filter).toLowerCase().includes(HORIZON_TERM)) return applyComplexFilter(obj, filter);
   return String(filter)
     .toLowerCase()
@@ -56,6 +69,7 @@ export function applyEventFilter(obj, filter, now = new Date()) {
         const t = term.trim();
         const negated = t.startsWith("!");
         if ((negated ? t.slice(1).trim() : t) !== HORIZON_TERM) return applyComplexFilter(obj, t);
+        if (soft && !negated) return true;
         return withinHorizon(obj, now) !== negated;
       }),
     );
