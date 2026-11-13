@@ -33,11 +33,21 @@ onMounted(() => {
 // Months after which lines are collapsed behind the "show more" button (0: show everything).
 // Set by the build when the section's filter has the `withinHorizon` term.
 const horizon = computed(() => Number(props.block.horizon) || 0);
-const views = computed(() => Object.fromEntries(Object.entries(props.block.events || {}).map(([key, table]) => [key, tableView(table, today.value, horizon.value)])));
+const views = computed(() => Object.fromEntries(Object.entries(props.block.events || {}).map(([key, table]) => [key, tableView(table, today.value, horizon.value, { tableKey: key })])));
 const labels = computed(() => calendarLabels(frontmatter.value?.lang));
 // Tables whose far lines were revealed.
 const expanded = reactive({});
-const lineClass = (status) => ({ "is-today": status.today, "is-muted": status.muted });
+
+// Tailwind classes of a row / a line. Far rows and lines stay in the page (hidden, but shown on
+// paper) until their table is expanded. Today is a quiet dark-accent bold; weeks that are not
+// this week fade to gray.
+const farClass = (row, tableKey, show) => (row.far && !expanded[tableKey] ? show : "");
+const rowClass = (tableKey, row) => [(expanded[tableKey] ? row.index : row.stripe) % 2 ? "bg-gray-50" : "bg-white", farClass(row, tableKey, "hidden print:table-row")];
+function lineClass(tableKey, row, subKey, lineKey) {
+  const status = row.lines[subKey][lineKey];
+  const state = status.today ? "font-semibold text-accent-900 print:font-normal print:text-inherit" : status.muted ? "text-gray-500 print:text-inherit" : "";
+  return [state, status.far && !expanded[tableKey] ? "hidden print:block" : ""];
+}
 
 // Same page, whatever the way it is written: "/a/b", "/a/b/", "/a/b.html", "/a/b/index.html".
 const normalizePath = (p) =>
@@ -105,10 +115,6 @@ function lineExtras(line, lang) {
     })
     .filter((part) => part.text);
 }
-
-function lineText(line, lineKey, lang) {
-  return [lineLabel(lineKey, lang), ...lineExtras(line, lang).map((p) => p.text)].filter(Boolean).join(" ");
-}
 </script>
 
 <template>
@@ -120,7 +126,7 @@ function lineText(line, lineKey, lang) {
           {{ formatDate(stripIndex(item.key), $frontmatter.lang) }}
         </h3>
         <!-- Collapsed with nothing left to show (every line is far away): only the title and the button stay -->
-        <div v-show="views[item.key].visible || expanded[item.key]" class="overflow-x-auto bg-white">
+        <div :class="views[item.key].visible || expanded[item.key] ? '' : 'hidden print:block'" class="overflow-x-auto bg-white">
           <table class="min-w-full border-collapse [border-style:hidden]">
             <!-- Añadir cabezera a la tabla (solo si hay subfields)-->
             <thead v-if="stripIndex(getSubKeys(item.table)[0]) != ''" class="bg-gray-50 text-gray-600 uppercase tracking-wide">
@@ -132,14 +138,9 @@ function lineText(line, lineKey, lang) {
               </tr>
             </thead>
             <tbody>
-              <!-- Añadir columnas a la tabla. Far rows stay in the page (hidden) until the table is expanded -->
-              <tr
-                v-for="row in views[item.key].rows"
-                :key="row.key"
-                v-show="expanded[item.key] || !row.far"
-                :class="(expanded[item.key] ? row.index : row.stripe) % 2 ? 'bg-gray-50' : 'bg-white'"
-              >
-                <td class="p-3 border-1" :class="{ 'font-semibold': row.today }">
+              <!-- Añadir columnas a la tabla -->
+              <tr v-for="row in views[item.key].rows" :key="row.key" :class="rowClass(item.key, row)">
+                <td class="p-3 border-1" :class="{ 'font-semibold text-accent-900 print:font-normal print:text-inherit': row.today }">
                   {{ formatDate(stripIndex(row.key), $frontmatter.lang) }}
                 </td>
                 <!-- Añadir filas -->
@@ -148,37 +149,56 @@ function lineText(line, lineKey, lang) {
                   <p
                     v-for="(line, lineKey) in item.table[row.key][subKey]"
                     :key="lineKey"
-                    v-show="expanded[item.key] || !row.lines[subKey][lineKey].far"
-                    :class="lineClass(row.lines[subKey][lineKey])"
+                    :class="lineClass(item.key, row, subKey, lineKey)"
                     :aria-current="row.lines[subKey][lineKey].today ? 'date' : undefined"
                     class="text-left pl-8 -indent-8"
                   >
-                    <span v-if="row.lines[subKey][lineKey].today" class="sr-only">{{ labels.today }}: </span>
-                    {{ lineLabel(lineKey, $frontmatter.lang) }}
-                    <!-- The " - " separator only shows when there is both a label and extra info -->
-                    <span
-                      v-if="lineExtras(line, $frontmatter.lang).length"
-                      class="extra italic"
-                      :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
-                      ><template v-for="(part, i) in lineExtras(line, $frontmatter.lang)" :key="i"
-                        ><template v-if="i">, </template
-                        ><a v-if="part.href" :href="part.href" class="place-link">{{ part.text }}</a
-                        ><template v-else>{{ part.text }}</template></template
-                      ></span
-                    ><a
-                      v-if="lineHref(line)"
-                      :href="lineHref(line)"
-                      :aria-label="lineText(line, lineKey, $frontmatter.lang)"
-                      class="event-link"
-                    ></a>
+                    <!-- With an event page the whole line is its link (so no place links inside); without one the places can link -->
+                    <component
+                      :is="lineHref(line) ? 'a' : 'span'"
+                      :href="lineHref(line) || undefined"
+                      :class="lineHref(line) ? 'group !text-inherit !no-underline hover:!underline underline-offset-2' : ''"
+                    >
+                      <span v-if="row.lines[subKey][lineKey].today" class="sr-only">{{ labels.today }}: </span>
+                      {{ lineLabel(lineKey, $frontmatter.lang) }}
+                      <!-- The " - " separator only shows when there is both a label and extra info -->
+                      <span
+                        v-if="lineExtras(line, $frontmatter.lang).length"
+                        class="extra italic"
+                        :class="{ 'with-label': lineLabel(lineKey, $frontmatter.lang) }"
+                        ><template v-for="(part, i) in lineExtras(line, $frontmatter.lang)" :key="i"
+                          ><template v-if="i">, </template
+                          ><a v-if="part.href && !lineHref(line)" :href="part.href" class="place-link">{{ part.text }}</a
+                          ><template v-else>{{ part.text }}</template></template
+                        ></span
+                      ><svg
+                        v-if="lineHref(line)"
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="ml-1 inline-block size-3 align-baseline text-accent opacity-70 group-hover:opacity-100"
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                    </component>
                   </p>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div v-if="views[item.key].hidden" class="text-right">
-          <button type="button" class="calendar-more" :aria-expanded="!!expanded[item.key]" @click="expanded[item.key] = !expanded[item.key]">
+        <div v-if="views[item.key].hidden" class="text-right print:hidden">
+          <button
+            type="button"
+            class="mt-1 py-1 text-xs text-gray-500 underline decoration-dotted decoration-black/30 underline-offset-3 hover:text-gray-900 hover:decoration-solid focus-visible:text-gray-900 cursor-pointer"
+            :aria-expanded="!!expanded[item.key]"
+            @click="expanded[item.key] = !expanded[item.key]"
+          >
             {{ expanded[item.key] ? labels.less : labels.more(views[item.key].hidden) }}
           </button>
         </div>
@@ -211,24 +231,6 @@ function lineText(line, lineKey, lang) {
   color: #9ca3af;
 }
 
-/* Event page: the line stays normal text, followed by a faint link symbol. */
-.calendar a.event-link {
-  color: inherit !important;
-  text-decoration: none !important;
-  margin-left: 0.4em;
-  font-size: 0.75em;
-  font-style: normal;
-  opacity: 0.4;
-}
-.calendar a.event-link::after {
-  content: "\1F517";
-  filter: grayscale(1);
-}
-.calendar a.event-link:hover,
-.calendar a.event-link:focus-visible {
-  opacity: 1;
-}
-
 /* Place page: the place name stays normal text, with a faint dotted underline. */
 .calendar a.place-link {
   color: inherit !important;
@@ -240,55 +242,5 @@ function lineText(line, lineKey, lang) {
 .calendar a.place-link:hover,
 .calendar a.place-link:focus-visible {
   text-decoration-style: solid !important;
-}
-
-/* Today: the lines that happen today are inverted. The shadow grows the box without moving the text. */
-.calendar p.is-today {
-  background: #000;
-  color: #fff;
-  border-radius: 0.2rem;
-  box-shadow: 0 0 0 0.25rem #000;
-}
-/* Lines limited to certain weeks of the month that do not happen in the next 7 days. */
-.calendar p.is-muted {
-  color: #6b7280;
-}
-
-/* "Show more": a quiet text button under the table. */
-.calendar .calendar-more {
-  margin-top: 0.25rem;
-  padding: 0.25rem 0;
-  font-size: 0.8rem;
-  color: #6b7280;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-decoration: underline dotted;
-  text-decoration-color: rgb(0 0 0 / 0.3);
-  text-underline-offset: 3px;
-}
-.calendar .calendar-more:hover,
-.calendar .calendar-more:focus-visible {
-  color: #111827;
-  text-decoration-style: solid;
-}
-
-/* Paper shows the whole calendar, without the screen-only markers. */
-@media print {
-  .calendar [style*="display:none"],
-  .calendar [style*="display: none"] {
-    display: revert !important;
-  }
-  .calendar .calendar-more {
-    display: none;
-  }
-  .calendar p.is-today {
-    background: none;
-    color: inherit;
-    box-shadow: none;
-  }
-  .calendar p.is-muted {
-    color: inherit;
-  }
 }
 </style>

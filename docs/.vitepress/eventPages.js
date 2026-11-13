@@ -25,7 +25,7 @@ const norm = (v) => String(v ?? "").toLowerCase().trim();
 // away. It is NOT applied unless the section's filter asks for it, with the term
 // `withinHorizon` (any case): in a calendar `filter` string next to the usual operators
 // ("mass&withinHorizon", "!withinHorizon"), or as an entry of an eventCards `eventsToShow`.
-export const EVENT_HORIZON_MONTHS = 2;
+export const EVENT_HORIZON_MONTHS = 1;
 export const HORIZON_TERM = "withinhorizon";
 
 // True when the event starts inside the window: it has no date (purely recurring events

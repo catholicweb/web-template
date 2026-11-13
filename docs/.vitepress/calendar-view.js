@@ -2,15 +2,20 @@
 // away" logic. No fs / node / vue imports, so it is unit-testable and the live preview can use it.
 //
 // Input: the grouped tree built by groupEvents (utils.js). Its last level holds one small
-// stub per event: `{ link?, dates?, byweek? }`. Together with the key of the row the line
-// sits in (an ISO date, or weekdays like "SA" / "MO,TU,WE,TH,FR") that is all it takes to know:
-//   today   the line happens today
+// stub per event: `{ link?, dates?, byweek? }`. Together with where the line sits (the keys of
+// its path: an ISO date, or weekdays like "SA" / "MO,TU,WE,TH,FR", at whatever level the
+// ordering puts them) that is all it takes to know:
+//   today   the line happens today (by default only dated lines, see HIGHLIGHT_RECURRING_TODAY)
 //   muted   the line only happens on certain weeks of the month, and not in the next 7 days
 //   far     the line starts after the horizon (`months` from today)
 //
 // Week of the month = the nth occurrence of the weekday in the month (day 1-7 -> 1, 8-14 -> 2...),
 // the same meaning ics.js gives to `WEEKn`, so the page and the .ics export agree.
 import { stripIndex, toArray } from "./utils.js";
+
+// Lines of recurring events (every Saturday, 1st Sunday...) are not marked as "today" for now,
+// only dated ones are. Set to true to try the weekday highlight too (the logic is all here).
+export const HIGHLIGHT_RECURRING_TODAY = false;
 
 const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"]; // Date#getDay order
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -70,41 +75,56 @@ export const stubsOf = (line) =>
     .flatMap((stubs) => (Array.isArray(stubs) ? stubs : []))
     .filter((s) => s && typeof s === "object");
 
-// State of one line. `today` is an ISO day; `months` 0 turns the horizon off.
-export function lineStatus(rowKey, stubs, today, months = 0) {
-  const row = rowKind(rowKey);
+// Where a line sits, whatever the ordering: the first key of its path (table, row, column,
+// line) that is a date or a group of weekdays. Orderings put them at different levels
+// (rows by default, the table for masses...).
+export function contextOf(path) {
+  for (const key of path || []) {
+    const kind = rowKind(key);
+    if (kind.type !== "other") return kind;
+  }
+  return { type: "other" };
+}
+
+// State of one line. `path` = its keys [table, row, column, line]; `today` is an ISO day;
+// `months` 0 turns the horizon off; `recurring` also marks lines of recurring events as today.
+export function lineStatus(path, stubs, today, months = 0, { recurring = HIGHLIGHT_RECURRING_TODAY } = {}) {
+  const where = contextOf(path);
   const list = stubs?.length ? stubs : [{}];
   const starts = list.map(startOf);
   const weeks = restrictedWeeks(list);
 
-  // Does the line happen on this day? Recurring lines start on their first date, when they have one.
-  const occursOn = (iso) => {
-    if (row.type === "date") return iso === row.iso;
-    if (row.type !== "days") return false;
+  // Does a recurring line happen on this day? It starts on its first date, when it has one.
+  const recursOn = (iso) => {
+    if (where.type !== "days") return false;
     const day = fromISODay(iso);
-    return row.days.includes(DAY_CODES[day.getDay()]) && (!weeks || weeks.has(weekOfMonth(day))) && starts.some((s) => !s || s <= iso);
+    return where.days.includes(DAY_CODES[day.getDay()]) && (!weeks || weeks.has(weekOfMonth(day))) && starts.some((s) => !s || s <= iso);
   };
 
-  const isToday = occursOn(today);
+  // A dated line: its row is the date, or (when no key says so) its events list the date.
+  const datedToday = where.type === "date" ? where.iso === today : where.type === "other" && list.some((s) => toArray(s.dates).includes(today));
+  const isToday = datedToday || (recurring && recursOn(today));
+
   // Only week-restricted recurring lines fade out: they are the ones that are "not this week".
-  const upcoming = Array.from({ length: 7 }, (_, i) => addDays(today, i)).some(occursOn);
-  const muted = row.type === "days" && !!weeks && !upcoming;
+  const upcoming = Array.from({ length: 7 }, (_, i) => addDays(today, i)).some(recursOn);
+  const muted = where.type === "days" && !!weeks && !upcoming;
 
   let far = false;
   if (months > 0) {
     const limit = horizonLimit(today, months);
-    far = row.type === "date" ? row.iso > limit : starts.every((s) => s && s > limit);
+    far = where.type === "date" ? where.iso > limit : starts.every((s) => s && s > limit);
   }
   return { today: isToday, muted, far };
 }
 
-// Everything Calendar.vue needs about one table (the tree below one event type):
+// Everything Calendar.vue needs about one table (the tree below one table key):
 //   rows     [{ key, lines: { subKey: { lineKey: status } }, far, today, stripe, index }]
 //            far = every line of the row is beyond the horizon; stripe / index number the rows for
 //            zebra striping with the far rows left out / kept
 //   hidden   lines beyond the horizon (what the "show more" button would reveal)
 //   visible  rows that stay when the table is collapsed
-export function tableView(table, today, months = 0) {
+// `tableKey` is the key of the table itself: with some orderings it is the one that holds the weekdays.
+export function tableView(table, today, months = 0, { tableKey = "", recurring } = {}) {
   const rows = [];
   let hidden = 0;
   let visible = 0;
@@ -116,7 +136,7 @@ export function tableView(table, today, months = 0) {
     for (const [subKey, group] of Object.entries(row || {})) {
       lines[subKey] = {};
       for (const [lineKey, line] of Object.entries(group || {})) {
-        const status = lineStatus(key, stubsOf(line), today, months);
+        const status = lineStatus([tableKey, key, subKey, lineKey], stubsOf(line), today, months, { recurring });
         lines[subKey][lineKey] = status;
         count++;
         if (status.far) farCount++;
