@@ -1,4 +1,5 @@
 import { read, fg } from "./node_utils.js";
+import { fundingSummary } from "./fundraising.js";
 
 export default {
   async load() {
@@ -24,9 +25,9 @@ export default {
         data.sections.forEach((section) => {
           if (section._block === "fundraising") {
             section.lang = data.lang;
-            // Guard against a missing/zero `goal` (else Infinity/NaN, which
-            // JSON.stringify collapses to null and breaks the progress bar).
-            section.progress = section.goal ? Math.round((section.raised / section.goal) * 100) : 0;
+            // goal / raised / progress / bar segments. Guards against a missing or zero `goal`
+            // (else Infinity/NaN, which JSON.stringify collapses to null and breaks the progress bar).
+            Object.assign(section, fundingSummary(section));
             fundraisings.push(section);
           } else if (section._block === "map" && data.group == 'templos') {
             // TODO: this should read from config, otherwise not generating a page per temple would leave the map empty.
