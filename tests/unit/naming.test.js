@@ -29,9 +29,7 @@ describe("createNaming().filename", () => {
     expect(naming.filename("contacto", "Contacto", es)).toBe("contacto");
   });
 
-  it("keeps a date-suffixed event slug in the URL for every language", () => {
-    // Event pages are emitted with filenameMode:"original" so /misa-2027-07-20/
-    // never collapses to /misa/ (or worse, collides with another "Misa").
+  it("keeps a plain slug in the URL for every language", () => {
     expect(naming.filename("misa-2099-12-25", "Misa", es)).toBe("misa-2099-12-25");
     expect(naming.filename("misa-2099-12-25", "Misa", eu)).toBe("eu/misa-2099-12-25");
   });
