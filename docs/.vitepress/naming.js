@@ -18,10 +18,7 @@ export function createNaming({ languages, dictionary }) {
   // "" for the default language, "<code>/" for the others.
   const prefix = (lang) => (TARGET_LANGS[0] == lang ? "" : getCode(lang) + "/");
 
-  // `suffix` is an optional ready-made slug tail (an event's date / recurrence). It is
-  // appended after the translated title, so "summer-camp-2027-07-20" follows the language
-  // while the date stays as is. Only used for `.md` names (translated mode).
-  const filename = (name, title, lang, suffix = "") => {
+  const filename = (name, title, lang) => {
     const code = prefix(lang);
     const isIndex = name == "index" || basename(name) == "index.md";
     if (isIndex) return code + "index";
@@ -33,9 +30,7 @@ export function createNaming({ languages, dictionary }) {
     // `.md` names take the translated-title slug; plain slugs are used verbatim
     // (filenameMode:"original").
     const translated = name && !/\.md$/i.test(name);
-    const base = translated
-      ? slugify(name)
-      : slugify(translateValue(title, dict)) + (suffix ? "-" + suffix : "");
+    const base = translated ? slugify(name) : slugify(translateValue(title, dict));
     return code + base;
   };
 
