@@ -320,6 +320,15 @@ function writeUrlHistory(records) {
   console.log(`url history: ${Object.keys(index.entries).length} pages tracked, ${redirects.length} redirected old URLs`);
 }
 
+// Minimal, translatable data the JSON-LD (seo.js) needs from a place / an event, kept apart in
+// the page's `seo` frontmatter key. Deliberately small: no sections, no place sections.
+const seoPlace = (p) => (p && p.name ? { id: p.id, name: p.name, geo: p.geo, address: p.address, image: p.images?.[0] || p.image } : undefined);
+const seoEvent = (ev) => ({
+  id: ev.id, type: ev.type, title: ev.title, dates: ev.dates, times: ev.times, byday: ev.byday, byweek: ev.byweek,
+  notes: ev.notes, images: ev.images, language: ev.language, locations: ev.locations, place: seoPlace(ev.place),
+});
+const SEO_ROBOTS = (siteurl) => `User-agent: *\nAllow: /\n${siteurl ? `\nSitemap: ${siteurl.replace(/\/$/, "")}/sitemap.xml\n` : ""}`;
+
 async function run() {
   // Materialize (or refresh) the remote config before reading any page data.
   try {
@@ -428,6 +437,7 @@ async function run() {
         slug: slugify(place.name),
         home: false,
         group: "templos",
+        seo: { place: seoPlace(place) },
       }, place.id && `place:${place.id}`));
     }
   }
@@ -469,6 +479,7 @@ async function run() {
         home: false,
         group: "eventos",
         ...registrationFor(calendar.filter((ev) => ev?.type === key)),
+        seo: { events: calendar.filter((ev) => ev?.type === key && ev.createPage !== true).map(seoEvent) },
       }, `type:${key}`);
       sourceLinks.set(typePage, "/" + slug + "/");
       pages.push(typePage);
@@ -489,6 +500,7 @@ async function run() {
         home: false,
         group: "eventos",
         ...registrationFor([ev]),
+        seo: { event: seoEvent(ev) },
       }, ev.id && `event:${ev.id}`);
       sourceLinks.set(eventPage, ev.link);
       slugSuffixes.set(eventPage, suffix);
@@ -564,6 +576,9 @@ async function run() {
       }
     }
   }
+
+  // robots.txt: allow everything and advertise the sitemap (the *.pages.dev previews stay noindex via _headers).
+  if (!fs.existsSync("./docs/public/robots.txt")) fs.writeFileSync("./docs/public/robots.txt", SEO_ROBOTS(config.dev?.siteurl));
 
   // Remember every page URL and turn the history into 301s for the ones that moved.
   writeUrlHistory(urlRecords);
