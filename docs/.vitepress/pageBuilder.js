@@ -139,12 +139,44 @@ export function placeLinksFor(ctx, lang) {
 }
 
 
+const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+// Markdown -> plain text (no tags, entities decoded, whitespace collapsed).
+export function plainText(markdown) {
+  if (typeof markdown !== "string") return "";
+  return md
+    .render(markdown)
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/(p|div|li|h[1-6]|tr|blockquote)>|<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m) => ENTITIES[m])
+    .replace(/[<>]/g, "")
+    .replace(/"/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Meta description from the start of the first visible text block, cut at a word boundary.
+// Must run before postComplete renders the sections' markdown to HTML.
+export function descriptionFromSections(sections, max = 160) {
+  for (const s of Array.isArray(sections) ? sections : []) {
+    if (!s || typeof s.html !== "string" || s.tags?.includes?.("hidden")) continue;
+    const text = plainText(s.html);
+    if (!text) continue;
+    if (text.length <= max) return text;
+    const cut = text.slice(0, max - 1);
+    const sp = cut.lastIndexOf(" ");
+    return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s,;:.\-]+$/, "") + "…";
+  }
+  return "";
+}
+
 export async function postComplete(fm, ctx) {
   if (!fm.sections) return;
   const { NAMING, videos, instagram } = ctx;
   const { getAudio, getBibleReadings } = ctx.deps;
   // Resolve every media image to its remote URL up front.
   bakeMedia(fm, ctx.resolveMedia);
+  if (!fm.description) fm.description = descriptionFromSections(fm.sections) || undefined;
   addMeta(fm, ctx);
   for (var i = 0; i < fm.sections.length; i++) {
     if (typeof fm.sections[i].html === "string") {
@@ -362,19 +394,35 @@ export function bakeMedia(node, resolveMedia) {
 export function addMeta(fm, ctx) {
   const { CFG } = ctx;
   const imageURL = ctx.resolveMedia;
-  const absoluteURL = (url) => (url.startsWith("/") ? (CFG.siteurl || "") + url : url);
+  const site = (CFG.siteurl || "").replace(/\/$/, "");
+  const absoluteURL = (url) => (url.startsWith("/") ? site + url : url);
+  const title = fm.title || CFG.title;
+  const description = fm.description || CFG.description;
+  const image = imageURL(fm.image || CFG.image);
   fm.head ??= [];
+  // This page's own public URL (the equiv entry of its language, same format as hreflang).
+  const self = site ? fm.equiv?.find((e) => e.lang === fm.lang) : undefined;
+  const canonical = self ? absoluteURL(self.href).replace(/index$/, "") : undefined;
+  if (canonical) {
+    fm.head.push(["link", { rel: "canonical", href: canonical }]);
+    fm.head.push(["meta", { property: "og:url", content: canonical }]);
+  }
   fm.head.push(["meta", { property: "og:type", content: "website" }]);
-  fm.head.push(["meta", { property: "og:title", content: fm.title || CFG.title }]);
-  fm.head.push(["meta", { property: "og:description", content: fm.description || CFG.description }]);
-  fm.head.push(["meta", { property: "og:image", content: imageURL(fm.image || CFG.image) }]);
+  if (CFG.title) fm.head.push(["meta", { property: "og:site_name", content: CFG.title }]);
+  fm.head.push(["meta", { property: "og:title", content: title }]);
+  fm.head.push(["meta", { property: "og:description", content: description }]);
+  fm.head.push(["meta", { property: "og:image", content: image }]);
   fm.head.push(["meta", { property: "twitter:card", content: "summary_large_image" }]);
-  fm.head.push(["meta", { property: "twitter:image", content: imageURL(fm.image || CFG.image) }]);
+  fm.head.push(["meta", { property: "twitter:title", content: title }]);
+  fm.head.push(["meta", { property: "twitter:description", content: description }]);
+  fm.head.push(["meta", { property: "twitter:image", content: image }]);
 
   if (!fm?.equiv) return;
   for (var i = 0; i < fm.equiv.length; i++) {
-    const hreflang = i == 0 ? "x-default" : getCode(fm.equiv[i].lang);
-    fm.head.push(["link", { rel: "alternate", hreflang, href: absoluteURL(fm.equiv[i].href).replace(/index$/, "") }]);
+    const href = absoluteURL(fm.equiv[i].href).replace(/index$/, "");
+    // The first language is the x-default AND still needs its own language entry.
+    if (i == 0) fm.head.push(["link", { rel: "alternate", hreflang: "x-default", href }]);
+    fm.head.push(["link", { rel: "alternate", hreflang: getCode(fm.equiv[i].lang), href }]);
   }
 }
 
