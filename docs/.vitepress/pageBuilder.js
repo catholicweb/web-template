@@ -176,7 +176,7 @@ export async function postComplete(fm, ctx) {
   const { getAudio, getBibleReadings } = ctx.deps;
   // Resolve every media image to its remote URL up front.
   bakeMedia(fm, ctx.resolveMedia);
-  if (!fm.description) fm.description = descriptionFromSections(fm.sections) || undefined;
+  // if (!fm.description) fm.description = descriptionFromSections(fm.sections) || undefined; // this forces a description on pages without one (and description is not SEO only)
   addMeta(fm, ctx);
   for (var i = 0; i < fm.sections.length; i++) {
     if (typeof fm.sections[i].html === "string") {
