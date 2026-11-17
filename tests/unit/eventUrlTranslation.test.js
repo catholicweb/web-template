@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createNaming } from "../../docs/.vitepress/naming.js";
-import { planEventPages, eventSlugSuffix, localizeEventLinks } from "../../docs/.vitepress/eventPages.js";
+import { planEventPages, localizeEventLinks } from "../../docs/.vitepress/eventPages.js";
 
 const es = "Español:es";
 const en = "English:en";
@@ -13,13 +13,13 @@ describe("translated event URLs", () => {
     expect(naming.filename("juventud.md", "Juventud", en)).toBe("en/youth");
   });
 
-  it("translates the title of an event page and keeps its date tail", () => {
-    expect(naming.filename("campamento-verano-2099-07-20.md", "Campamento verano", es, "2099-07-20")).toBe("campamento-verano-2099-07-20");
-    expect(naming.filename("campamento-verano-2099-07-20.md", "Campamento verano", en, "2099-07-20")).toBe("en/summer-camp-2099-07-20");
+  it("translates the title of an event page (no date in the URL)", () => {
+    expect(naming.filename("campamento-verano.md", "Campamento verano", es)).toBe("campamento-verano");
+    expect(naming.filename("campamento-verano.md", "Campamento verano", en)).toBe("en/summer-camp");
   });
 
-  it("ignores the suffix for plain (original) names", () => {
-    expect(naming.filename("campamento-verano-2099-07-20", "Campamento verano", en, "2099-07-20")).toBe("en/campamento-verano-2099-07-20");
+  it("uses the slug verbatim for plain (original) names", () => {
+    expect(naming.filename("campamento-verano", "Campamento verano", en)).toBe("en/campamento-verano");
   });
 
   it("prefix is empty for the default language", () => {
@@ -28,14 +28,8 @@ describe("translated event URLs", () => {
   });
 });
 
-describe("eventSlugSuffix", () => {
-  it("is the date / recurrence part of the slug", () => {
-    expect(eventSlugSuffix({ title: "X", dates: ["2099-07-20"] })).toBe("2099-07-20");
-    expect(eventSlugSuffix({ title: "X", byweek: ["WEEK1"], byday: ["SA"] })).toBe("week1-sa");
-    expect(eventSlugSuffix({ title: "X" })).toBe("");
-  });
-
-  it("planEventPages exposes it", () => {
+describe("event page slugs in the plan", () => {
+  it("planEventPages names a page after the event title only", () => {
     const cfg = {
       "event-types": { list: [] },
       pages: { list: [], pageperevent: ["camp"] },
@@ -43,8 +37,8 @@ describe("eventSlugSuffix", () => {
     };
     const calendar = [{ type: "camp", title: "Campamento", dates: ["2099-07-20"], byday: [], byweek: [] }];
     const [page] = planEventPages({ config: cfg, calendar }).eventPages;
-    expect(page.slug).toBe("campamento-2099-07-20");
-    expect(page.suffix).toBe("2099-07-20");
+    expect(page.slug).toBe("campamento");
+    expect(page).not.toHaveProperty("suffix");
   });
 });
 

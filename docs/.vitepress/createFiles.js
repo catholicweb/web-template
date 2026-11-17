@@ -397,9 +397,8 @@ async function run() {
   const urlIds = new WeakMap();
   const track = (page, id) => (id ? urlIds.set(page, id) : null, page);
   // Same idea for the event/type pages: the language-neutral "/<slug>/" key that event
-  // cards and calendar lines carry in `link`, and the date/recurrence tail of an event's URL.
+  // cards and calendar lines carry in `link`.
   const sourceLinks = new WeakMap();
-  const slugSuffixes = new WeakMap();
 
   let pages = pagesArr
     .filter((p) => p !== townTemplate && p !== eventTemplate)
@@ -474,14 +473,14 @@ async function run() {
       pages.push(typePage);
     }
 
-    for (const { ev, slug, suffix } of eventPlan.eventPages) {
-      // unique, e.g. /campamento-verano-2027-07-20/.
+    for (const { ev, slug } of eventPlan.eventPages) {
+      // The slug is the event's title, e.g. /campamento-verano/.
       ev.link = "/" + slug + "/"; // surface for event cards / calendar
       const data = { html: ev.notes?.[0], ...ev.place, ...ev, description: ev.notes?.[0] }
       // Template sections + the extra sections of this event (calendar-core already merged
       // the type's default sections with the event's own into ev.sections).
       const pageTemplate = { ...eventTemplate, sections: [...defaultSections, ...asSections(ev.sections)] };
-      // The URL is the translated title + the date/recurrence tail (see naming.filename).
+      // The URL follows the translated title in every language, like a type page's.
       const eventPage = track({
         ...substitute(pageTemplate, data),
         title: ev.title,
@@ -491,7 +490,6 @@ async function run() {
         ...registrationFor([ev]),
       }, ev.id && `event:${ev.id}`);
       sourceLinks.set(eventPage, ev.link);
-      slugSuffixes.set(eventPage, suffix);
       pages.push(eventPage);
     }
   }
@@ -513,7 +511,7 @@ async function run() {
     const nameArg = original ? page.slug : page.slug + ".md";
     const names = {};
     for (const lang of NAMING.TARGET_LANGS) {
-      names[lang] = NAMING.filename(nameArg, page.title, lang, slugSuffixes.get(page));
+      names[lang] = NAMING.filename(nameArg, page.title, lang);
     }
     outNames.set(page, names);
     const link = sourceLinks.get(page);

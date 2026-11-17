@@ -69,15 +69,15 @@ describe("planEventPages", () => {
     expect(plan.eventPages).toHaveLength(0);
   });
 
-  it("legacy pageperevent keeps one page per event with unchanged slugs", () => {
+  it("legacy pageperevent keeps one page per event, slugged by title only", () => {
     const cfg = config({ pages: { list: [], pageperevent: ["camp"] } });
     const calendar = calendarOf(cfg);
     const plan = planEventPages({ config: cfg, calendar });
     expect(plan.typePages).toHaveLength(0);
-    expect(plan.eventPages.map((e) => e.slug)).toEqual(["campamento-verano-2099-07-20"]);
+    expect(plan.eventPages.map((e) => e.slug)).toEqual(["campamento-verano"]);
     const ev = calendar.find((e) => e.type === "camp");
     expect(plan.eventPages[0].slug).toBe(eventPageSlug(ev));
-    expect(plan.eventLinks.get(ev)).toBe("/campamento-verano-2099-07-20/");
+    expect(plan.eventLinks.get(ev)).toBe("/campamento-verano/");
   });
 
   it("legacy ids that match no defined type are still honoured", () => {
@@ -150,7 +150,7 @@ describe("eventCardsFor", () => {
     const { cfg, calendar, plan } = setup((c) => (c["event-types"].list[1].pageMode = "event"));
     const cards = eventCardsFor({ eventsToShow: ["catequesis"], calendar, config: cfg, plan });
     expect(cards.map((c) => c.title)).toEqual(["Catequesis 1º", "Catequesis 2º", "Campamento verano"]);
-    expect(cards[2].link).toBe("/campamento-verano-2099-07-20/");
+    expect(cards[2].link).toBe("/campamento-verano/");
   });
 
   it("does not add cards for types whose mode is only inferred from the legacy array", () => {
