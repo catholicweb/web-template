@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildPosterModel, describeRecurrence, fitQr, formatDates, pickLayout, plainText, qrCandidates, shortUrl, titleSize,
+  buildPosterModel, describeRecurrence, fitQr, formatDates, joinBi, pickLayout, plainText, PICTURE_LAYOUTS, qrCandidates, shortUrl, titleSize,
 } from "../../docs/.vitepress/theme/poster/posterModel.js";
 import { panelLabels, POSTER_LABELS, posterLabels } from "../../docs/.vitepress/theme/poster/posterLabels.js";
 
@@ -54,6 +54,14 @@ describe("qr links", () => {
     expect(qrCandidates(page, { target: "register", registrationId: "ev 1" })[0]).toBe("https://site.es/es/campamento/?register=ev%201&s=poster");
     expect(qrCandidates(page, { target: "register" })).toHaveLength(2);
   });
+  it("uses a bare ?register when the page has a single event to register for", () => {
+    expect(qrCandidates(page, { target: "register", registrationId: "long-uuid", bare: true })).toEqual([
+      "https://site.es/es/campamento/?register&s=poster",
+      "https://site.es/es/campamento/?register",
+      "https://site.es/es/campamento/?s=poster",
+      "https://site.es/es/campamento/",
+    ]);
+  });
   it("fitQr drops the tracking tag when the link is too long, and gives up when nothing fits", () => {
     const base = "https://s.es/" + "a".repeat(115); // 128 bytes; with ?s=poster 138 > 134
     expect(fitQr(qrCandidates(base))?.url).toBe(base);
@@ -71,6 +79,13 @@ describe("layout rules", () => {
     expect(pickLayout(model({ images: [] }))).toBe("plain");
     expect(pickLayout(model({ title: "x".repeat(61) }))).toBe("text");
     expect(pickLayout(model({ description: "x".repeat(261) }))).toBe("text");
+  });
+  it("knows which layouts need a picture and what replaces them", () => {
+    expect(PICTURE_LAYOUTS).toMatchObject({ cover: "plain", sticker: "bold" });
+    expect(PICTURE_LAYOUTS.bold).toBeUndefined();
+  });
+  it("sets upper-case layouts a bit smaller", () => {
+    expect(titleSize("Campamento", "bold")).toBeLessThan(titleSize("Campamento", "image"));
   });
   it("shrinks long titles", () => {
     expect(titleSize("Misa", "image")).toBeGreaterThan(titleSize("x".repeat(80), "image"));
@@ -97,6 +112,28 @@ describe("buildPosterModel", () => {
     const m = buildPosterModel({ event: { title: "Misa" }, lang: "eu:eu", pageUrl: "https://s.es/m/" });
     expect(m).toMatchObject({ hue: 250, registrationId: null, images: [], contacts: [], recurrence: "" });
     expect(m.labels.info).toBe("Informazio gehiago");
+  });
+});
+
+describe("bilingual model", () => {
+  const event = { id: "e1", title: "Campamento", dates: ["2026-12-28"], byday: ["TH"], notes: ["x ".repeat(200)] };
+  it("adds the second language's words, dates and a shorter description", () => {
+    const m = buildPosterModel({ event, lang: "Español:es", pageUrl: "https://s.es/c/", today: "2026-11-21", second: { lang: "Euskara:eu", title: "Kanpamendua", description: "y ".repeat(200) } });
+    expect(m.second).toMatchObject({ code: "eu", title: "Kanpamendua" });
+    expect(m.second.recurrence).toBe("Astero: osteguna");
+    expect(m.second.dates.items[0].month.toLowerCase()).toBe("abendua");
+    expect(m.dates.items[0]).toMatchObject({ monthShort: "dic", weekdayShort: "lun" });
+    expect(m.description.length).toBeLessThanOrEqual(151);
+    expect(m.second.description.length).toBeLessThanOrEqual(151);
+  });
+  it("is off without a second language or when it is the page's own", () => {
+    expect(buildPosterModel({ event, lang: "es", pageUrl: "https://s.es/c/" }).second).toBeNull();
+    expect(buildPosterModel({ event, lang: "es", pageUrl: "https://s.es/c/", second: { lang: "Español:es", title: "x" } }).second).toBeNull();
+  });
+  it("joinBi joins unless the two are the same", () => {
+    expect(joinBi("dic", "abe")).toBe("dic / abe");
+    expect(joinBi("Misa", "misa")).toBe("Misa");
+    expect(joinBi("Misa", "")).toBe("Misa");
   });
 });
 

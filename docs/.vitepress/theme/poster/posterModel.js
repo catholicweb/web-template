@@ -53,7 +53,9 @@ export function formatDates(dates, code, { today = isoToday(), max = 4 } = {}) {
       iso,
       day: d.getDate(),
       month: intl(code, { month: "long" }, d),
+      monthShort: intl(code, { month: "short" }, d).replace(/\.$/, ""),
       weekday: intl(code, { weekday: "long" }, d),
+      weekdayShort: intl(code, { weekday: "short" }, d).replace(/\.$/, ""),
       long: intl(code, { weekday: "long", day: "numeric", month: "long" }, d),
     };
   });
@@ -77,11 +79,12 @@ export function describeRecurrence(event, code, labels = posterLabels(code)) {
 const urlBase = (pageUrl) => String(pageUrl ?? "").replace(/[?#].*$/, "");
 
 /** Links the QR may encode, most trackable first; the first one that fits a QR code wins. */
-export function qrCandidates(pageUrl, { target = "page", registrationId } = {}) {
+export function qrCandidates(pageUrl, { target = "page", registrationId, bare = false } = {}) {
   const base = urlBase(pageUrl);
   const page = [`${base}?s=poster`, base];
   if (target !== "register" || !registrationId) return page;
-  const reg = `${base}?register=${encodeURIComponent(registrationId)}`;
+  // `bare`: the page has a single event to register for, so a plain `?register` opens the form for it.
+  const reg = bare ? `${base}?register` : `${base}?register=${encodeURIComponent(registrationId)}`;
   return [`${reg}&s=poster`, reg, ...page];
 }
 
@@ -118,8 +121,17 @@ export function pickLayout(model) {
 export function titleSize(title, layout) {
   const n = String(title ?? "").length;
   const base = n <= 24 ? 10 : n <= 45 ? 7.4 : n <= 70 ? 6 : 4.8;
-  return layout === "plain" ? base * 1.15 : layout === "text" ? Math.min(base, 7) : base;
+  if (layout === "plain") return base * 1.15;
+  if (layout === "text") return Math.min(base, 7);
+  if (layout === "bold" || layout === "sticker") return base * 0.88; // upper case runs wider
+  return base;
 }
+
+/** Layouts that are built around a picture, and what to fall back to without one. */
+export const PICTURE_LAYOUTS = { image: "plain", text: "plain", cover: "plain", sticker: "bold" };
+
+/** "a / b", or just "a" when there is no b or both read the same. */
+export const joinBi = (a, b, sep = " / ") => (b && String(b).toLowerCase() !== String(a ?? "").toLowerCase() ? `${a}${sep}${b}` : a);
 
 /**
  * @param {object} p
@@ -129,7 +141,7 @@ export function titleSize(title, layout) {
  * @param {string} p.lang
  * @param {string} p.pageUrl
  */
-export function buildPosterModel({ event, registrationEvents = [], config = {}, lang, pageUrl, today, maxDates = 4 }) {
+export function buildPosterModel({ event, registrationEvents = [], config = {}, lang, pageUrl, today, maxDates = 4, second }) {
   const code = langCode(lang);
   const labels = posterLabels(code);
   const ev = event ?? {};
@@ -141,6 +153,11 @@ export function buildPosterModel({ event, registrationEvents = [], config = {}, 
   const images = [...(ev.images ?? []), ev.place?.image].filter((i) => typeof i === "string" && i);
   const hue = Number(config.theme?.accentHue);
 
+  // Second language (bilingual poster): same event, its text and date words in that language.
+  const code2 = second?.lang ? langCode(second.lang) : "";
+  const labels2 = code2 && code2 !== code ? posterLabels(code2) : null;
+  const descMax = labels2 ? 150 : 240; // two descriptions share the space of one
+
   return {
     id: ev.id || ev.title || "",
     title: ev.title ?? "",
@@ -149,7 +166,7 @@ export function buildPosterModel({ event, registrationEvents = [], config = {}, 
     times: (ev.times ?? []).filter(Boolean).join(" · "),
     place,
     address: address && address !== place ? address : "",
-    description: plainText(ev.notes?.[0]),
+    description: plainText(ev.notes?.[0], descMax),
     images,
     contacts: (config.info?.collaborators ?? []).filter((c) => c?.phonenumber).map((c) => ({ name: c.name || "", phone: String(c.phonenumber) })),
     siteName: config.info?.title ?? "",
@@ -157,5 +174,15 @@ export function buildPosterModel({ event, registrationEvents = [], config = {}, 
     registrationId: reg ? reg.id : null,
     pageUrl: urlBase(pageUrl),
     labels,
+    second: labels2
+      ? {
+          code: code2,
+          labels: labels2,
+          title: second.title ?? "",
+          description: plainText(second.description, descMax),
+          dates: formatDates(ev.dates, code2, { today, max: maxDates }),
+          recurrence: describeRecurrence(ev, code2, labels2),
+        }
+      : null,
   };
 }
