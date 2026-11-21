@@ -26,11 +26,13 @@
     <ClientOnly><component :is="components.PWA" /></ClientOnly>
     <!-- Event sign-up form (only renders on pages with frontmatter.registration, or for ?edit links) -->
     <ClientOnly><component :is="components.Register" /></ClientOnly>
+    <!-- Printable event poster: only for ?print on event / event-type pages; loaded on demand -->
+    <PosterMode v-if="posterOpen" @close="posterOpen = false" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, defineAsyncComponent } from "vue";
 import { useData, withBase } from "vitepress";
 import components from "./components";
 import { slugify, getSectionClasses } from "./../utils.js";
@@ -38,6 +40,14 @@ import NotFound from "./components/NotFound.vue";
 import { generateThemeCSS } from "../themeBuilder.js";
 
 const { page, frontmatter } = useData();
+
+// Poster print mode (`?print`): its code is a separate chunk that regular visitors never download.
+const PosterMode = defineAsyncComponent(() => import("./poster/PosterMode.vue"));
+const posterOpen = ref(false);
+onMounted(() => {
+  const seo = frontmatter.value?.seo;
+  posterOpen.value = new URLSearchParams(location.search).has("print") && !!(seo?.event || seo?.events?.length);
+});
 
 // Prefers live preview over static frontmatter
 const previewSections = ref(null);
