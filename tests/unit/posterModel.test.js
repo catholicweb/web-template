@@ -142,6 +142,7 @@ describe("labels", () => {
     const keys = Object.keys(POSTER_LABELS.en).sort();
     for (const [code, l] of Object.entries(POSTER_LABELS)) expect(Object.keys(l).sort(), code).toEqual(keys);
     expect(Object.keys(panelLabels("es")).sort()).toEqual(Object.keys(panelLabels("en")).sort());
+    expect(Object.keys(panelLabels("es").shapes).sort()).toEqual(Object.keys(panelLabels("en").shapes).sort());
   });
   it("keeps the {n} placeholder and falls back to English", () => {
     for (const [code, l] of Object.entries(POSTER_LABELS)) expect(l.weeks, code).toContain("{n}");
