@@ -22,6 +22,7 @@ const PANEL = {
     qrAuto: "Automatic", qrPage: "Event page", qrRegister: "Registration form", qrOff: "None", contact: "Contact",
     picture: "Picture", posterTitle: "Title", description: "Description", lowRes: "This image is small and may look blurry in print.",
     hint: "In the print dialog choose margins “None” and untick headers and footers.", tooLong: "The link is too long for a QR code.",
+    cover: "Photo cover", sticker: "Sticker (youth)", bold: "Bold (youth)", second: "Second language", showAddress: "Address", noFit: "The text does not fit the poster: shorten it or hide the description.",
   },
   es: {
     title: "Imprimir cartel", close: "Cerrar", print: "Imprimir", event: "Evento", paper: "Papel", layout: "Diseño",
@@ -30,6 +31,7 @@ const PANEL = {
     qrAuto: "Automático", qrPage: "Página del evento", qrRegister: "Formulario de inscripción", qrOff: "Ninguno", contact: "Contacto",
     picture: "Imagen", posterTitle: "Título", description: "Descripción", lowRes: "Esta imagen es pequeña y puede verse borrosa al imprimir.",
     hint: "En el diálogo de impresión elige márgenes «Ninguno» y desactiva encabezados y pies de página.", tooLong: "El enlace es demasiado largo para un código QR.",
+    cover: "Foto completa", sticker: "Pegatina (joven)", bold: "Atrevido (joven)", second: "Segundo idioma", showAddress: "Dirección", noFit: "El texto no cabe en el cartel: acórtalo u oculta la descripción.",
   },
 };
 

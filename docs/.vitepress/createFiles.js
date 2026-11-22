@@ -11,6 +11,7 @@ import { printCSS, getFontCSS } from "./css.js";
 import { fetchCalendar } from "./calendar.js";
 import { planEventPages, localizeEventLinks, eventPageSlug } from "./eventPages.js";
 import { asSections } from "./calendar-core.js";
+import { posterTexts } from "./posterLangs.js";
 import crypto from "crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -561,9 +562,16 @@ async function run() {
     const names = outNames.get(page);
     const equiv = NAMING.TARGET_LANGS.map((lan) => ({ lang: lan, href: "/" + names[lan] }));
 
+    // Finalize every language first: an event page also carries the text of its other-language
+    // versions (`posterLangs`), so the printable poster (?print) can be bilingual.
+    const finalized = [];
     for (const lang of NAMING.TARGET_LANGS) {
-      const translatedData = await finalize(localizeEventLinks(data, linkMaps.get(lang)), lang, ctx, { equiv });
+      finalized.push([lang, await finalize(localizeEventLinks(data, linkMaps.get(lang)), lang, ctx, { equiv })]);
+    }
+    const posterLangs = posterTexts(finalized);
 
+    for (const [lang, translatedData] of finalized) {
+      if (posterLangs) translatedData.posterLangs = posterLangs;
       write("./docs/" + names[lang] + ".md", translatedData, ""); // config pages have no markdown body
 
       const urlId = urlIds.get(page);
