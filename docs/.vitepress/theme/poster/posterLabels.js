@@ -4,14 +4,14 @@
 import { getCode } from "../../utils.js";
 
 const POSTER = {
-  en: { every: "Every", weeks: "week {n} of the month", register: "Registration open", info: "More information", signup: "Sign up here", more: "and more dates" },
-  es: { every: "Cada", weeks: "semana {n} del mes", register: "Inscripción abierta", info: "Más información", signup: "Inscríbete aquí", more: "y más fechas" },
-  eu: { every: "Astero:", weeks: "hileko {n}. astea", register: "Izen-ematea irekita", info: "Informazio gehiago", signup: "Eman izena hemen", more: "eta data gehiago" },
-  ca: { every: "Cada", weeks: "setmana {n} del mes", register: "Inscripció oberta", info: "Més informació", signup: "Inscriu-te aquí", more: "i més dates" },
-  fr: { every: "Chaque", weeks: "semaine {n} du mois", register: "Inscriptions ouvertes", info: "Plus d'informations", signup: "Inscrivez-vous ici", more: "et d'autres dates" },
-  de: { every: "Jeden", weeks: "Woche {n} des Monats", register: "Anmeldung möglich", info: "Mehr Infos", signup: "Hier anmelden", more: "und weitere Termine" },
-  it: { every: "Ogni", weeks: "settimana {n} del mese", register: "Iscrizioni aperte", info: "Maggiori informazioni", signup: "Iscriviti qui", more: "e altre date" },
-  pt: { every: "Toda", weeks: "semana {n} do mês", register: "Inscrições abertas", info: "Mais informações", signup: "Inscreva-se aqui", more: "e mais datas" },
+  en: { every: "Every", weeks: "week {n} of the month", register: "Registration open", info: "More information", signup: "Sign up here", more: "and more dates", mass: "Mass times", schedule: "Schedule", contact: "Contact", follow: "Follow us" },
+  es: { every: "Cada", weeks: "semana {n} del mes", register: "Inscripción abierta", info: "Más información", signup: "Inscríbete aquí", more: "y más fechas", mass: "Horario de misas", schedule: "Horarios", contact: "Contacto", follow: "Síguenos" },
+  eu: { every: "Astero:", weeks: "hileko {n}. astea", register: "Izen-ematea irekita", info: "Informazio gehiago", signup: "Eman izena hemen", more: "eta data gehiago", mass: "Meza ordutegia", schedule: "Ordutegiak", contact: "Harremanetarako", follow: "Jarrai gaitzazu" },
+  ca: { every: "Cada", weeks: "setmana {n} del mes", register: "Inscripció oberta", info: "Més informació", signup: "Inscriu-te aquí", more: "i més dates", mass: "Horari de misses", schedule: "Horaris", contact: "Contacte", follow: "Segueix-nos" },
+  fr: { every: "Chaque", weeks: "semaine {n} du mois", register: "Inscriptions ouvertes", info: "Plus d'informations", signup: "Inscrivez-vous ici", more: "et d'autres dates", mass: "Horaires des messes", schedule: "Horaires", contact: "Contact", follow: "Suivez-nous" },
+  de: { every: "Jeden", weeks: "Woche {n} des Monats", register: "Anmeldung möglich", info: "Mehr Infos", signup: "Hier anmelden", more: "und weitere Termine", mass: "Messzeiten", schedule: "Zeiten", contact: "Kontakt", follow: "Folgen Sie uns" },
+  it: { every: "Ogni", weeks: "settimana {n} del mese", register: "Iscrizioni aperte", info: "Maggiori informazioni", signup: "Iscriviti qui", more: "e altre date", mass: "Orari delle messe", schedule: "Orari", contact: "Contatti", follow: "Seguici" },
+  pt: { every: "Toda", weeks: "semana {n} do mês", register: "Inscrições abertas", info: "Mais informações", signup: "Inscreva-se aqui", more: "e mais datas", mass: "Horário das missas", schedule: "Horários", contact: "Contacto", follow: "Siga-nos" },
 };
 
 const PANEL = {
@@ -23,6 +23,9 @@ const PANEL = {
     picture: "Picture", posterTitle: "Title", description: "Description", lowRes: "This image is small and may look blurry in print.",
     hint: "In the print dialog choose margins “None” and untick headers and footers.", tooLong: "The link is too long for a QR code.",
     cover: "Photo cover", sticker: "Sticker (youth)", bold: "Bold (youth)", second: "Second language", showAddress: "Address", noFit: "The text does not fit the poster: shorten it or hide the description.",
+    arch: "Arch window", polaroid: "Polaroid", shape: "Photo shape", tone: "Tone", mode: "Poster of", modeList: "The list of events", modeEvent: "One event", events: "Events", cal: "Schedule", temple: "Temple",
+    shapes: { rect: "Rectangle", rounded: "Rounded", arch: "Arch", circle: "Circle", blob: "Organic", diagonal: "Diagonal", wave: "Wave", fade: "Fade out", vignette: "Soft edges" },
+    tones: { light: "Light", dark: "Dark", vivid: "Vivid" },
   },
   es: {
     title: "Imprimir cartel", close: "Cerrar", print: "Imprimir", event: "Evento", paper: "Papel", layout: "Diseño",
@@ -32,6 +35,9 @@ const PANEL = {
     picture: "Imagen", posterTitle: "Título", description: "Descripción", lowRes: "Esta imagen es pequeña y puede verse borrosa al imprimir.",
     hint: "En el diálogo de impresión elige márgenes «Ninguno» y desactiva encabezados y pies de página.", tooLong: "El enlace es demasiado largo para un código QR.",
     cover: "Foto completa", sticker: "Pegatina (joven)", bold: "Atrevido (joven)", second: "Segundo idioma", showAddress: "Dirección", noFit: "El texto no cabe en el cartel: acórtalo u oculta la descripción.",
+    arch: "Ventana en arco", polaroid: "Polaroid", shape: "Forma de la foto", tone: "Tono", mode: "Cartel de", modeList: "La lista de eventos", modeEvent: "Un evento", events: "Eventos", cal: "Horario", temple: "Templo",
+    shapes: { rect: "Rectángulo", rounded: "Redondeada", arch: "Arco", circle: "Círculo", blob: "Orgánica", diagonal: "Diagonal", wave: "Onda", fade: "Difuminada abajo", vignette: "Bordes suaves" },
+    tones: { light: "Claro", dark: "Oscuro", vivid: "Intenso" },
   },
 };
 
