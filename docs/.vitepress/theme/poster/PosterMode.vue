@@ -35,11 +35,13 @@ const flag = (name) => params.get(name) !== "off";
 const opts = reactive({
   event: params.get("print") || "",
   paper: params.get("paper") === "A3" ? "A3" : "A4",
+  orient: params.get("orient") === "landscape" ? "landscape" : "portrait",
   layout: ["image", "plain", "text", "cover", "sticker", "bold", "arch", "polaroid"].includes(params.get("layout")) ? params.get("layout") : "auto",
   shape: SHAPES.includes(params.get("shape")) ? params.get("shape") : "auto",
   tone: ["dark", "vivid"].includes(params.get("tone")) ? params.get("tone") : "light",
   content: params.get("content") ?? (params.get("print") ? "event" : ""), // "event", a section's position in the page, or "" (automatic)
   place: params.get("place") || "", // temple that lends its name and picture
+  zoom: Number(params.get("zoom")) || 0, // size of an embedded section in percent; 0 = fit the sheet
   net: ["on", "off"].includes(params.get("net")) ? params.get("net") : "auto", // contact e-mails and networks in the footer
   second: params.get("lang2") || "", // code of the extra language of a bilingual poster
   showAddress: params.get("addr") === "on",
@@ -156,20 +158,30 @@ const qr = computed(() =>
 const qrFailed = computed(() => opts.qr !== "off" && !!m.value && !qr.value);
 const registering = computed(() => qrTarget.value === "register" && !!m.value?.registrationId);
 const sheetStyle = computed(() => ({ "--h": hue.value, "--ts": Math.min(titleSize(title.value, layout.value), kind.value === "event" ? 99 : 8.5) + "cqw" }));
-const rootStyle = computed(() => ({ "--pz-w": PAPER[opts.paper].w, "--pz-h": PAPER[opts.paper].h }));
+const landscape = computed(() => opts.orient === "landscape");
+const sheetMm = computed(() => parseFloat(PAPER[opts.paper][landscape.value ? "h" : "w"])); // width of the sheet, in mm
+const rootStyle = computed(() => ({
+  "--pz-w": PAPER[opts.paper][landscape.value ? "h" : "w"],
+  "--pz-h": PAPER[opts.paper][landscape.value ? "w" : "h"],
+  "--pz-ratio": landscape.value ? 297 / 210 : 210 / 297,
+}));
 
 // Does the text fit the sheet? Re-checked whenever anything that changes the layout does.
 const sheetEl = ref(null);
 const overflowing = ref(false);
 function checkFit() {
   const el = sheetEl.value?.querySelector(".pz-body");
-  overflowing.value = !!el && el.scrollHeight > el.clientHeight + 2;
+  const box = embedEl.value; // an embedded section can also overflow sideways when zoomed in (inside its own scroll boxes)
+  const wide = !!box && [box, ...box.querySelectorAll("*")].some((n) => n.scrollWidth > n.clientWidth * 1.12 + 2); // the calendar itself scrolls a little (~5%)
+  overflowing.value = !!el && (el.scrollHeight > el.clientHeight + 2 || wide);
 }
 watch([m, layout, title, description, description2, () => ({ ...opts }), () => opts.paper], () => nextTick(refit), { flush: "post", deep: true });
 
 // ---- Embedded section: the page's own component, laid out at a fixed width and zoomed to the sheet
 const DESIGN_W = 600; // px the section is laid out at; zoom scales it to the sheet
 const CONTENT = 0.86; // share of the sheet's width left by the body's padding
+// Landscape: the picture takes a column, the text lives in the rest (see .pz-orient-landscape).
+const mainShare = computed(() => (!landscape.value ? 1 : !showPic.value ? 0.7 : layout.value === "cover" ? 0.58 : layout.value === "bold" ? 0.62 : 0.6));
 const embedEl = ref(null);
 const sheetPx = ref(0);
 const fit = ref(1); // shrink factor so the section fits the sheet's height
@@ -181,17 +193,18 @@ const embedComponent = computed(() => {
 });
 // Screen: from the preview's width. Paper: from the paper's width (A4 / A3), so both agree.
 const embedVars = computed(() => ({
-  "--pz-zoom": (sheetPx.value * CONTENT) / DESIGN_W,
-  "--pz-zoom-print": (parseFloat(PAPER[opts.paper].w) * CONTENT * (96 / 25.4)) / DESIGN_W,
-  "--pz-fit": fit.value,
+  "--pz-zoom": (sheetPx.value * CONTENT * mainShare.value) / DESIGN_W,
+  "--pz-zoom-print": (sheetMm.value * CONTENT * mainShare.value * (96 / 25.4)) / DESIGN_W,
+  "--pz-fit": opts.zoom ? opts.zoom / 100 : fit.value,
 }));
 onErrorCaptured(() => ((embedFailed.value = true), false));
 watch(section, () => (embedFailed.value = false));
 
 async function fitEmbed() {
   fit.value = 1;
+  if (opts.zoom) return; // a manual zoom: the person decides
   await nextTick();
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const body = sheetEl.value?.querySelector(".pz-body");
     const box = embedEl.value;
     if (!body || !box) return;
@@ -226,6 +239,8 @@ function syncUrl() {
   const set = (k, v, keep) => (keep ? u.searchParams.set(k, v) : u.searchParams.delete(k));
   u.searchParams.set("print", kind.value === "event" && events.value.length > 1 && selected.value ? keyOf(selected.value) : "");
   set("paper", opts.paper, opts.paper !== "A4");
+  set("orient", "landscape", landscape.value);
+  set("zoom", opts.zoom, opts.zoom > 0);
   set("layout", opts.layout, opts.layout !== "auto");
   set("hue", opts.hue, opts.hue !== null);
   set("qr", opts.qr, opts.qr !== "auto");
@@ -245,12 +260,12 @@ function syncUrl() {
 watch([opts, selected], syncUrl, { deep: true });
 
 let pageStyle;
-watch(() => opts.paper, (p) => pageStyle && (pageStyle.textContent = `@page { size: ${p}; margin: 0 }`), { immediate: false });
+watch(() => [opts.paper, opts.orient], ([p, o]) => pageStyle && (pageStyle.textContent = `@page { size: ${p} ${o}; margin: 0 }`));
 
 const onKey = (e) => e.key === "Escape" && close();
 function close() {
   const u = new URL(location.href);
-  for (const k of ["print", "paper", "layout", "shape", "tone", "content", "net", "place", "hue", "qr", "lang2", "addr", "img", "desc", "phone", "logo"]) u.searchParams.delete(k);
+  for (const k of ["print", "paper", "orient", "zoom", "layout", "shape", "tone", "content", "net", "place", "hue", "qr", "lang2", "addr", "img", "desc", "phone", "logo"]) u.searchParams.delete(k);
   history.replaceState(history.state, "", u);
   emit("close");
 }
@@ -258,7 +273,7 @@ function close() {
 onMounted(() => {
   pageUrl.value = location.origin + location.pathname;
   pageStyle = document.createElement("style");
-  pageStyle.textContent = `@page { size: ${opts.paper}; margin: 0 }`;
+  pageStyle.textContent = `@page { size: ${opts.paper} ${opts.orient}; margin: 0 }`;
   document.head.appendChild(pageStyle);
   document.documentElement.classList.add("pz-on");
   window.addEventListener("keydown", onKey);
@@ -302,6 +317,13 @@ const hideBroken = (e) => (e.target.style.display = "none");
           </select>
         </label>
 
+        <label v-if="kind === 'section'" class="block font-medium">{{ panel.zoom }} ({{ opts.zoom || Math.round(fit * 100) }}%)
+          <span class="flex items-center gap-2">
+            <input type="range" min="40" max="200" step="5" :value="opts.zoom || Math.round(fit * 100)" class="mt-1 w-full" @input="opts.zoom = Number($event.target.value)" />
+            <button v-if="opts.zoom" type="button" class="shrink-0 text-xs font-normal underline" @click="opts.zoom = 0">{{ panel.auto }}</button>
+          </span>
+        </label>
+
         <label v-if="kind === 'event' && events.length > 1" class="block font-medium">{{ panel.event }}
           <select v-model="opts.event" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
             <option v-for="e in events" :key="keyOf(e)" :value="keyOf(e)">{{ e.title }}</option>
@@ -312,7 +334,13 @@ const hideBroken = (e) => (e.target.style.display = "none");
           <label class="block font-medium">{{ panel.paper }}
             <select v-model="opts.paper" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal"><option>A4</option><option>A3</option></select>
           </label>
-          <label class="block font-medium">{{ panel.layout }}
+          <label class="block font-medium">{{ panel.orientation }}
+            <select v-model="opts.orient" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
+              <option value="portrait">{{ panel.portrait }}</option>
+              <option value="landscape">{{ panel.landscape }}</option>
+            </select>
+          </label>
+          <label class="col-span-2 block font-medium">{{ panel.layout }}
             <select v-model="opts.layout" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
               <option value="auto">{{ panel.auto }}</option>
               <option value="image">{{ panel.image }}</option>
@@ -400,7 +428,7 @@ const hideBroken = (e) => (e.target.style.display = "none");
 
       <!-- Preview / printed sheet -->
       <div class="pz-stage flex-1 min-h-0 min-w-0 overflow-auto grid place-items-center p-4">
-        <article ref="sheetEl" class="pz-sheet" :class="[`pz-${layout}`, `pz-shape-${shape}`, `pz-tone-${tone}`, `pz-kind-${kind}`, { 'pz-hasimg': showPic, 'pz-bilingual': !!m.second }]" :style="sheetStyle">
+        <article ref="sheetEl" class="pz-sheet" :class="[`pz-${layout}`, `pz-shape-${shape}`, `pz-tone-${tone}`, `pz-kind-${kind}`, `pz-orient-${opts.orient}`, { 'pz-hasimg': showPic, 'pz-bilingual': !!m.second }]" :style="sheetStyle">
           <figure v-if="showPic" class="pz-img">
             <img :src="picture" alt="" @load="onImgLoad" @error="hideBroken" />
           </figure>
@@ -410,6 +438,7 @@ const hideBroken = (e) => (e.target.style.display = "none");
             <span>{{ m.siteName }}</span>
           </header>
 
+          <div class="pz-main">
           <section v-if="kind === 'event'" class="pz-body">
             <div v-if="dateBlock" class="pz-date">
               <b>{{ dateBlock.day }}</b>
@@ -456,6 +485,7 @@ const hideBroken = (e) => (e.target.style.display = "none");
               <p v-if="showNetworks && m.social.length" class="pz-social">{{ m.social.slice(0, 4).join("  ·  ") }}</p>
             </div>
           </footer>
+          </div>
         </article>
       </div>
     </div>
@@ -473,7 +503,7 @@ html.pz-on { overflow: hidden; }
   --pz-soft: oklch(96% 0.02 var(--h));
   --pz-bg: var(--pz-soft); --pz-ink: var(--pz-deep); --pz-band: var(--pz-deep); --pz-tacc: var(--pz-accent);
   position: relative; container-type: inline-size; display: flex; flex-direction: column; overflow: hidden;
-  width: min(100cqw - 2rem, (100cqh - 2rem) * 0.7071); aspect-ratio: 210 / 297;
+  width: min(100cqw - 2rem, (100cqh - 2rem) * var(--pz-ratio, 0.7071)); aspect-ratio: var(--pz-ratio, 0.7071);
   background: var(--pz-bg); color: var(--pz-ink); box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.25);
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
@@ -602,7 +632,7 @@ html.pz-on { overflow: hidden; }
    marked `webonly` (search box, filter buttons...) are not printed; the component's own `print:`
    classes are applied on screen too, so the preview is what prints. */
 .pz-embed { align-self: stretch; background: #fff; color: #1f2937; border-radius: 2cqw; overflow: hidden; box-shadow: 0 0.4cqw 2cqw rgb(0 0 0 / 0.12); }
-.pz-embed-inner { width: 600px; text-align: left; zoom: calc(var(--pz-zoom, 0.7) * var(--pz-fit, 1)); }
+.pz-embed-inner { width: calc(600px / var(--pz-fit, 1)); text-align: left; zoom: calc(var(--pz-zoom, 0.7) * var(--pz-fit, 1)); }
 .pz-embed .webonly, .pz-embed [class~="print:hidden"] { display: none !important; }
 .pz-embed .hidden[class~="print:block"] { display: block; }
 .pz-embed .hidden[class~="print:table-row"] { display: table-row; }
@@ -611,6 +641,29 @@ html.pz-on { overflow: hidden; }
 .pz-social b { font-weight: 800; }
 .pz-plain { --pz-tacc: oklch(92% 0.08 var(--h)); }
 .pz-plain .pz-when, .pz-plain .pz-line, .pz-plain .pz-h2 { color: #fff; }
+
+/* Landscape: the picture becomes a column on the left and the text a column on the right. The text
+   column is its own container, so the designs' cqw sizes follow the column, not the whole sheet. */
+.pz-main { display: contents; }
+.pz-orient-landscape { flex-direction: row; }
+.pz-orient-landscape .pz-main { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; container-type: inline-size; }
+.pz-orient-landscape .pz-img { flex: 0 0 40%; min-height: 0; max-height: none; margin: 0; }
+.pz-orient-landscape.pz-shape-diagonal { --pz-clip: polygon(0 0, 100% 0, 82% 100%, 0 100%); }
+.pz-orient-landscape.pz-shape-wave { --pz-clip: polygon(0 0, 92% 0, 97% 10%, 92% 20%, 97% 30%, 92% 40%, 97% 50%, 92% 60%, 97% 70%, 92% 80%, 97% 90%, 92% 100%, 0 100%); }
+.pz-orient-landscape.pz-shape-fade { --pz-mask: linear-gradient(to right, #000 55%, transparent 100%); }
+.pz-orient-landscape:is(.pz-shape-rounded, .pz-shape-arch, .pz-shape-circle, .pz-shape-blob, .pz-shape-vignette) .pz-img { margin: 6cqw 0 6cqw 6cqw; }
+.pz-orient-landscape.pz-arch .pz-img { margin: 6cqw 0 6cqw 6cqw; }
+.pz-orient-landscape.pz-sticker .pz-img { margin: 8cqw 4cqw 8cqw 6cqw; }
+.pz-orient-landscape.pz-sticker .pz-body { padding-top: 6cqw; }
+.pz-orient-landscape.pz-sticker .pz-date { top: 3cqw; right: 5cqw; width: 20cqw; height: 20cqw; }
+.pz-orient-landscape.pz-sticker .pz-title { padding-right: 20cqw; }
+.pz-orient-landscape.pz-polaroid .pz-img { margin: 8cqw 0 8cqw 7cqw; }
+.pz-orient-landscape.pz-cover .pz-main { flex: 0 0 58%; margin-left: auto; }
+.pz-orient-landscape.pz-cover .pz-img::after { background: linear-gradient(to left, var(--pz-deep) 0%, oklch(30% 0.09 var(--h) / 0.92) 40%, transparent 72%); }
+.pz-orient-landscape.pz-bold .pz-main { flex: 0 0 62%; margin-left: auto; }
+.pz-orient-landscape.pz-bold .pz-img { top: 50%; left: 5cqw; right: auto; width: 30cqw; height: 30cqw; transform: translateY(-50%) rotate(4deg); }
+.pz-orient-landscape.pz-bold.pz-hasimg .pz-body { padding-top: 5cqw; justify-content: center; }
+:is(.pz-orient-landscape.pz-plain, .pz-orient-landscape.pz-bold:not(.pz-hasimg)) .pz-main { flex: 0 0 70%; margin: 0 auto; }
 
 @media print {
   .pz-embed-inner { zoom: calc(var(--pz-zoom-print, 1) * var(--pz-fit, 1)); }
