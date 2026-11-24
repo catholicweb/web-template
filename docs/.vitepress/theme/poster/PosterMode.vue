@@ -4,11 +4,10 @@
 // HTML/CSS sized in container units, so one design prints on A4 and A3 (same ratio) and the
 // browser does the print-to-PDF. Everything shown comes from the page's own event data; the panel
 // only lets a person tune what is printed. Tweaks live in the URL, so a poster can be bookmarked.
-import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, computed, watch, nextTick, onErrorCaptured, onMounted, onBeforeUnmount } from "vue";
 import { useData, withBase } from "vitepress";
-import { buildHomeModel, buildListModel, buildPosterModel, fitQr, joinBi, pickLayout, PICTURE_LAYOUTS, qrCandidates, shortUrl, titleSize } from "./posterModel.js";
-import PosterList from "./PosterList.vue";
-import PosterHome from "./PosterHome.vue";
+import { buildPosterModel, buildSectionModel, defaultContent, fitQr, joinBi, pickLayout, PICTURE_LAYOUTS, printBlock, qrCandidates, sectionOptions, shortUrl, titleSize } from "./posterModel.js";
+import components from "../components/index.js";
 import { panelLabels } from "./posterLabels.js";
 import { getCode } from "../../utils.js";
 
@@ -39,9 +38,9 @@ const opts = reactive({
   layout: ["image", "plain", "text", "cover", "sticker", "bold", "arch", "polaroid"].includes(params.get("layout")) ? params.get("layout") : "auto",
   shape: SHAPES.includes(params.get("shape")) ? params.get("shape") : "auto",
   tone: ["dark", "vivid"].includes(params.get("tone")) ? params.get("tone") : "light",
-  mode: params.get("mode") || (params.get("print") ? "event" : "list"), // type pages: "list" of events or one "event"
-  cal: Number(params.get("cal")) || 0, // home: which calendar section feeds the schedule
-  place: params.get("place") || "", // home: temple that lends its name and picture
+  content: params.get("content") ?? (params.get("print") ? "event" : ""), // "event", a section's position in the page, or "" (automatic)
+  place: params.get("place") || "", // temple that lends its name and picture
+  net: ["on", "off"].includes(params.get("net")) ? params.get("net") : "auto", // contact e-mails and networks in the footer
   second: params.get("lang2") || "", // code of the extra language of a bilingual poster
   showAddress: params.get("addr") === "on",
   hue: params.has("hue") && Number.isFinite(Number(params.get("hue"))) ? Number(params.get("hue")) : null,
@@ -57,11 +56,16 @@ const titleOverride = ref("");
 const descOverride = ref(null);
 const descOverride2 = ref(null);
 
-// What the poster is about: one event, the list of events of an event-type page, or the home page.
-const isHome = computed(() => !!frontmatter.value?.home && !events.value.length);
-const kind = computed(() => (isHome.value ? "home" : opts.mode === "event" || events.value.length < 2 ? "event" : "list"));
-const excluded = ref([]); // keys of the events left out of the list poster
-const toggle = (key) => (excluded.value = excluded.value.includes(key) ? excluded.value.filter((k) => k !== key) : [...excluded.value, key]);
+// What the poster prints: the event's own details, or one section of the page drawn by its own component.
+const sections = computed(() => sectionOptions(frontmatter.value?.sections));
+const contentKey = computed(() => {
+  const wanted = opts.content;
+  const valid = wanted === "event" ? events.value.length > 0 : sections.value.some((s) => String(s.index) === wanted);
+  return valid ? wanted : defaultContent({ single: !!frontmatter.value?.seo?.event, hasEvents: events.value.length > 0, sections: sections.value });
+});
+const kind = computed(() => (contentKey.value === "event" || contentKey.value === "" ? "event" : "section"));
+const section = computed(() => (kind.value === "section" ? (frontmatter.value?.sections?.[Number(contentKey.value)] ?? null) : null));
+const showNetworks = computed({ get: () => (opts.net === "auto" ? kind.value === "section" : opts.net === "on"), set: (v) => (opts.net = v ? "on" : "off") });
 const placeSel = computed(() => (theme.value?.config?.info?.places ?? []).find((p) => p?.name === opts.place) ?? null);
 
 const selected = computed(() => events.value.find((e) => keyOf(e) === opts.event) ?? events.value[0]);
@@ -77,13 +81,12 @@ watch(selected, () => {
 // createFiles.js embeds the text of every language's version of an event page as `posterLangs`.
 const secondLangs = computed(() => {
   const texts = frontmatter.value?.posterLangs;
-  if (!texts && !isHome.value) return [];
+  if (!texts || kind.value !== "event") return [];
   const own = getCode(String(pageLang.value));
   return (frontmatter.value?.equiv ?? [])
-    .map((e) => ({ code: getCode(String(e.lang)), label: String(e.lang).split(":")[0], full: String(e.lang) }))
-    .filter((l) => l.code !== own && (isHome.value || texts[l.code]));
+    .map((e) => ({ code: getCode(String(e.lang)), label: String(e.lang).split(":")[0] }))
+    .filter((l) => l.code !== own && texts[l.code]);
 });
-const secondFull = computed(() => secondLangs.value.find((l) => l.code === opts.second)?.full ?? "");
 const secondText = computed(() => {
   if (!opts.second || !secondLangs.value.some((l) => l.code === opts.second)) return null;
   return frontmatter.value.posterLangs[opts.second]?.[events.value.indexOf(selected.value)] ?? null;
@@ -93,19 +96,8 @@ const secondText = computed(() => {
 const pageUrl = ref("");
 const model = computed(() => {
   const common = { config: theme.value?.config ?? {}, lang: pageLang.value, pageUrl: pageUrl.value };
-  if (kind.value === "home") {
-    return buildHomeModel({ ...common, sections: frontmatter.value?.sections, calIndex: opts.cal, place: placeSel.value, second: secondFull.value ? { lang: secondFull.value } : undefined });
-  }
-  if (kind.value === "list") {
-    const second = secondLangs.value.some((l) => l.code === opts.second) ? { lang: opts.second } : undefined;
-    return buildListModel({
-      ...common,
-      events: events.value,
-      title: frontmatter.value?.title ?? "",
-      images: [frontmatter.value?.image].filter((i) => typeof i === "string"),
-      texts2: second ? frontmatter.value?.posterLangs?.[opts.second] : undefined,
-      second,
-    });
+  if (kind.value === "section") {
+    return buildSectionModel({ ...common, section: section.value, sections: frontmatter.value?.sections, pageTitle: frontmatter.value?.title, pageImage: typeof frontmatter.value?.image === "string" ? frontmatter.value.image : "", place: placeSel.value });
   }
   return selected.value
     ? buildPosterModel({
@@ -132,7 +124,6 @@ const title2 = computed(() => {
 });
 const layout = computed(() => {
   if (!m.value) return "plain";
-  if (kind.value !== "event") return picture.value && opts.layout !== "plain" ? "image" : "plain"; // list / home
   const wanted = opts.layout === "auto" ? pickLayout({ ...m.value, title: title.value, description: description.value }) : opts.layout;
   return !picture.value && PICTURE_LAYOUTS[wanted] ? PICTURE_LAYOUTS[wanted] : wanted;
 });
@@ -141,18 +132,6 @@ const shapeApplies = computed(() => SHAPE_LAYOUTS.includes(layout.value) && show
 const shape = computed(() => (shapeApplies.value ? (opts.shape === "auto" ? (layout.value === "arch" ? "arch" : "rect") : opts.shape) : "rect"));
 const toneApplies = computed(() => TONE_LAYOUTS.includes(layout.value));
 const tone = computed(() => (toneApplies.value ? opts.tone : "light"));
-const visibleItems = computed(() => (m.value?.items ?? []).filter((it) => !excluded.value.includes(it.key)).slice(0, 12));
-// Rows shrink with their number and with how much each one prints (description, second language).
-const listScale = computed(() => {
-  const weight = visibleItems.value.length * (1 + (opts.showDescription ? 0.5 : 0) + (m.value?.second ? 0.25 : 0));
-  return weight <= 3.5 ? 1 : weight <= 5.5 ? 0.86 : weight <= 7.5 ? 0.74 : weight <= 9.5 ? 0.64 : 0.55;
-});
-// The schedule shrinks with its lines, headings (two lines each when bilingual) and the picture.
-const homeScale = computed(() => {
-  const heading = m.value?.second ? 2 : 1.2;
-  const n = (m.value?.groups ?? []).reduce((a, g) => a + g.lines.length + heading, 0) + (showPic.value ? 3 : 0);
-  return n <= 8 ? 1 : n <= 12 ? 0.86 : n <= 17 ? 0.74 : n <= 22 ? 0.64 : 0.55;
-});
 // The date block: with two languages it uses the short month / weekday of both.
 const dateBlock = computed(() => {
   const items = m.value?.dates?.items ?? [];
@@ -172,11 +151,11 @@ const bareRegister = computed(() => registrationEvents.value.length === 1);
 const qr = computed(() =>
   opts.qr === "off" || !m.value
     ? null
-    : fitQr(qrCandidates(m.value.pageUrl, { target: qrTarget.value, registrationId: m.value.registrationId, bare: bareRegister.value })),
+    : fitQr(qrCandidates(m.value.pageUrl, { target: qrTarget.value, registrationId: m.value.registrationId, bare: bareRegister.value, hash: m.value.anchor })),
 );
 const qrFailed = computed(() => opts.qr !== "off" && !!m.value && !qr.value);
 const registering = computed(() => qrTarget.value === "register" && !!m.value?.registrationId);
-const sheetStyle = computed(() => ({ "--h": hue.value, "--ts": Math.min(titleSize(title.value, layout.value), kind.value === "event" ? 99 : 7.5) + "cqw" }));
+const sheetStyle = computed(() => ({ "--h": hue.value, "--ts": Math.min(titleSize(title.value, layout.value), kind.value === "event" ? 99 : 8.5) + "cqw" }));
 const rootStyle = computed(() => ({ "--pz-w": PAPER[opts.paper].w, "--pz-h": PAPER[opts.paper].h }));
 
 // Does the text fit the sheet? Re-checked whenever anything that changes the layout does.
@@ -186,7 +165,56 @@ function checkFit() {
   const el = sheetEl.value?.querySelector(".pz-body");
   overflowing.value = !!el && el.scrollHeight > el.clientHeight + 2;
 }
-watch([m, layout, title, description, description2, () => ({ ...opts }), () => opts.paper], () => nextTick(checkFit), { flush: "post", deep: true });
+watch([m, layout, title, description, description2, () => ({ ...opts }), () => opts.paper], () => nextTick(refit), { flush: "post", deep: true });
+
+// ---- Embedded section: the page's own component, laid out at a fixed width and zoomed to the sheet
+const DESIGN_W = 600; // px the section is laid out at; zoom scales it to the sheet
+const CONTENT = 0.86; // share of the sheet's width left by the body's padding
+const embedEl = ref(null);
+const sheetPx = ref(0);
+const fit = ref(1); // shrink factor so the section fits the sheet's height
+const embedFailed = ref(false);
+const embedBlock = computed(() => printBlock(section.value));
+const embedComponent = computed(() => {
+  const name = String(section.value?._block ?? "gallery").split("-")[0].replace(/(^\w)/g, (c) => c.toUpperCase());
+  return components[name] || components.Gallery;
+});
+// Screen: from the preview's width. Paper: from the paper's width (A4 / A3), so both agree.
+const embedVars = computed(() => ({
+  "--pz-zoom": (sheetPx.value * CONTENT) / DESIGN_W,
+  "--pz-zoom-print": (parseFloat(PAPER[opts.paper].w) * CONTENT * (96 / 25.4)) / DESIGN_W,
+  "--pz-fit": fit.value,
+}));
+onErrorCaptured(() => ((embedFailed.value = true), false));
+watch(section, () => (embedFailed.value = false));
+
+async function fitEmbed() {
+  fit.value = 1;
+  await nextTick();
+  for (let i = 0; i < 4; i++) {
+    const body = sheetEl.value?.querySelector(".pz-body");
+    const box = embedEl.value;
+    if (!body || !box) return;
+    const over = body.scrollHeight - body.clientHeight;
+    if (over <= 1 || box.offsetHeight <= 0) return;
+    fit.value = Math.max(0.3, fit.value * Math.max(0.3, (box.offsetHeight - over - 2) / box.offsetHeight));
+    await nextTick();
+  }
+}
+async function refit() {
+  if (kind.value === "section") await fitEmbed();
+  checkFit();
+}
+let resizer;
+watch(sheetEl, (el) => {
+  resizer?.disconnect();
+  if (!el || typeof ResizeObserver === "undefined") return;
+  resizer = new ResizeObserver(() => {
+    sheetPx.value = el.clientWidth;
+    nextTick(refit);
+  });
+  resizer.observe(el);
+});
 
 const imgWidth = ref(0);
 const lowRes = computed(() => !!picture.value && imgWidth.value > 0 && imgWidth.value < PAPER[opts.paper].minPx);
@@ -204,7 +232,8 @@ function syncUrl() {
   set("lang2", opts.second, !!opts.second);
   set("shape", opts.shape, opts.shape !== "auto");
   set("tone", opts.tone, opts.tone !== "light");
-  set("cal", opts.cal, opts.cal > 0);
+  set("content", opts.content, opts.content !== "");
+  set("net", opts.net, opts.net !== "auto");
   set("place", opts.place, !!opts.place);
   set("addr", "on", opts.showAddress);
   set("img", opts.showImage ? opts.image : "off", !opts.showImage || opts.image > 0);
@@ -221,7 +250,7 @@ watch(() => opts.paper, (p) => pageStyle && (pageStyle.textContent = `@page { si
 const onKey = (e) => e.key === "Escape" && close();
 function close() {
   const u = new URL(location.href);
-  for (const k of ["print", "paper", "layout", "shape", "tone", "mode", "cal", "place", "hue", "qr", "lang2", "addr", "img", "desc", "phone", "logo"]) u.searchParams.delete(k);
+  for (const k of ["print", "paper", "layout", "shape", "tone", "content", "net", "place", "hue", "qr", "lang2", "addr", "img", "desc", "phone", "logo"]) u.searchParams.delete(k);
   history.replaceState(history.state, "", u);
   emit("close");
 }
@@ -233,9 +262,10 @@ onMounted(() => {
   document.head.appendChild(pageStyle);
   document.documentElement.classList.add("pz-on");
   window.addEventListener("keydown", onKey);
-  nextTick(() => setTimeout(checkFit, 150)); // after fonts / images settle
+  nextTick(() => setTimeout(refit, 150)); // after fonts / images settle
 });
 onBeforeUnmount(() => {
+  resizer?.disconnect();
   pageStyle?.remove();
   document.documentElement.classList.remove("pz-on");
   window.removeEventListener("keydown", onKey);
@@ -259,26 +289,13 @@ const hideBroken = (e) => (e.target.style.display = "none");
         <button type="button" class="w-full bg-accent text-white font-medium px-4 py-2 rounded-lg" @click="print">{{ panel.print }}</button>
         <p class="text-xs text-gray-500">{{ panel.hint }}</p>
 
-        <label v-if="!isHome && events.length > 1" class="block font-medium">{{ panel.mode }}
-          <select v-model="opts.mode" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
-            <option value="list">{{ panel.modeList }}</option>
-            <option value="event">{{ panel.modeEvent }}</option>
+        <label v-if="sections.length + (events.length ? 1 : 0) > 1" class="block font-medium">{{ panel.content }}
+          <select :value="contentKey" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal" @change="opts.content = $event.target.value">
+            <option v-if="events.length" value="event">{{ panel.eventDetails }}</option>
+            <option v-for="o in sections" :key="o.index" :value="String(o.index)">{{ o.label }}</option>
           </select>
         </label>
-
-        <fieldset v-if="kind === 'list'" class="space-y-1">
-          <legend class="font-medium">{{ panel.events }}</legend>
-          <label v-for="it in m.items" :key="it.key" class="flex items-center gap-2">
-            <input type="checkbox" :checked="!excluded.includes(it.key)" @change="toggle(it.key)" /> <span class="truncate">{{ it.title }}</span>
-          </label>
-        </fieldset>
-
-        <label v-if="kind === 'home' && m.calendars.length > 1" class="block font-medium">{{ panel.cal }}
-          <select v-model.number="opts.cal" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
-            <option v-for="c in m.calendars" :key="c.index" :value="c.index">{{ c.label }}</option>
-          </select>
-        </label>
-        <label v-if="kind === 'home' && m.places.length" class="block font-medium">{{ panel.temple }}
+        <label v-if="kind === 'section' && m.places.length" class="block font-medium">{{ panel.temple }}
           <select v-model="opts.place" class="mt-1 w-full rounded-lg border border-gray-300 px-2 py-1.5 font-normal">
             <option value="">-</option>
             <option v-for="p in m.places" :key="p.name" :value="p.name">{{ p.name }}</option>
@@ -300,14 +317,12 @@ const hideBroken = (e) => (e.target.style.display = "none");
               <option value="auto">{{ panel.auto }}</option>
               <option value="image">{{ panel.image }}</option>
               <option value="plain">{{ panel.plain }}</option>
-              <template v-if="kind === 'event'">
-                <option value="text">{{ panel.text }}</option>
-                <option value="arch">{{ panel.arch }}</option>
-                <option value="cover">{{ panel.cover }}</option>
-                <option value="sticker">{{ panel.sticker }}</option>
-                <option value="bold">{{ panel.bold }}</option>
-                <option value="polaroid">{{ panel.polaroid }}</option>
-              </template>
+              <option value="text">{{ panel.text }}</option>
+              <option value="arch">{{ panel.arch }}</option>
+              <option value="cover">{{ panel.cover }}</option>
+              <option value="sticker">{{ panel.sticker }}</option>
+              <option value="bold">{{ panel.bold }}</option>
+              <option value="polaroid">{{ panel.polaroid }}</option>
             </select>
           </label>
         </div>
@@ -355,6 +370,7 @@ const hideBroken = (e) => (e.target.style.display = "none");
           <label v-if="kind === 'event' && m.address" class="flex items-center gap-2"><input v-model="opts.showAddress" type="checkbox" /> {{ panel.showAddress }}</label>
           <label class="flex items-center gap-2"><input v-model="opts.showPhone" type="checkbox" /> {{ panel.showPhone }}</label>
           <label class="flex items-center gap-2"><input v-model="opts.showLogo" type="checkbox" /> {{ panel.showLogo }}</label>
+          <label v-if="m.emails.length || m.social.length" class="flex items-center gap-2"><input v-model="showNetworks" type="checkbox" /> {{ panel.networks }}</label>
         </fieldset>
 
         <label v-if="opts.showImage && m.images.length > 1" class="block font-medium">{{ panel.picture }}
@@ -416,10 +432,15 @@ const hideBroken = (e) => (e.target.style.display = "none");
               <p v-if="m.second && description2" class="pz-desc pz-desc2">{{ description2 }}</p>
             </template>
           </section>
-          <PosterList v-else-if="kind === 'list'" :title="title" :items="visibleItems" :show-description="opts.showDescription" :scale="listScale" :bilingual="!!m.second" />
-          <PosterHome v-else :m="m" :title="title" :qr="qr" :show-description="opts.showDescription" :show-phone="opts.showPhone" :scale="homeScale" />
+          <section v-else class="pz-body pz-sectionbody">
+            <h1 class="pz-title">{{ title }}</h1>
+            <div ref="embedEl" class="pz-embed" :style="embedVars">
+              <p v-if="embedFailed" class="pz-embedfail">{{ panel.noPrint }}</p>
+              <div v-else class="pz-embed-inner"><component :is="embedComponent" :block="embedBlock" /></div>
+            </div>
+          </section>
 
-          <footer v-if="kind !== 'home' && (qr || contact || registering)" class="pz-foot">
+          <footer v-if="qr || contact || registering || (showNetworks && (m.emails.length || m.social.length))" class="pz-foot">
             <div v-if="qr" class="pz-qr">
               <svg :viewBox="`-2 -2 ${qr.size + 4} ${qr.size + 4}`" shape-rendering="crispEdges" role="img" aria-label="QR">
                 <rect :x="-2" :y="-2" :width="qr.size + 4" :height="qr.size + 4" fill="#fff" />
@@ -431,6 +452,8 @@ const hideBroken = (e) => (e.target.style.display = "none");
               <p v-if="qr" class="pz-cta">{{ registering ? joinBi(m.labels.signup, m.second?.labels.signup) : joinBi(m.labels.info, m.second?.labels.info) }}</p>
               <p v-if="qr" class="pz-url">{{ shortUrl(m.pageUrl) }}</p>
               <p v-if="contact" class="pz-phone">{{ contact.phone }}<span v-if="contact.name"> · {{ contact.name }}</span></p>
+              <p v-if="showNetworks && m.emails.length" class="pz-mail">{{ m.emails.slice(0, 2).join("  ·  ") }}</p>
+              <p v-if="showNetworks && m.social.length" class="pz-social">{{ m.social.slice(0, 4).join("  ·  ") }}</p>
             </div>
           </footer>
         </article>
@@ -575,32 +598,22 @@ html.pz-on { overflow: hidden; }
 .pz-polaroid .pz-title { font-weight: 900; }
 .pz-polaroid .pz-date { transform: rotate(-3deg); }
 
-/* Event-type poster (list) and home poster (schedule) */
-.pz-rows { list-style: none; padding: 0; display: grid; }
-.pz-row { display: grid; grid-template-columns: 22cqw 1fr; gap: 3cqw; align-items: start; padding: calc(1.5cqw * var(--ls, 1)) 0; border-bottom: 0.25cqw solid color-mix(in oklab, currentColor 18%, transparent); }
-.pz-row:last-child { border-bottom: 0; }
-.pz-when { display: grid; justify-items: start; line-height: 1.05; color: var(--pz-tacc); font-weight: 800; }
-.pz-when b { font-size: calc(7cqw * var(--ls, 1)); }
-.pz-when span { font-size: calc(2.8cqw * var(--ls, 1)); text-transform: uppercase; letter-spacing: 0.12em; }
-.pz-when i { font-size: calc(2.2cqw * var(--ls, 1)); font-style: normal; opacity: 0.8; }
-.pz-when em { font-size: calc(3cqw * var(--ls, 1)); font-style: normal; line-height: 1.2; }
-.pz-what { display: grid; gap: 0.5cqw; min-width: 0; }
-.pz-what strong { font-size: calc(4cqw * var(--ls, 1)); line-height: 1.12; }
-.pz-line { font-size: calc(2.9cqw * var(--ls, 1)); font-weight: 600; color: var(--pz-tacc); }
-.pz-rowdesc { font-size: calc(2.5cqw * var(--ls, 1)); line-height: 1.35; opacity: 0.85; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-.pz-bilingual .pz-rowdesc { -webkit-line-clamp: 1; line-clamp: 1; }
-.pz-h2 { font-size: 3.6cqw; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pz-tacc); }
-.pz-sched { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(38cqw * var(--ls, 1)), 1fr)); gap: 3cqw 6cqw; }
-.pz-group h3 { font-size: calc(3.8cqw * var(--ls, 1)); font-weight: 800; border-bottom: 0.5cqw solid var(--pz-tacc); padding-bottom: 0.8cqw; margin-bottom: 1.2cqw; }
-.pz-group ul { list-style: none; padding: 0; display: grid; gap: calc(1cqw * var(--ls, 1)); font-size: calc(3.3cqw * var(--ls, 1)); line-height: 1.25; }
-.pz-group li b { font-weight: 800; color: var(--pz-tacc); }
-.pz-homefoot .pz-foot-text { gap: 0.6cqw; }
+/* Embedded section: the page's own component, laid out at 600px and zoomed to the sheet. Elements
+   marked `webonly` (search box, filter buttons...) are not printed; the component's own `print:`
+   classes are applied on screen too, so the preview is what prints. */
+.pz-embed { align-self: stretch; background: #fff; color: #1f2937; border-radius: 2cqw; overflow: hidden; box-shadow: 0 0.4cqw 2cqw rgb(0 0 0 / 0.12); }
+.pz-embed-inner { width: 600px; text-align: left; zoom: calc(var(--pz-zoom, 0.7) * var(--pz-fit, 1)); }
+.pz-embed .webonly, .pz-embed [class~="print:hidden"] { display: none !important; }
+.pz-embed .hidden[class~="print:block"] { display: block; }
+.pz-embed .hidden[class~="print:table-row"] { display: table-row; }
+.pz-embedfail { padding: 4cqw; font-size: 3cqw; }
 .pz-mail, .pz-social { font-size: 2.5cqw; }
 .pz-social b { font-weight: 800; }
 .pz-plain { --pz-tacc: oklch(92% 0.08 var(--h)); }
 .pz-plain .pz-when, .pz-plain .pz-line, .pz-plain .pz-h2 { color: #fff; }
 
 @media print {
+  .pz-embed-inner { zoom: calc(var(--pz-zoom-print, 1) * var(--pz-fit, 1)); }
   html.pz-on, html.pz-on body { overflow: visible !important; height: auto !important; margin: 0 !important; background: none !important; }
   html.pz-on body > *:not(.pz-root) { display: none !important; }
   .pz-root { position: static !important; display: block !important; background: none !important; overflow: visible !important; }

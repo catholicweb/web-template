@@ -131,7 +131,7 @@ function vtr(key, lang) {
 }
 </script>
 <template>
-	<div v-if="block.filters" class="max-w-4xl mx-auto px-3 flex flex-wrap justify-center gap-0 my-4">
+	<div v-if="block.filters" class="webonly max-w-4xl mx-auto px-3 flex flex-wrap justify-center gap-0 my-4">
 		<button
 			v-for="(filter, index) in block.filters"
 			:key="index"
@@ -146,7 +146,7 @@ function vtr(key, lang) {
 		</button>
 	</div>
 
-	<div v-if="block.query" class="relative max-w-md px-8 mx-auto mb-4">
+	<div v-if="block.query" class="webonly relative max-w-md px-8 mx-auto mb-4">
 		<span class="absolute inset-y-0 left-12 flex items-center text-gray-500">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
