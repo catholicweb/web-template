@@ -46,7 +46,7 @@ const PosterMode = defineAsyncComponent(() => import("./poster/PosterMode.vue"))
 const posterOpen = ref(false);
 onMounted(() => {
   const seo = frontmatter.value?.seo;
-  posterOpen.value = new URLSearchParams(location.search).has("print") && !!(seo?.event || seo?.events?.length || frontmatter.value?.home);
+  posterOpen.value = new URLSearchParams(location.search).has("print") && !!(seo?.event || seo?.events?.length || frontmatter.value?.sections?.length);
 });
 
 // Prefers live preview over static frontmatter
