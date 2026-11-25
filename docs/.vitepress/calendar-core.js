@@ -173,6 +173,19 @@ export function findPlaceByName(name, config) {
   return null;
 }
 
+// Extra questions of the sign-up form (editor `customFields`) -> [{ id, label, kind, options? }].
+const CUSTOM_KINDS = ["text", "textarea", "checkbox", "choice"];
+function asCustomFields(list) {
+  return toArray(list)
+    .filter((f) => f && typeof f === "object" && f.id && String(f.label ?? "").trim())
+    .slice(0, 20)
+    .map((f) => {
+      const kind = CUSTOM_KINDS.includes(f.kind) ? f.kind : "text";
+      const options = kind === "choice" ? String(f.options ?? "").split("\n").map((s) => s.trim()).filter(Boolean) : undefined;
+      return { id: String(f.id), label: String(f.label).trim(), kind, ...(options ? { options } : {}) };
+    });
+}
+
 // Native events from config.calendar.events.list (unsorted). `now` is injectable for tests.
 export function buildEvents(config, now = new Date()) {
   const evSettings = config?.calendar?.events ?? { list: [], urls: [] };
@@ -210,6 +223,7 @@ export function buildEvents(config, now = new Date()) {
     const sections = [...asSections(defaults_.sections), ...asSections(evt.sections)];
 
     const title = e.title || e.summary || "";
+    const customFields = e.registration === true ? asCustomFields(e.customFields) : [];
     events.push({
       // The editor's own id: stable across title/date edits. Only used to track the
       // event page's URL history (urlIndex.js); undefined for events without one.
@@ -236,6 +250,7 @@ export function buildEvents(config, now = new Date()) {
       createPage: typeof e.createPage === "boolean" ? e.createPage : undefined,
       // Sign-up form (Register.vue): the event's own switch, else the type's default; off when unset.
       registration: e.registration === true ? true : undefined,
+      ...(customFields.length ? { customFields } : {}),
       // Only for the page builder (createFiles.js strips it afterwards); left out when empty.
       ...(sections.length ? { sections } : {}),
     });

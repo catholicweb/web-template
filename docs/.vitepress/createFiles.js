@@ -462,7 +462,7 @@ async function run() {
   const registrationFor = (evs) => {
     const list = evs
       .filter((ev) => ev?.registration === true)
-      .map((ev) => ({ id: ev.id || eventPageSlug(ev), title: ev.title, dates: ev.dates, times: ev.times, byday: ev.byday, place: ev.locations?.[0] ?? "" }));
+      .map((ev) => ({ id: ev.id || eventPageSlug(ev), title: ev.title, dates: ev.dates, times: ev.times, byday: ev.byday, place: ev.locations?.[0] ?? "", ...(ev.customFields?.length ? { fields: ev.customFields } : {}) }));
     return list.length ? { registration: { events: list } } : {};
   };
   if (hasEventPages) {
