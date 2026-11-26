@@ -28,10 +28,11 @@ let widgetId = null;
 let token = "";
 
 function blank() {
-  return { event: "", name: "", phone: "", email: "", people: 1, notes: "", consent: false, website: "" };
+  return { event: "", name: "", phone: "", email: "", people: 1, notes: "", extra: {}, consent: false, website: "" };
 }
 
 const selected = computed(() => events.value.find((e) => e.id === form.value.event));
+const customFields = computed(() => selected.value?.fields ?? []);
 const fmtDate = (iso) => {
   try {
     return new Intl.DateTimeFormat(langCode.value, { dateStyle: "full" }).format(new Date(iso + "T12:00:00"));
@@ -62,8 +63,11 @@ const when = computed(() => {
 // ---- URL <-> open state ---------------------------------------------------
 function setParam(value) {
   const u = new URL(location.href);
-  if (value === null) u.searchParams.delete("register");
-  else u.searchParams.set("register", value);
+  u.searchParams.delete("register");
+  const rest = u.searchParams.toString();
+  // value: null = no param, "" = bare `?register`, otherwise `?register=<id>`
+  const reg = value === null ? "" : value ? `register=${encodeURIComponent(value)}` : "register";
+  u.search = [reg, rest].filter(Boolean).join("&");
   history.replaceState(history.state, "", u);
 }
 
@@ -75,7 +79,8 @@ function openForm(eventId = "") {
   const match = events.value.find((e) => e.id === eventId);
   form.value.event = match ? match.id : events.value.length === 1 ? events.value[0].id : "";
   open.value = true;
-  setParam(match ? match.id : "");
+  // A page with a single event needs no id: a bare `?register` is enough.
+  setParam(events.value.length === 1 ? "" : match ? match.id : "");
 }
 
 function closeForm() {
@@ -157,6 +162,14 @@ const payload = () => ({
   email: form.value.email,
   people: Number(form.value.people),
   notes: form.value.notes,
+  // Only when the page defines extra questions; otherwise an edit keeps the stored answers.
+  ...(customFields.value.length
+    ? {
+        extra: customFields.value
+          .map((f) => ({ id: f.id, label: f.label, value: f.kind === "checkbox" ? form.value.extra[f.id] === true : String(form.value.extra[f.id] ?? "").trim() }))
+          .filter((e) => e.value !== ""),
+      }
+    : {}),
 });
 
 async function submit() {
@@ -215,7 +228,7 @@ async function openEdit(raw) {
     if (!res.ok) return showError(t.value.errorInvalidLink);
     const d = await res.json();
     edit.value = { id, secret, eventLabel: d.eventLabel };
-    form.value = { ...blank(), event: d.event, name: d.name, phone: d.phone, email: d.email, people: d.people, notes: d.notes || "" };
+    form.value = { ...blank(), event: d.event, name: d.name, phone: d.phone, email: d.email, people: d.people, notes: d.notes || "", extra: Object.fromEntries((d.extra || []).map((e) => [e.id, e.value])) };
     status.value = "idle";
   } catch {
     showError(t.value.errorGeneric);
@@ -310,6 +323,22 @@ onBeforeUnmount(() => {
           <label class="block text-sm font-medium">{{ t.notes }}
             <textarea v-model="form.notes" rows="4" maxlength="2000" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></textarea>
           </label>
+
+          <!-- Extra questions defined for this event in the editor -->
+          <template v-for="f in customFields" :key="f.id">
+            <label v-if="f.kind === 'checkbox'" class="flex items-start gap-2 text-sm">
+              <input v-model="form.extra[f.id]" type="checkbox" class="mt-1" />
+              <span>{{ f.label }}</span>
+            </label>
+            <label v-else class="block text-sm font-medium">{{ f.label }}
+              <textarea v-if="f.kind === 'textarea'" v-model="form.extra[f.id]" rows="3" maxlength="1000" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></textarea>
+              <select v-else-if="f.kind === 'choice'" v-model="form.extra[f.id]" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+                <option value="">—</option>
+                <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
+              </select>
+              <input v-else v-model="form.extra[f.id]" maxlength="300" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
+            </label>
+          </template>
 
           <!-- Honeypot: invisible to people, tempting to bots -->
           <input v-model="form.website" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="absolute left-[-9999px] h-0 w-0 opacity-0" />
