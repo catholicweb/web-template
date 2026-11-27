@@ -43,7 +43,8 @@ node docs/.vitepress/fetch.js <slug>    # download remote site data -> docs/publ
 
 `docs/.vitepress/createFiles.js` is the adapter that drives everything. It patches `globalThis.fetch` with a JSON cache (`docs/public/buildtimecache.json` — persisted across builds by riding along in the deployed site and being re-downloaded by the fetch step) and, per page and per target language, runs:
 - `autocomplete()` — fetches oembed previews (`oembed.js`), YouTube videos (`youtube.js`), Google Calendar events (`calendar.js`), gospel readings (`gospel.js`), and geocodes map coordinates (`utils.getAddress`).
-- `translateObject()` — auto-translation against a dictionary built by `buildDictionary()` (`translate.js`).
+- `translateObject()` — auto-translation against a dictionary built by `buildDictionary()` (`translate.js`). Missing strings go to Gemini when `GEMINI_API_KEY` is set (`GEMINI_MODEL`, default `gemini-3.8-flash`, free tier) and fall back to OpenRouter (`OPENROUTER_API_KEY`) when it fails or is rate limited. The dictionary is the cache (published with the site, re-downloaded by the next build).
+- `buildSummary()` (`summary.js`, called from `postComplete`) — meta description of every page, per language, built from the event / type / place data and the translated texts (no AI call). Stored in the `metaDescription` frontmatter key, never in `description` (cross-page cards read that one); `config.js` `transformPageData` passes it to VitePress.
 - `postComplete()` — renders markdown via `markdown-it`, rewrites image/`_block` section fields, builds OG/`hreflang` meta.
 - file writes via `node_utils.js` (`read`/`write` on gray-matter frontmatter for `.md`, JSON for `.json`).
 

@@ -163,7 +163,7 @@ function pageNodesFor(fm, config, path) {
 
   let mainEntity;
   const seo = fm.seo || {};
-  const description = fm.description || config.info?.description;
+  const description = fm.metaDescription || fm.description || config.info?.description;
   const page = {
     "@type": "WebPage",
     "@id": `${url}#webpage`,

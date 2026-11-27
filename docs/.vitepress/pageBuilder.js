@@ -12,6 +12,7 @@ import { getBibleReadings as rawGetBibleReadings, getAudio as rawGetAudio } from
 import { getEventFAQ } from "./faq.js";
 import { eventCardsFor, planEventPages, applyEventFilter, softHorizon, EVENT_HORIZON_MONTHS } from "./eventPages.js";
 import { buildDay } from "./calendar-view.js";
+import { buildSummary } from "./summary.js";
 
 const md = new MarkdownIt({ html: true, linkify: true, breaks: true });
 
@@ -176,7 +177,11 @@ export async function postComplete(fm, ctx) {
   const { getAudio, getBibleReadings } = ctx.deps;
   // Resolve every media image to its remote URL up front.
   bakeMedia(fm, ctx.resolveMedia);
-  // if (!fm.description) fm.description = descriptionFromSections(fm.sections) || undefined; // this forces a description on pages without one (and description is not SEO only)
+  // The meta description lives in its own key: `description` is also read by cross-page cards
+  // (blocks.data.js), so it is never filled in here. config.js hands `metaDescription` to VitePress.
+  // Must run before the sections' markdown is rendered to HTML below.
+  const summary = buildSummary(fm, { text: descriptionFromSections(fm.sections, 600), siteTitle: ctx.CFG?.title });
+  if (summary) fm.metaDescription = summary;
   addMeta(fm, ctx);
   for (var i = 0; i < fm.sections.length; i++) {
     if (typeof fm.sections[i].html === "string") {
@@ -397,7 +402,7 @@ export function addMeta(fm, ctx) {
   const site = (CFG.siteurl || "").replace(/\/$/, "");
   const absoluteURL = (url) => (url.startsWith("/") ? site + url : url);
   const title = fm.title || CFG.title;
-  const description = fm.description || CFG.description;
+  const description = fm.metaDescription || fm.description || CFG.description;
   const image = imageURL(fm.image || CFG.image);
   fm.head ??= [];
   // This page's own public URL (the equiv entry of its language, same format as hreflang).

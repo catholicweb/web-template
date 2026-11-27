@@ -54,6 +54,12 @@ export default defineConfig(async () => {
       // Keep the synthetic 404 pages out of sitemap.xml — they're error handlers, not content.
       transformItems: (items) => items.filter((i) => !String(i.url).endsWith("/404")),
     },
+    // The generated summary (summary.js) is the page's meta description; the page's own
+    // `description` stays what it was (cards read it) and is used when there is no summary.
+    transformPageData(pageData) {
+      const summary = pageData.frontmatter?.metaDescription;
+      if (summary) pageData.description = summary;
+    },
     async transformHead({ pageData }) {
       const path = pageData.relativePath
         .replace(/\.md$/, "")
