@@ -203,8 +203,12 @@ async function submit() {
       });
     }
     const out = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    // Success only when the API explicitly confirms it (a new registration also carries its id):
+    // a bare 2xx from a proxy, cache or error page must never read as "registered".
+    const confirmed = out.ok === true && (mode.value === "edit" || typeof out.id === "string");
+    if (!res.ok || !confirmed) {
       resetWidget();
+      form.value.website = ""; // a password manager may have filled the hidden honeypot: let the retry through
       return showError(errorFor(res));
     }
     emailSent.value = out.emailSent !== false;
@@ -240,7 +244,8 @@ async function cancelRegistration() {
   status.value = "sending";
   try {
     const res = await fetch(`${REG.endpoint}/${edit.value.id}?k=${encodeURIComponent(edit.value.secret)}`, { method: "DELETE" });
-    if (!res.ok) return showError(errorFor(res));
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || out.ok !== true) return showError(errorFor(res));
     message.value = t.value.cancelledText;
     status.value = "done";
     mode.value = "cancelled";
