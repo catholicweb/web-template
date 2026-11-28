@@ -40,6 +40,7 @@
 import {
   TOKEN_DEFAULTS,
   normalizeTokens,
+  coerceNumbers,
   vibeTokens,
   accentColor,
   buildNeutralRamp,
@@ -385,7 +386,7 @@ export function resolveTheme(rawTheme = {}) {
   );
 
   // Merge with hard defaults first so missing fields never crash
-  const merged = { ...vibeTokens(rawTheme.vibe), ...legacy, ...userOverrides };
+  const merged = coerceNumbers({ ...vibeTokens(rawTheme.vibe), ...legacy, ...userOverrides });
   merged.imageTreatment = 'natural'
   merged.typeScale = 1
 

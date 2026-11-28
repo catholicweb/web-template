@@ -38,6 +38,15 @@ const NUMBER_RANGES = {
   typeScale: [0, 4],
 };
 
+/** Select fields in the editor store their value as text ("1.25"): turn numeric text back into numbers. */
+export function coerceNumbers(theme) {
+  const out = { ...theme };
+  for (const key of Object.keys(NUMBER_RANGES)) {
+    if (typeof out[key] === "string" && out[key].trim() !== "" && Number.isFinite(Number(out[key]))) out[key] = Number(out[key]);
+  }
+  return out;
+}
+
 const ENUMS = {
   neutralTint: ["default", "pure", "warm", "cool", "accent"],
   pageBackground: ["white", "paper", "tint", "mist"],

@@ -25,6 +25,13 @@ describe("resolveTheme", () => {
     expect(t.divider).toBe("line"); // empty string counts as unset
   });
 
+  it("accepts numbers stored as text (editor selects)", () => {
+    const t = resolveTheme({ bodySize: "1.25", motionIntensity: "4", accentChroma: "abc" });
+    expect(t.bodySize).toBe(1.25);
+    expect(t.motionIntensity).toBe(4);
+    expect(t.accentChroma).toBe(1); // not numeric: ignored
+  });
+
   it("ignores unknown vibes", () => {
     expect(resolveTheme({ vibe: "nope" })).toEqual(resolveTheme({}));
     expect(resolveTheme({ vibe: "__proto__" })).toEqual(resolveTheme({}));
