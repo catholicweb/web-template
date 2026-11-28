@@ -9,6 +9,7 @@ import { getFontCSS } from "./css.js";
 
 
 import { oklchToHex } from "./utils.js";
+import { resolveTheme } from "./themeBuilder.js";
 
 
 const config = read("./docs/public/config.json");
@@ -20,7 +21,7 @@ const DATA_BASE = config._media?.base || `${DATA}/${process.env.SITE_SLUG || ""}
 // Same formula as the CSS: --color-accent: oklch(64% 0.2 var(--accent-hue))
 const hue = Number(config.theme?.accentHue);
 const ACCENT = Number.isFinite(hue)
-  ? oklchToHex(0.64, 0.2, hue)
+  ? oklchToHex(0.64, 0.2 * resolveTheme(config.theme).accentChroma, hue) // chroma follows theme.accentChroma / vibe
   : config.theme?.accentColor || "#ffffff"; // legacy fallback
 
 export default defineConfig(async () => {
