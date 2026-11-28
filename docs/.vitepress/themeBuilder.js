@@ -37,6 +37,20 @@
  *   treated images too.
  */
 
+import {
+  TOKEN_DEFAULTS,
+  normalizeTokens,
+  coerceNumbers,
+  vibeTokens,
+  accentColor,
+  buildNeutralRamp,
+  buildSurfaceVars,
+  buildTextTokens,
+  buildOverrideCSS,
+  headingScale,
+  headingStyleCSS,
+} from "./themeTokens.js";
+
 // ---------------------------------------------------------------------------
 // Lookup tables — the only things you should need to tune/extend over time.
 // ---------------------------------------------------------------------------
@@ -89,6 +103,24 @@ const SURFACE_PRESETS = {
       sm: "0 2px 4px oklch(0% 0 0 / 0.1)",
       md: "0 6px 16px oklch(0% 0 0 / 0.16), 0 2px 4px oklch(0% 0 0 / 0.1)",
       lg: "0 16px 40px oklch(0% 0 0 / 0.22), 0 4px 10px oklch(0% 0 0 / 0.12)",
+    },
+    fill: "solid",
+  },
+  // Hairline ring instead of a blur: dimensional without looking "floaty".
+  outlined: {
+    shadow: {
+      sm: "0 0 0 1px oklch(88% 0.012 260)",
+      md: "0 0 0 1px oklch(88% 0.012 260)",
+      lg: "0 0 0 1.5px oklch(80% 0.015 260)",
+    },
+    fill: "outline",
+  },
+  // Hard offset shadow, neo-brutalist.
+  hard: {
+    shadow: {
+      sm: "2px 2px 0 0 oklch(24% 0.02 260)",
+      md: "4px 4px 0 0 oklch(24% 0.02 260)",
+      lg: "6px 6px 0 0 oklch(24% 0.02 260)",
     },
     fill: "solid",
   },
@@ -167,15 +199,12 @@ function buildLocalFontFace(titleFont, bodyFont) {
   }).join("\n");
 }
 
-function buildAccentRamp() {
+function buildAccentRamp(chroma = 1) {
   const shades = Object.entries(ACCENT_SHADE_CURVE)
-    .map(
-      ([shade, { l, c }]) =>
-        `  --color-accent-${shade}: oklch(${+(l * 100).toFixed(2)}% ${c} var(--accent-hue));`
-    )
+    .map(([shade, { l, c }]) => `  --color-accent-${shade}: ${accentColor(l, c, chroma)};`)
     .join("\n");
   // Bare --color-accent (used by Tailwind v4 for text-accent / border-accent / bg-accent)
-  return shades + "\n  --color-accent: oklch(64% 0.2 var(--accent-hue));";
+  return shades + `\n  --color-accent: ${accentColor(0.64, 0.2, chroma)};`;
 }
 
 function clamp01(n, min, max) {
@@ -198,7 +227,8 @@ function buildScrollEffectCSS(level) {
 const keyframes = `@keyframes fx-blur-in { from { opacity: 0.25; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
   @keyframes fx-fade-up { from { opacity: 0.25; transform: translateY(var(--motion-distance)); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fx-scale-in { from { opacity: 0.25; transform: scale(var(--motion-scale)); } to { opacity: 1; transform: scale(1); } }
-  @keyframes fx-fade-in { from { opacity: 0.25; } to { opacity: 1; } }`
+  @keyframes fx-fade-in { from { opacity: 0.25; } to { opacity: 1; } }
+  @keyframes fx-slide-in { from { opacity: 0.25; transform: translateX(calc(var(--motion-distance) * -1)); } to { opacity: 1; transform: translateX(0); } }`
 
 // Semantic target groups scroll effects apply to. Scoped to `main` so
 // nav/header chrome never animates; every selector excludes
@@ -291,7 +321,8 @@ const DEFAULT_THEME = {
   "motionIntensity": 0,
   "imageTreatment": "natural",
   "headerFooterStyle": "solid-bar-light|straight",
-  "surfaceStyle": "flat"
+  "surfaceStyle": "flat",
+  ...TOKEN_DEFAULTS, // bodySize, accentChroma, neutralTint, pageBackground, sectionRhythm, buttonStyle, headingStyle, divider
 };
 
 function sanitize(obj) {
@@ -333,19 +364,21 @@ export const getHue = (hex) => {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {object} rawTheme - selection object matching aesthetic-presets field values
- * @returns {string} full style.css contents
+ * Merge a site's raw `theme` into the full, validated token set.
+ * Layers, lowest to highest: built-in defaults < vibe < legacy fields < values the site set explicitly.
+ * Also used outside the CSS (config.js, createFiles.js) so the PWA colours follow accentChroma.
+ *
+ * @param {object} rawTheme - config.theme
+ * @returns {object} sanitized theme (every DEFAULT_THEME key present)
  */
-export function generateThemeCSS(rawTheme = {}, skipGoogleFonts = false) {
+export function resolveTheme(rawTheme = {}) {
   // Ensure we never break on null/undefined input
   if (!rawTheme || typeof rawTheme !== 'object') rawTheme = {};
 
-  const defaults = {} //TODO JSON.parse(rawTheme.vibe ?? '{}');
-
-  const legacy = {
+  const legacy = Object.fromEntries(Object.entries({
     fontPair: (rawTheme.headingFont && rawTheme.bodyFont)? rawTheme.headingFont+'|'+rawTheme.bodyFont : null,
     accentHue: rawTheme.accentColor? getHue(rawTheme.accentColor) : null
-  }
+  }).filter(([_, val]) => val !== null));
 
   // Filter out explicit null or undefined entries from user settings
   const userOverrides = Object.fromEntries(
@@ -353,13 +386,19 @@ export function generateThemeCSS(rawTheme = {}, skipGoogleFonts = false) {
   );
 
   // Merge with hard defaults first so missing fields never crash
-  const merged = { ...legacy, ...defaults, ...userOverrides };
-  merged.motionIntensity = 0 // TODO
+  const merged = coerceNumbers({ ...vibeTokens(rawTheme.vibe), ...legacy, ...userOverrides });
   merged.imageTreatment = 'natural'
-  merged.surfaceStyle = 'flat'
   merged.typeScale = 1
 
-  const theme = sanitize(merged);
+  return normalizeTokens(sanitize(merged), DEFAULT_THEME);
+}
+
+/**
+ * @param {object} rawTheme - selection object matching aesthetic-presets field values
+ * @returns {string} full style.css contents
+ */
+export function generateThemeCSS(rawTheme = {}, skipGoogleFonts = false) {
+  const theme = resolveTheme(rawTheme);
 
   console.log('Building theme with: ', theme)
 
@@ -412,7 +451,12 @@ ${buildLocalFontFace(titleFont, bodyFont)}
   --shadow-md-val: ${surface.shadow.md};
   --shadow-lg-val: ${surface.shadow.lg};
 
+  /* === Surfaces (page background, alternating sections, hairlines) === */
+${buildSurfaceVars(theme)}
+
   /* === Type Scale & Motion === */
+  --body-scale: ${theme.bodySize};
+  --heading-scale: ${headingScale(theme.bodySize)};
   --type-scale: ${theme.typeScale};
   --motion-duration: ${motion.duration};
   --motion-distance: ${motion.distance};
@@ -436,13 +480,20 @@ ${buildLocalFontFace(titleFont, bodyFont)}
    Maps Tailwind v4 utility tokens to the live :root variables above.
    =========================================================================== */
 @theme {
-  /* Fonts */
+  /* Fonts (the body font is also the page default, so it applies without a font-* class) */
+  --default-font-family: var(--font-body-val);
   --font-title: var(--font-title-val);
   --font-heading: var(--font-title-val);
   --font-body: var(--font-body-val);
 
   /* Accent Ramp (reads dynamic --accent-hue from :root) */
-  ${buildAccentRamp()}
+  ${buildAccentRamp(theme.accentChroma)}
+
+  /* Neutral ramp (neutralTint): empty for the default Tailwind gray */
+${buildNeutralRamp(theme.neutralTint)}
+
+  /* Text sizes xs-xl follow bodySize */
+${buildTextTokens()}
 
   /* Radius Utility Classes (e.g. .rounded-lg reads --radius-lg-val) */
   --radius-sm: var(--radius-sm-val);
@@ -470,11 +521,20 @@ ${buildLocalFontFace(titleFont, bodyFont)}
   }
 }
 
+@layer base {
+  html { background-color: var(--page-bg); }
+  body { font-size: calc(1rem * var(--body-scale)); }
+}
+
 @layer components {
-  /* --- Headings, scaled by --type-scale via clamp() --- */
-  h1 { font-family: var(--font-title); font-size: clamp(2rem, calc(1.6rem + 2vw * var(--type-scale)), calc(3.5rem * var(--type-scale))); line-height: 1.1; }
-  h2 { font-family: var(--font-title); font-size: clamp(1.5rem, calc(1.2rem + 1.4vw * var(--type-scale)), calc(2.5rem * var(--type-scale))); line-height: 1.15; }
-  h3 { font-family: var(--font-title); font-size: clamp(1.25rem, calc(1.1rem + 0.8vw * var(--type-scale)), calc(1.75rem * var(--type-scale))); line-height: 1.2; }
+  /* --- Headings, scaled by --type-scale via clamp(); --heading-scale keeps them above the body size --- */
+  h1 { font-family: var(--font-title); font-size: clamp(calc(2rem * var(--heading-scale)), calc(1.6rem + 2vw * var(--type-scale)), calc(3.5rem * var(--type-scale) * var(--heading-scale))); line-height: 1.1; }
+  h2 { font-family: var(--font-title); font-size: clamp(calc(1.5rem * var(--heading-scale)), calc(1.2rem + 1.4vw * var(--type-scale)), calc(2.5rem * var(--type-scale) * var(--heading-scale))); line-height: 1.15; }
+  h3 { font-family: var(--font-title); font-size: clamp(calc(1.25rem * var(--heading-scale)), calc(1.1rem + 0.8vw * var(--type-scale)), calc(1.75rem * var(--type-scale) * var(--heading-scale))); line-height: 1.2; }
+  h1, h2, h3 { ${headingStyleCSS(theme.headingStyle)} }
+
+  /* Typography plugin sets its own 1rem: follow bodySize */
+  .prose { font-size: calc(1rem * var(--body-scale)); }
 
   /* --- Buttons --- * /
   main button {
@@ -513,7 +573,11 @@ ${buildLocalFontFace(titleFont, bodyFont)}
 }
 
 
-  ${hoverEffectCSS}`;
+  ${hoverEffectCSS}
+
+/* Character tokens: buttonStyle, sectionRhythm, divider (unlayered so they win against utilities) */
+${buildOverrideCSS(theme)}
+`;
 }
 
 export default generateThemeCSS;

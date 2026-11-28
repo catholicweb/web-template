@@ -8,6 +8,7 @@ import { buildDictionary, dictionary as DICTIONARY } from "./translate.js";
 import { fetchConfig } from "./fetch.js";
 import { getBibleReadings, getAudio } from "./gospel.js";
 import { printCSS, getFontCSS } from "./css.js";
+import { resolveTheme } from "./themeBuilder.js";
 import { fetchCalendar } from "./calendar.js";
 import { planEventPages, localizeEventLinks, eventPageSlug } from "./eventPages.js";
 import { asSections } from "./calendar-core.js";
@@ -154,7 +155,7 @@ async function generateIcons() {
       // Fallback: accent tile + site initial so manifest URLs never 404
       const accentHue = CFG.theme?.accentHue ?? 200;
       const initial = (CFG.title || CFG.name || "P").charAt(0).toUpperCase();
-      const fillColor = oklchToHex(0.64, 0.2, accentHue);
+      const fillColor = oklchToHex(0.64, 0.2 * resolveTheme(CFG.theme).accentChroma, accentHue);
       (CFG.theme ?? {}).fillColor = fillColor
       const size = 192;
       const fontSize = 110;
